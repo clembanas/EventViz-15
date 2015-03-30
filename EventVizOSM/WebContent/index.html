@@ -1,0 +1,111 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.css" />
+<script src="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.js"></script>
+<title>EventViz</title>
+
+
+<style>
+  #container {height : 600px; width: 100%; position: relative;}
+  #map  {height: 100%; width: 100%; top: 0; left : 0; position: absolute;}
+  #infobox	{height: 100%; width: 20%; right: 0; position: absolute; background-color: grey; visibility:hidden;}
+</style>
+
+</head>
+<body>
+	<div id="container">
+		<div id="map"></div>
+		<div id="infobox"></div>
+	</div>
+	<script>
+		var map = L.map( 'map', {
+		    center: [20.0, 5.0],
+		    minZoom: 2,
+		    zoom: 2
+		});
+		
+		var smallRedIcon = L.icon({
+			iconUrl : 'Icon/RedDot.png',
+			iconSize : [8, 8],
+			iconAnchor : [4, 4]
+		});
+		
+		var redIcon = L.icon({
+			iconUrl : 'Icon/RedDot.png',
+			iconSize : [16, 16],
+			iconAnchor : [8, 8]
+		});
+		
+		L.tileLayer( 'http://{s}.mqcdn.com/tiles/1.0.0/map/{z}/{x}/{y}.png', {
+		    attribution: '&copy; <a href="http://osm.org/copyright" title="OpenStreetMap" target="_blank">OpenStreetMap</a> contributors | Tiles Courtesy of <a href="http://www.mapquest.com/" title="MapQuest" target="_blank">MapQuest</a> <img src="http://developer.mapquest.com/content/osm/mq_logo.png" width="16" height="16">',
+		    subdomains: ['otile1','otile2','otile3','otile4']
+		}).addTo( map );
+		var marker = L.marker([51.5, -0.09], {icon : redIcon}).on("click", zoom).addTo(map);
+		var closerMarkers = [
+		                     {
+								"position" : [51.8, -0.20],
+								"multiple" : [{
+									"text": "MEvent1"
+								},{
+									"text": "MEvent2"
+								},{
+									"text": "MEvent3"
+								}]
+							},
+							{
+								"position" : [51.0, -0.05],
+								"text" : "Event2"
+							}
+							];
+		
+		var customMarker = L.Marker.extend({options:{text: 'text'}});
+		function zoom(e){
+			map.setView(new L.LatLng(51.5, -0.09), 8);
+			map.removeLayer(marker);
+			var currentMarkers = [];
+			var infobox = document.getElementById("infobox");
+			for(var i = 0; i < closerMarkers.length; i++){
+				if(closerMarkers[i].multiple != undefined){
+					currentMarkers[currentMarkers.length] = L.marker(closerMarkers[i].position, {icon : redIcon, multiple: closerMarkers[i].multiple}).on("click", function(e){
+						//zoom closer to that point
+						map.setView(e.latlng, 10);
+						
+						//remove the previous markers
+						for(var m = 0; m < currentMarkers.length; m++){
+							map.removeLayer(currentMarkers[m]);
+						}
+						
+						//add center marker
+						var centerMarker = L.marker(e.latlng, {icon : smallRedIcon}).addTo(map);
+						
+						//add a circle of markers around the center marker
+						for(var m = 0; m < e.target.options.multiple.length; m++){
+							var x = 0.025 * Math.cos(m/e.target.options.multiple.length * 2 * Math.PI) + e.latlng.lat;
+							var y = 0.05 * Math.sin(m/e.target.options.multiple.length * 2 * Math.PI) + e.latlng.lng;
+							L.marker([x,y], {icon:redIcon, text: e.target.options.multiple[m].text}).on("click", function(e){
+								infobox.style.visibility = "visible";
+								infobox.innerHTML = "Name: " + e.target.options.text;
+							}).addTo(map);
+							
+							var linePoints = [[x,y], e.latlng];
+							L.polyline(linePoints, {
+								color : "red",
+								weight: 2,
+								smoothFactor: 1
+							}).addTo(map);
+						}
+					}).addTo(map);
+				}
+				else{
+					currentMarkers[currentMarkers.length] = L.marker(closerMarkers[i].position, {icon : redIcon, text: closerMarkers[i].text}).on("click", function(e){
+						infobox.style.visibility = "visible";
+						infobox.innerHTML = "Name: " + e.target.options.text;
+					}).addTo(map);					
+				}
+			}
+		}
+	</script>
+</body>
+</html>
