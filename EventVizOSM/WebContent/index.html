@@ -6,12 +6,13 @@
 	href="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.css" />
 <script src="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.js"></script>
 <script src="JSON/Borders.js"></script>
+<script src="JSON/Events.js"></script>
 <title>EventViz</title>
 
 
 <style>
 #container {
-	height: 600px;
+	height: 800px;
 	width: 100%;
 	position: relative;
 }
@@ -25,11 +26,42 @@
 }
 
 #infobox {
-	height: 100%;
-	width: 20%;
+	height: calc(100% - 6px);
+	width: calc(50% - 15px);
 	right: 0;
 	position: absolute;
-	background-color: grey;
+	background-color: white;
+	border: 3px solid blue;
+	font-size: 16pt;
+	padding-left: 10px;
+	visibility: hidden;
+}
+
+#info {
+	top: 10px;
+	left: 10px;
+	width: 50%;
+	height: 100%;
+	position: absolute;
+}
+
+#image {
+	top: 20px;
+	right: 20px;
+	width: 200px;
+	height: 300px;
+	background-color: red;
+	position: absolute;
+}
+
+#social {
+	height: calc(50% - 3px);
+	width: calc(50% - 4px);
+	left: 0;
+	bottom: 0;
+	position: absolute;
+	background-color: white;
+	border: 3px solid blue;
 	visibility: hidden;
 }
 </style>
@@ -38,7 +70,11 @@
 <body>
 	<div id="container">
 		<div id="map"></div>
-		<div id="infobox"></div>
+		<div id="infobox">
+			<div id="info"></div>
+			<div id="image">image</div>
+		</div>
+		<div id="social"> social mention information</div>
 	</div>
 	<script>
 		var map = L.map('map', {
@@ -59,32 +95,14 @@
 			iconAnchor : [ 6, 6 ]
 		});
 
-		L
-				.tileLayer(
+		L.tileLayer(
 						'http://{s}.mqcdn.com/tiles/1.0.0/map/{z}/{x}/{y}.png',
 						{
 							attribution : '&copy; <a href="http://osm.org/copyright" title="OpenStreetMap" target="_blank">OpenStreetMap</a> contributors | Tiles Courtesy of <a href="http://www.mapquest.com/" title="MapQuest" target="_blank">MapQuest</a> <img src="http://developer.mapquest.com/content/osm/mq_logo.png" width="16" height="16">',
-							subdomains : [ 'otile1', 'otile2', 'otile3',
-									'otile4' ]
+							subdomains : [ 'otile1', 'otile2', 'otile3', 'otile4' ]
 						}).addTo(map);
-		var marker = L.marker([ 51.2117132, 5.427836 ], {
-			icon : redIcon
-		}).on("click", zoom).addTo(map);
-		var closerMarkers = [ {
-			"position" : [ 51.8, -0.20 ],
-			"multiple" : [ {
-				"text" : "MEvent1"
-			}, {
-				"text" : "MEvent2"
-			}, {
-				"text" : "MEvent3"
-			} ]
-		}, {
-			"position" : [ 51.0, -0.05 ],
-			"text" : "Event2"
-		} ];
+		zoom();
 		var GEOdata = [];
-		console.log(data);
 
 		var normalStyle = {
 			color : '#0033ff',
@@ -112,11 +130,18 @@
 	
 		var currentActiveCountry = null;
 
-		for ( var i = 0; i < data.features.length; i++) {
-			L.geoJson(data.features[i], {
+		var countries = [];
+		for ( var i = 0; i < data.features.length; i++) {			
+			countries[i] = L.geoJson(data.features[i], {
 				name : data.features[i].properties.name
 			}).on("click", function(e) {
-				map.fitBounds(e.target.getBounds());
+				var mapDiv = document.getElementById("map");
+				mapDiv.style.width = "50%";
+				mapDiv.style.height = "400px";
+				map.invalidateSize();
+				var bounds = e.target.getBounds();
+				map.fitBounds(bounds);
+				var currentZoom = map;
 				if(currentActiveCountry != null){
 					console.log(currentActiveCountry);
 					currentActiveCountry.layer.setStyle(normalStyle);
@@ -133,19 +158,13 @@
 				}
 			}).addTo(map);
 		}
-		var customMarker = L.Marker.extend({
-			options : {
-				text : 'text'
-			}
-		});
-		function zoom(e) {
-			map.setView(new L.LatLng(51.5, -0.09), 8);
-			map.removeLayer(marker);
+		
+		function zoom() {
+			//map.setView(new L.LatLng(e.latlng.lat, e.latlng.lng), 8);
 			var currentMarkers = [];
-			var infobox = document.getElementById("infobox");
-			for ( var i = 0; i < closerMarkers.length; i++) {
-				if (closerMarkers[i].multiple != undefined) {
-					currentMarkers[currentMarkers.length] = L
+			for ( var i = 0; i < events.length; i++) {
+				if (events[i].multiple != undefined) {
+					events[currentMarkers.length] = L
 							.marker(closerMarkers[i].position, {
 								icon : redIcon,
 								multiple : closerMarkers[i].multiple
@@ -172,7 +191,13 @@
 																text : e.target.options.multiple[m].text
 															}).on("click",function(e) {
 																infobox.style.visibility = "visible";
-																infobox.innerHTML = "Name: "+ e.target.options.text;
+																infobox.innerHTML = "<p>Name: "+ e.target.options.text + "</p>";
+																infobox.innerHTML += "<p>Description: "+ e.target.options.text + "</p>";
+																infobox.innerHTML += "<p>City: "+ e.target.options.text + "</p>";
+																infobox.innerHTML += "<p>Country: "+ e.target.options.text + "</p>";
+																infobox.innerHTML += "<p>Location: "+ e.target.options.text + "</p>";
+																infobox.innerHTML += "<p>Start time: "+ e.target.options.text + "</p>";
+																infobox.innerHTML += "<p>Duration: "+ e.target.options.text + "</p>";																
 															}).addTo(map);
 
 											var linePoints = [ [ x, y ],
@@ -186,12 +211,30 @@
 									}).addTo(map);
 				} else {
 					currentMarkers[currentMarkers.length] = L.marker(
-							closerMarkers[i].position, {
+							events[i].latlng, {
 								icon : redIcon,
-								text : closerMarkers[i].text
+								name : events[i].name,
+								description : events[i].description,
+								city : events[i].city,
+								country : events[i].country
 							}).on("click", function(e) {
+						map.setView(e.latlng, 10);
+						var mapDiv = document.getElementById("map");
+						mapDiv.style.width = "50%";
+						mapDiv.style.height = "400px";
+						map.invalidateSize();
+						var infobox = document.getElementById("infobox");
 						infobox.style.visibility = "visible";
-						infobox.innerHTML = "Name: " + e.target.options.text;
+						var social = document.getElementById("social");
+						social.style.visibility = "visible";
+						var info = document.getElementById("info");
+						info.innerHTML = "<p>Name: "+ e.target.options.name + "</p>";
+						info.innerHTML += "<p>Description: "+ e.target.options.description + "</p>";
+						info.innerHTML += "<p>City: "+ e.target.options.city + "</p>";
+						info.innerHTML += "<p>Country: "+ e.target.options.country + "</p>";
+						info.innerHTML += "<p>Location: </p>";
+						info.innerHTML += "<p>Start time: </p>";
+						info.innerHTML += "<p>Duration: </p>";
 					}).addTo(map);
 				}
 			}
