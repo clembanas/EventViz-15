@@ -78,6 +78,7 @@
 	</div>
 	<script>
 		var map = L.map('map', {
+			attributionControl : false,
 			center : [ 20.0, 5.0 ],
 			minZoom : 2,
 			zoom : 2
@@ -98,7 +99,6 @@
 		L.tileLayer(
 						'http://{s}.mqcdn.com/tiles/1.0.0/map/{z}/{x}/{y}.png',
 						{
-							attribution : '&copy; <a href="http://osm.org/copyright" title="OpenStreetMap" target="_blank">OpenStreetMap</a> contributors | Tiles Courtesy of <a href="http://www.mapquest.com/" title="MapQuest" target="_blank">MapQuest</a> <img src="http://developer.mapquest.com/content/osm/mq_logo.png" width="16" height="16">',
 							subdomains : [ 'otile1', 'otile2', 'otile3', 'otile4' ]
 						}).addTo(map);
 		zoom();
@@ -106,59 +106,89 @@
 
 		var normalStyle = {
 			color : '#0033ff',
-			weight : 5,
-			opacity : 0.5,
-			fillOpacity : 0.2,
+			weight : 1,
+			opacity : 0.1,
+			fillOpacity : 0.01,
 			fillColor : '#0033ff'
 		};
 		
 		var highlightStyle = {
 			color : '#0033ff',
-			weight : 7,
-			opacity : 0.8,
-			fillOpacity : 0.65,
+			weight : 1,
+			opacity : 0.4,
+			fillOpacity : 0.2,
 			fillColor : '#0033ff'
 		};
 		
 		var activeStyle = {
 			color : '#0033ff',
-			weight : 8,
+			weight : 1,
 			opacity : 0.95,
-			fillOpacity : 0.8,
+			fillOpacity : 0.2,
 			fillColor : '#0033ff'
 		};
 	
 		var currentActiveCountry = null;
 
-		var countries = [];
-		for ( var i = 0; i < data.features.length; i++) {			
-			countries[i] = L.geoJson(data.features[i], {
-				name : data.features[i].properties.name
-			}).on("click", function(e) {
-				var mapDiv = document.getElementById("map");
-				mapDiv.style.width = "50%";
-				mapDiv.style.height = "400px";
-				map.invalidateSize();
-				var bounds = e.target.getBounds();
-				map.fitBounds(bounds);
-				var currentZoom = map;
-				if(currentActiveCountry != null){
-					console.log(currentActiveCountry);
-					currentActiveCountry.layer.setStyle(normalStyle);
-				}
-				currentActiveCountry = e;
-				e.layer.setStyle(activeStyle);
-			}).on("mouseover", function(e){
-				if(currentActiveCountry == null || e.layer.options.name != currentActiveCountry.layer.options.name){
-					e.layer.setStyle(highlightStyle);
-				}
-			}).on("mouseout", function(e){
-				if(currentActiveCountry == null || e.layer.options.name != currentActiveCountry.layer.options.name){	
-					e.layer.setStyle(normalStyle);
-				}
-			}).addTo(map);
+		var countries = []; 	
+		L.geoJson(data, {
+			onEachFeature: OnEachCountry,
+			style : normalStyle
+		}).addTo(map);
+		
+		function OnEachCountry(feature, layer){
+			layer.on({
+				click: countryClick,
+				mouseover: countryOver,
+				mouseout: countryOut
+			})
 		}
 		
+		var borders = [];
+		map.on("click", function(e) {
+			borders[borders.length] = [e.latlng.lng, e.latlng.lat];
+			var string = "[[";
+			for(var i = 0; i<borders.length; i++){
+				string += "[" + borders[i][0] + ", " + borders[i][1] + "],";
+			}
+			string += "]]";
+			console.log(string);
+            //var position = map.getLonLatFromPixel(e.xy);
+            //alert("Lat, Lon : "+position.lon.toFixed(3),position.lat.toFixed(3));
+
+        });
+		
+		function countryClick(e){
+			var mapDiv = document.getElementById("map");
+			var bounds = e.target.getBounds();
+			map.fitBounds(bounds);
+			var currentZoom = map;
+			if(currentActiveCountry != null){
+				currentActiveCountry.target.setStyle(normalStyle);
+			}
+			currentActiveCountry = e;
+			e.target.setStyle(activeStyle);
+		}
+		
+		function countryOver(e){
+			console.log(e.target);
+			if(currentActiveCountry == null || e.target.feature.properties.name != currentActiveCountry.target.feature.properties.name){
+				e.target.setStyle(highlightStyle);
+			}
+		}
+		
+		function countryOut(e){
+			if(currentActiveCountry == null || e.target.feature.properties.name != currentActiveCountry.target.feature.properties.name){	
+				e.target.setStyle(normalStyle);
+			}
+		}
+		
+		for(var i=0; i<countries.length; i++){
+			if(countries[i].options.name.indexOf("Canada") != -1){				
+				console.log(countries[i]);
+			}
+		}
+
 		function zoom() {
 			//map.setView(new L.LatLng(e.latlng.lat, e.latlng.lng), 8);
 			var currentMarkers = [];
@@ -168,7 +198,10 @@
 							.marker(closerMarkers[i].position, {
 								icon : redIcon,
 								multiple : closerMarkers[i].multiple
-							}).on("click", function(e) {
+							})
+							.on(
+									"click",
+									function(e) {
 										//zoom closer to that point
 										map.setView(e.latlng, 10);
 
@@ -184,20 +217,52 @@
 
 										//add a circle of markers around the center marker
 										for ( var m = 0; m < e.target.options.multiple.length; m++) {
-											var x = 0.025 * Math.cos(m/ e.target.options.multiple.length* 2* Math.PI)+ e.latlng.lat;
-											var y = 0.05 * Math.sin(m/ e.target.options.multiple.length* 2* Math.PI)+ e.latlng.lng;
-											L.marker([ x, y ],{
+											var x = 0.025
+													* Math
+															.cos(m
+																	/ e.target.options.multiple.length
+																	* 2
+																	* Math.PI)
+													+ e.latlng.lat;
+											var y = 0.05
+													* Math
+															.sin(m
+																	/ e.target.options.multiple.length
+																	* 2
+																	* Math.PI)
+													+ e.latlng.lng;
+											L
+													.marker(
+															[ x, y ],
+															{
 																icon : redIcon,
 																text : e.target.options.multiple[m].text
-															}).on("click",function(e) {
+															})
+													.on(
+															"click",
+															function(e) {
 																infobox.style.visibility = "visible";
-																infobox.innerHTML = "<p>Name: "+ e.target.options.text + "</p>";
-																infobox.innerHTML += "<p>Description: "+ e.target.options.text + "</p>";
-																infobox.innerHTML += "<p>City: "+ e.target.options.text + "</p>";
-																infobox.innerHTML += "<p>Country: "+ e.target.options.text + "</p>";
-																infobox.innerHTML += "<p>Location: "+ e.target.options.text + "</p>";
-																infobox.innerHTML += "<p>Start time: "+ e.target.options.text + "</p>";
-																infobox.innerHTML += "<p>Duration: "+ e.target.options.text + "</p>";																
+																infobox.innerHTML = "<p>Name: "
+																		+ e.target.options.text
+																		+ "</p>";
+																infobox.innerHTML += "<p>Description: "
+																		+ e.target.options.text
+																		+ "</p>";
+																infobox.innerHTML += "<p>City: "
+																		+ e.target.options.text
+																		+ "</p>";
+																infobox.innerHTML += "<p>Country: "
+																		+ e.target.options.text
+																		+ "</p>";
+																infobox.innerHTML += "<p>Location: "
+																		+ e.target.options.text
+																		+ "</p>";
+																infobox.innerHTML += "<p>Start time: "
+																		+ e.target.options.text
+																		+ "</p>";
+																infobox.innerHTML += "<p>Duration: "
+																		+ e.target.options.text
+																		+ "</p>";
 															}).addTo(map);
 
 											var linePoints = [ [ x, y ],
@@ -210,32 +275,47 @@
 										}
 									}).addTo(map);
 				} else {
-					currentMarkers[currentMarkers.length] = L.marker(
-							events[i].latlng, {
+					currentMarkers[currentMarkers.length] = L
+							.marker(events[i].latlng, {
 								icon : redIcon,
 								name : events[i].name,
 								description : events[i].description,
 								city : events[i].city,
 								country : events[i].country
-							}).on("click", function(e) {
-						map.setView(e.latlng, 10);
-						var mapDiv = document.getElementById("map");
-						mapDiv.style.width = "50%";
-						mapDiv.style.height = "400px";
-						map.invalidateSize();
-						var infobox = document.getElementById("infobox");
-						infobox.style.visibility = "visible";
-						var social = document.getElementById("social");
-						social.style.visibility = "visible";
-						var info = document.getElementById("info");
-						info.innerHTML = "<p>Name: "+ e.target.options.name + "</p>";
-						info.innerHTML += "<p>Description: "+ e.target.options.description + "</p>";
-						info.innerHTML += "<p>City: "+ e.target.options.city + "</p>";
-						info.innerHTML += "<p>Country: "+ e.target.options.country + "</p>";
-						info.innerHTML += "<p>Location: </p>";
-						info.innerHTML += "<p>Start time: </p>";
-						info.innerHTML += "<p>Duration: </p>";
-					}).addTo(map);
+							})
+							.on(
+									"click",
+									function(e) {
+										map.setView(e.latlng, 10);
+										var mapDiv = document
+												.getElementById("map");
+										mapDiv.style.width = "50%";
+										mapDiv.style.height = "400px";
+										map.invalidateSize();
+										var infobox = document
+												.getElementById("infobox");
+										infobox.style.visibility = "visible";
+										var social = document
+												.getElementById("social");
+										social.style.visibility = "visible";
+										var info = document
+												.getElementById("info");
+										info.innerHTML = "<p>Name: "
+												+ e.target.options.name
+												+ "</p>";
+										info.innerHTML += "<p>Description: "
+												+ e.target.options.description
+												+ "</p>";
+										info.innerHTML += "<p>City: "
+												+ e.target.options.city
+												+ "</p>";
+										info.innerHTML += "<p>Country: "
+												+ e.target.options.country
+												+ "</p>";
+										info.innerHTML += "<p>Location: </p>";
+										info.innerHTML += "<p>Start time: </p>";
+										info.innerHTML += "<p>Duration: </p>";
+									}).addTo(map);
 				}
 			}
 		}
