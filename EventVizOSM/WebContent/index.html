@@ -101,6 +101,7 @@
 						{
 							subdomains : [ 'otile1', 'otile2', 'otile3', 'otile4' ]
 						}).addTo(map);
+		var currentMarkers = [];
 		zoom();
 		var GEOdata = [];
 
@@ -123,18 +124,26 @@
 		var activeStyle = {
 			color : '#0033ff',
 			weight : 1,
-			opacity : 0.95,
+			opacity : 0.2,
 			fillOpacity : 0.2,
 			fillColor : '#0033ff'
 		};
 	
 		var currentActiveCountry = null;
-
-		var countries = []; 	
-		L.geoJson(data, {
-			onEachFeature: OnEachCountry,
-			style : normalStyle
-		}).addTo(map);
+		var countries = null;
+		addCountries();
+		
+		
+		function addCountries(){
+			countries = L.geoJson(borderData, {
+				onEachFeature: OnEachCountry,
+				style : normalStyle
+			}).addTo(map);
+		}
+		
+		function removeCountries(){
+			map.removeLayer(countries);
+		}
 		
 		function OnEachCountry(feature, layer){
 			layer.on({
@@ -144,6 +153,7 @@
 			})
 		}
 		
+		/* Useful to draw borders
 		var borders = [];
 		map.on("click", function(e) {
 			borders[borders.length] = [e.latlng.lng, e.latlng.lat];
@@ -153,13 +163,10 @@
 			}
 			string += "]]";
 			console.log(string);
-            //var position = map.getLonLatFromPixel(e.xy);
-            //alert("Lat, Lon : "+position.lon.toFixed(3),position.lat.toFixed(3));
-
         });
+		*/
 		
 		function countryClick(e){
-			var mapDiv = document.getElementById("map");
 			var bounds = e.target.getBounds();
 			map.fitBounds(bounds);
 			var currentZoom = map;
@@ -168,10 +175,18 @@
 			}
 			currentActiveCountry = e;
 			e.target.setStyle(activeStyle);
+			for(var i = 0; i<currentMarkers.length; i++){
+				console.log(currentMarkers[i]);
+				if(!bounds.contains(currentMarkers[i]._latlng)){
+					map.removeLayer(currentMarkers[i]);
+				}
+				else if(!map.hasLayer(currentMarkers[i])){
+					currentMarkers[i].addTo(map);
+				}
+			}
 		}
 		
 		function countryOver(e){
-			console.log(e.target);
 			if(currentActiveCountry == null || e.target.feature.properties.name != currentActiveCountry.target.feature.properties.name){
 				e.target.setStyle(highlightStyle);
 			}
@@ -182,17 +197,10 @@
 				e.target.setStyle(normalStyle);
 			}
 		}
-		
-		for(var i=0; i<countries.length; i++){
-			if(countries[i].options.name.indexOf("Canada") != -1){				
-				console.log(countries[i]);
-			}
-		}
 
 		function zoom() {
 			//map.setView(new L.LatLng(e.latlng.lat, e.latlng.lng), 8);
-			var currentMarkers = [];
-			for ( var i = 0; i < events.length; i++) {
+			for (var i = 0; i < events.length; i++) {
 				if (events[i].multiple != undefined) {
 					events[currentMarkers.length] = L
 							.marker(closerMarkers[i].position, {
