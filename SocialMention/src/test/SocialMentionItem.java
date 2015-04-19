@@ -1,3 +1,4 @@
+package test;
 public class SocialMentionItem {
 	private String id;
 	private String title;

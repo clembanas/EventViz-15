@@ -1,3 +1,5 @@
+package test;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -90,7 +92,7 @@ public class SocialMentionAccessor {
 	 * @return URL string
 	 * @throws MalformedURLException
 	 */
-	private static String createQueryURL(final List<String> queryTerms, final List<String> searchType, final String location)
+	public static String createQueryURL(final List<String> queryTerms, final List<String> searchType, final String location)
 			throws MalformedURLException {
 		final StringBuilder sb = new StringBuilder();
 		sb.append(url);

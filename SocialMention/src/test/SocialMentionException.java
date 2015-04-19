@@ -1,3 +1,4 @@
+package test;
 public class SocialMentionException extends Exception {
 
 	public SocialMentionException() {
