@@ -25,6 +25,19 @@
 	position: absolute;
 }
 
+#floatingInfo {
+	height: 80%;
+	width: 20%;
+	top: 10%;
+	right: 0;
+	position: absolute;
+	background-color: white;
+	border: 3px solid blue;
+	font-size: 16pt;
+	padding-left: 10px;
+	overflow-y: scroll;
+}
+
 #infobox {
 	height: calc(100% - 6px);
 	width: calc(50% - 15px);
@@ -70,6 +83,9 @@
 <body>
 	<div id="container">
 		<div id="map"></div>
+		<div id="floatingInfo">
+		<ol id="floatingList"></ol>
+		</div>
 		<div id="infobox">
 			<div id="info"></div>
 			<div id="image">image</div>
@@ -80,10 +96,27 @@
 		var map = L.map('map', {
 			attributionControl : false,
 			center : [ 20.0, 5.0 ],
+			zoomControl : false,
 			minZoom : 2,
 			zoom : 2
 		});
-
+		
+		var visibleMarkers = [];
+		/*
+		var lastZoom = 2;
+		map.on("zoomend", function(){
+			console.log(lastZoom);
+			console.log(map.getZoom());
+			if(currentActiveCountry != null){
+				removeCountries();
+				currentActiveCountry = null;
+			}
+			else if(map.getZoom()< lastZoom){
+				addCountries();
+			}
+			lastZoom = map.getZoom();
+		});
+		*/
 		var smallRedIcon = L.icon({
 			iconUrl : 'Icon/RedDot.png',
 			iconSize : [ 6, 6 ],
@@ -125,7 +158,7 @@
 			color : '#0033ff',
 			weight : 1,
 			opacity : 0.2,
-			fillOpacity : 0.2,
+			fillOpacity : 0.1,
 			fillColor : '#0033ff'
 		};
 	
@@ -167,23 +200,42 @@
 		*/
 		
 		function countryClick(e){
-			var bounds = e.target.getBounds();
-			map.fitBounds(bounds);
-			var currentZoom = map;
+			map.fitBounds(e.target.getBounds());
 			if(currentActiveCountry != null){
 				currentActiveCountry.target.setStyle(normalStyle);
 			}
-			currentActiveCountry = e;
-			e.target.setStyle(activeStyle);
-			for(var i = 0; i<currentMarkers.length; i++){
-				console.log(currentMarkers[i]);
-				if(!bounds.contains(currentMarkers[i]._latlng)){
-					map.removeLayer(currentMarkers[i]);
-				}
-				else if(!map.hasLayer(currentMarkers[i])){
-					currentMarkers[i].addTo(map);
+			if(currentActiveCountry == null || e.target.feature.properties.name != currentActiveCountry.target.feature.properties.name){
+				for(var i = 0; i<currentMarkers.length; i++){
+					if(!isInCountry(e, currentMarkers[i])){
+						map.removeLayer(currentMarkers[i]);
+					}
+					else if(!map.hasLayer(currentMarkers[i])){
+						currentMarkers[i].addTo(map);
+					}
 				}
 			}
+			currentActiveCountry = e;
+			e.target.setStyle(activeStyle);
+		}
+		
+		function isInCountry(e, eventMarker) {
+			var coordinates = e.target.feature.geometry.coordinates;
+			inside = false;
+			for(var m = 0; m< coordinates.length; m++){
+				var n = e.target.feature.geometry.type == "Polygon" ? coordinates[m] : coordinates[m][0];
+				for (var i = 0, j = n.length - 1; i < n.length; j = i++) {
+				 	var xi = n[i][0], yi = n[i][1];
+				 	var xj = n[j][0], yj = n[j][1];
+				 	var intersect = ((yi > eventMarker._latlng.lat) != (yj > eventMarker._latlng.lat)) && (eventMarker._latlng.lng < (xj - xi) * (eventMarker._latlng.lat - yi) / (yj - yi) + xi);
+				 	if (intersect){
+				 		inside = !inside;
+				 	}
+				 }
+				 if(inside){
+					 break;
+				 }
+			}
+			return inside;
 		}
 		
 		function countryOver(e){
@@ -283,7 +335,7 @@
 										}
 									}).addTo(map);
 				} else {
-					currentMarkers[currentMarkers.length] = L
+					visibleMarkers[i] = currentMarkers[currentMarkers.length] = L
 							.marker(events[i].latlng, {
 								icon : redIcon,
 								name : events[i].name,
@@ -294,38 +346,60 @@
 							.on(
 									"click",
 									function(e) {
-										map.setView(e.latlng, 10);
-										var mapDiv = document
-												.getElementById("map");
-										mapDiv.style.width = "50%";
-										mapDiv.style.height = "400px";
-										map.invalidateSize();
-										var infobox = document
-												.getElementById("infobox");
-										infobox.style.visibility = "visible";
-										var social = document
-												.getElementById("social");
-										social.style.visibility = "visible";
-										var info = document
-												.getElementById("info");
-										info.innerHTML = "<p>Name: "
-												+ e.target.options.name
-												+ "</p>";
-										info.innerHTML += "<p>Description: "
-												+ e.target.options.description
-												+ "</p>";
-										info.innerHTML += "<p>City: "
-												+ e.target.options.city
-												+ "</p>";
-										info.innerHTML += "<p>Country: "
-												+ e.target.options.country
-												+ "</p>";
-										info.innerHTML += "<p>Location: </p>";
-										info.innerHTML += "<p>Start time: </p>";
-										info.innerHTML += "<p>Duration: </p>";
+										clickMarker(e);
 									}).addTo(map);
+					var floatingList = document.getElementById("floatingList");
+					var entry = document.createElement('li');
+					entry.appendChild(document.createTextNode(visibleMarkers[i].options.name));
+					entry.id = visibleMarkers[i]._leaflet_id;
+					entry.onclick = function(e){
+						for(var j = 0; j < visibleMarkers.length; j++){
+							if(visibleMarkers[j]._leaflet_id == e.srcElement.id){
+								clickMarker(visibleMarkers[j]);
+							}
+						}
+					}
+					floatingList.appendChild(entry);
 				}
 			}
+		}
+		
+		function clickMarker(marker){
+			removeCountries();
+			var tmpLatLng = marker.latlng == undefined ? marker._latlng : marker.latlng;
+			var options = marker.target == undefined ? marker.options : marker.target.options;
+			map.setView(tmpLatLng, 10);
+			var mapDiv = document
+					.getElementById("map");
+			mapDiv.style.width = "50%";
+			mapDiv.style.height = "400px";
+			map.invalidateSize();
+			var infobox = document
+					.getElementById("infobox");
+			infobox.style.visibility = "visible";
+			var floatingInfo= document
+					.getElementById("floatingInfo");
+			floatingInfo.style.visibility = "hidden";
+			var social = document
+					.getElementById("social");
+			social.style.visibility = "visible";
+			var info = document
+					.getElementById("info");
+			info.innerHTML = "<p>Name: "
+					+ options.name
+					+ "</p>";
+			info.innerHTML += "<p>Description: "
+					+ options.description
+					+ "</p>";
+			info.innerHTML += "<p>City: "
+					+ options.city
+					+ "</p>";
+			info.innerHTML += "<p>Country: "
+					+ options.country
+					+ "</p>";
+			info.innerHTML += "<p>Location: </p>";
+			info.innerHTML += "<p>Start time: </p>";
+			info.innerHTML += "<p>Duration: </p>";
 		}
 	</script>
 </body>
