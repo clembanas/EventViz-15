@@ -1,9 +1,7 @@
 package parser;
 
-import java.io.File;
 import java.io.IOException;
 
-import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
@@ -17,18 +15,17 @@ import data.SocialMentionUsers;
 
 public class SocialMentionParser {
 
-	public static SocialMentionData parseHTMLContent(final File input, final String baseURI) throws IOException {
-		final Document doc = Jsoup.parse(input, "UTF-8", baseURI);
-		final int score_strength = parseStrengthScore(doc);
-		final String score_sentiment = parseSentimentScore(doc);
-		final int score_passion = parsePassionScore(doc);
-		final int score_reach = parseReachScore(doc);
-		final String last_mention = parseLastMention(doc);
-		final SocialMentionSentiment sentiment = parseSentiment(doc);
-		final SocialMentionKeywords keywords = parseKeywords(doc);
-		final SocialMentionUsers users = parseUsers(doc);
-		final SocialMentionHashtags hashtags = parseHashtags(doc);
-		final SocialMentionSources sources = parseSources(doc);
+	public static SocialMentionData parseHTMLContent(final Document htmlContent) throws IOException {
+		final int score_strength = parseStrengthScore(htmlContent);
+		final String score_sentiment = parseSentimentScore(htmlContent);
+		final int score_passion = parsePassionScore(htmlContent);
+		final int score_reach = parseReachScore(htmlContent);
+		final String last_mention = parseLastMention(htmlContent);
+		final SocialMentionSentiment sentiment = parseSentiment(htmlContent);
+		final SocialMentionKeywords keywords = parseKeywords(htmlContent);
+		final SocialMentionUsers users = parseUsers(htmlContent);
+		final SocialMentionHashtags hashtags = parseHashtags(htmlContent);
+		final SocialMentionSources sources = parseSources(htmlContent);
 		return new SocialMentionData(score_strength, score_sentiment, score_passion, score_reach, last_mention, sentiment, keywords, users, hashtags,
 				sources);
 	}
