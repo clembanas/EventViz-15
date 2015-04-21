@@ -1,8 +1,0 @@
-﻿################################################################################
-# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
-################################################################################
-
-/eventviz.phpproj
-/eventviz.phpproj.user
-/eventviz.sln
-/eventviz.v12.suo
