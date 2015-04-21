@@ -5,6 +5,7 @@
 <link rel="stylesheet"
 	href="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.css" />
 <script src="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.js"></script>
+<script src="http://code.jquery.com/jquery-2.1.3.min.js"></script>
 <script src="JSON/Borders.js"></script>
 <script src="JSON/Events.js"></script>
 <title>EventViz</title>
@@ -27,7 +28,7 @@
 
 #floatingInfo {
 	height: 80%;
-	width: 20%;
+	width: 0;
 	top: 10%;
 	right: 0;
 	position: absolute;
@@ -36,6 +37,7 @@
 	font-size: 16pt;
 	padding-left: 10px;
 	overflow-y: scroll;
+	visibility: hidden;
 }
 
 #infobox {
@@ -47,6 +49,7 @@
 	border: 3px solid blue;
 	font-size: 16pt;
 	padding-left: 10px;
+	opacity: 0.8;
 	visibility: hidden;
 }
 
@@ -75,6 +78,7 @@
 	position: absolute;
 	background-color: white;
 	border: 3px solid blue;
+	opacity: 0.8;
 	visibility: hidden;
 }
 </style>
@@ -102,21 +106,44 @@
 		});
 		
 		var visibleMarkers = [];
-		/*
-		var lastZoom = 2;
-		map.on("zoomend", function(){
-			console.log(lastZoom);
-			console.log(map.getZoom());
-			if(currentActiveCountry != null){
-				removeCountries();
-				currentActiveCountry = null;
+		
+		map.on("zoomend", function(e){
+			if($(this)[0]._zoom >= 8 && $("#floatingInfo").css("visibility") == "hidden" && $("#infobox").css("visibility") == "hidden"){
+				$("#floatingInfo").css("visibility", "visible");
+				$("#floatingInfo").animate({"width": "+=20%"}, 200);
+				$("#floatingList").empty();				
+				for(var i = 0; i<currentMarkers.length; i++){
+					if(isMarkerVisible(currentMarkers[i])){
+						console.log("true");
+						$("#floatingList").append($("<li id="+currentMarkers[i]._leaflet_id+">").text(currentMarkers[i].options.name));
+						$("#" + currentMarkers[i]._leaflet_id).click(function(e){
+							for(var j = 0; j < currentMarkers.length; j++){
+								if(currentMarkers[j]._leaflet_id == e.currentTarget.id){
+									clickMarker(currentMarkers[j]);
+								}
+							}
+						});
+					}
+				}
+				
 			}
-			else if(map.getZoom()< lastZoom){
-				addCountries();
+			else if($(this)[0]._zoom < 8 && $("#floatingInfo").css("visibility") == "visible"){
+				$("#floatingInfo").animate({"width": "-=20%" }, 200, function(){
+					$(this).css("visibility", "hidden");
+				});
 			}
-			lastZoom = map.getZoom();
 		});
-		*/
+		
+		function isMarkerVisible(marker){
+			var coordinates = [ 
+			                    [map.getBounds()._southWest.lat, map.getBounds()._southWest.lng], 
+			                    [map.getBounds()._southWest.lat, map.getBounds()._northEast.lng], 
+			                    [map.getBounds()._northEast.lat, map.getBounds()._northEast.lng], 
+			                    [map.getBounds()._northEast.lat, map.getBounds()._southWest.lng]
+			                    ];
+			return isInCoordinates(coordinates, marker._latlng.lng, marker._latlng.lat);
+		}
+		
 		var smallRedIcon = L.icon({
 			iconUrl : 'Icon/RedDot.png',
 			iconSize : [ 6, 6 ],
@@ -222,19 +249,24 @@
 			var coordinates = e.target.feature.geometry.coordinates;
 			inside = false;
 			for(var m = 0; m< coordinates.length; m++){
-				var n = e.target.feature.geometry.type == "Polygon" ? coordinates[m] : coordinates[m][0];
-				for (var i = 0, j = n.length - 1; i < n.length; j = i++) {
-				 	var xi = n[i][0], yi = n[i][1];
-				 	var xj = n[j][0], yj = n[j][1];
-				 	var intersect = ((yi > eventMarker._latlng.lat) != (yj > eventMarker._latlng.lat)) && (eventMarker._latlng.lng < (xj - xi) * (eventMarker._latlng.lat - yi) / (yj - yi) + xi);
-				 	if (intersect){
-				 		inside = !inside;
-				 	}
-				 }
+				var inside = isInCoordinates(e.target.feature.geometry.type == "Polygon" ? coordinates[m] : coordinates[m][0], eventMarker._latlng.lat, eventMarker._latlng.lng);
 				 if(inside){
 					 break;
 				 }
 			}
+			return inside;
+		}
+		
+		function isInCoordinates(coordinates, pointLat, pointLng){
+			var inside = false;
+			for (var i = 0, j = coordinates.length - 1; i < coordinates.length; j = i++) {
+			 	var xi = coordinates[i][0], yi = coordinates[i][1];
+			 	var xj = coordinates[j][0], yj = coordinates[j][1];
+			 	var intersect = ((yi > pointLat) != (yj > pointLat)) && (pointLng < (xj - xi) * (pointLat - yi) / (yj - yi) + xi);
+			 	if (intersect){
+			 		inside = !inside;
+			 	}
+			 }
 			return inside;
 		}
 		
@@ -348,32 +380,28 @@
 									function(e) {
 										clickMarker(e);
 									}).addTo(map);
-					var floatingList = document.getElementById("floatingList");
-					var entry = document.createElement('li');
-					entry.appendChild(document.createTextNode(visibleMarkers[i].options.name));
-					entry.id = visibleMarkers[i]._leaflet_id;
-					entry.onclick = function(e){
-						for(var j = 0; j < visibleMarkers.length; j++){
-							if(visibleMarkers[j]._leaflet_id == e.srcElement.id){
-								clickMarker(visibleMarkers[j]);
-							}
-						}
-					}
-					floatingList.appendChild(entry);
+					
 				}
 			}
 		}
 		
+		map.on("moveend", function(){
+			console.log(map.getCenter());
+		});
+		
 		function clickMarker(marker){
 			removeCountries();
-			var tmpLatLng = marker.latlng == undefined ? marker._latlng : marker.latlng;
+			var tmpLatLng = marker.latlng == undefined ?  $.extend( {}, marker._latlng  ): $.extend({}, marker.latlng  );
+			
+			tmpLatLng.lng += 0.01021508561708;
+			tmpLatLng.lat -= 0.003382020592895;
+			console.log(tmpLatLng.lat);
+			console.log(tmpLatLng.lng);
 			var options = marker.target == undefined ? marker.options : marker.target.options;
-			map.setView(tmpLatLng, 10);
+			map.setView(tmpLatLng, 16);
+			console.log(map.getBounds());
 			var mapDiv = document
 					.getElementById("map");
-			mapDiv.style.width = "50%";
-			mapDiv.style.height = "400px";
-			map.invalidateSize();
 			var infobox = document
 					.getElementById("infobox");
 			infobox.style.visibility = "visible";
