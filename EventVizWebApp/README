@@ -1,4 +1,16 @@
-This is your new Play application
-=================================
+HowTo "Import Project in eclipse"
+---------------------------------
+Import --> Existing Projects in Workspace --> Select root directory --> "...\EventViz-15\EventVizWebApp"
 
-This file will be packaged with your application, when using `activator dist`.
+
+HowTo "Run WebApp":
+---------------------------------
+cd EventVizWebApp
+./activator run
+
+--> webapp is now hosted at "http://localhost:9000/"
+
+
+
+
+
