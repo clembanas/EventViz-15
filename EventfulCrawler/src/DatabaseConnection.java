@@ -1,6 +1,4 @@
-import java.net.URL;
 import java.sql.Connection;
-import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -43,10 +41,13 @@ public class DatabaseConnection {
 		try{
 			final String createQ = "CREATE TABLE Cities(ID INTEGER NOT NULL GENERATED ALWAYS AS IDENTITY (START WITH 1, INCREMENT BY 1), " +
 									"NAME VARCHAR(255) NOT NULL, " +
+									"REGION VARCHAR(255)," +
 									"COUNTRY VARCHAR(255)," +
 									"POSTAL_CODE VARCHAR(16)," +
 									"LONGITUDE FLOAT," +
-									"LATITUDE FLOAT)";
+									"LATITUDE FLOAT," +
+									"CITY_CRAWLER_TS TIMESTAMP, "+
+									"DBPEDIA_RESOURCE VARCHAR(255))";
 			stmt.executeUpdate(createQ);
 		}catch(SQLException e){
 			if(e.getSQLState().equals("X0Y32")) { return; }
@@ -86,7 +87,8 @@ public class DatabaseConnection {
 	private void createTableBands(){
 		try{
 			final String createQ = "CREATE TABLE Bands(ID INTEGER NOT NULL GENERATED ALWAYS AS IDENTITY (START WITH 1, INCREMENT BY 1)," +
-									"NAME VARCHAR(255) NOT NULL)";
+									"NAME VARCHAR(255) NOT NULL, BAND_CRAWLER_TS TIMESTAMP, " +
+									"DBPEDIA_RESOURCE VARCHAR(255))";
 			stmt.executeUpdate(createQ);
 		}catch(SQLException e){
 			if(e.getSQLState().equals("X0Y32")) { return; }
@@ -97,7 +99,7 @@ public class DatabaseConnection {
 	private void createTableArtists(){
 		try{
 			final String createQ = "CREATE TABLE Artists(ID INTEGER NOT NULL GENERATED ALWAYS AS IDENTITY (START WITH 1, INCREMENT BY 1)," +
-									"NAME VARCHAR(255) NOT NULL)";
+									"NAME VARCHAR(255) NOT NULL, ALTERNATE_NAME VARCHAR(255), DBPEDIA_RESOURCE VARCHAR(255))";
 			stmt.executeUpdate(createQ);
 		}catch(SQLException e){
 			if(e.getSQLState().equals("X0Y32")) { return; }
@@ -119,7 +121,7 @@ public class DatabaseConnection {
 	private void createTableBandMembers(){
 		try{
 			final String createQ = "CREATE TABLE BandMembers(ARTIST_ID INTEGER NOT NULL," +
-									"BAND_ID INTEGER NOT NULL)";
+									"BAND_ID INTEGER NOT NULL, MEMBER_TYPE CHAR)";
 			stmt.executeUpdate(createQ);
 		}catch(SQLException e){
 			if(e.getSQLState().equals("X0Y32")) { return; }
@@ -127,19 +129,24 @@ public class DatabaseConnection {
 		}
 	}
 	
-	public int insertCity(String name, String country, String postal, double latitude, double longitude){
+	public int insertCity(String name, String region, String country, String postal, double latitude, double longitude){
 		try{
 			PreparedStatement sta = conn.prepareStatement("SELECT id FROM Cities WHERE NAME = ? AND POSTAL_CODE = ?");
 			sta.setString(1, name);
 			sta.setString(2, postal);
 			ResultSet rs = sta.executeQuery();
 			if(!rs.next()){
-				sta = conn.prepareStatement("INSERT INTO Cities(name, country, postal_code, longitude, latitude) VALUES(?, ?, ?, ?, ?)", Statement.RETURN_GENERATED_KEYS);
+				sta = conn.prepareStatement("INSERT INTO Cities(name, region, country, " +
+						"postal_code, longitude, latitude, city_crawler_ts, dbpedia_resource) " +
+						"VALUES(?, ?, ?, ?, ?, ?, ?, ?)", Statement.RETURN_GENERATED_KEYS);
 				sta.setString(1, name);
-				sta.setString(2, country);
-				sta.setString(3, postal);
-				sta.setFloat(4, 0f);
+				sta.setString(2, region);
+				sta.setString(3, country);
+				sta.setString(4, postal);
 				sta.setFloat(5, 0f);
+				sta.setFloat(6, 0f);
+				sta.setNull(7, java.sql.Types.TIMESTAMP);
+				sta.setNull(8, java.sql.Types.TIMESTAMP);
 				sta.executeUpdate();
 				rs = sta.getGeneratedKeys();
 				rs.next();
@@ -214,8 +221,11 @@ public class DatabaseConnection {
 			sta.setString(1, name);
 			ResultSet rs = sta.executeQuery();
 			if(!rs.next()){
-				sta = conn.prepareStatement("INSERT INTO Bands(name) VALUES(?)", Statement.RETURN_GENERATED_KEYS);
+				sta = conn.prepareStatement("INSERT INTO Bands(name, band_crawler_ts, " +
+						"dbpedia_resource) VALUES(?, ?, ?)", Statement.RETURN_GENERATED_KEYS);
 				sta.setString(1, name);
+				sta.setNull(2, java.sql.Types.TIMESTAMP);
+				sta.setNull(3, java.sql.Types.TIMESTAMP);
 				sta.executeUpdate();
 				rs = sta.getGeneratedKeys();
 				rs.next();
