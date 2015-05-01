@@ -33,9 +33,9 @@ public class Main {
 			BandInfoCrawler.class, CityInfoCrawler.class);
 		//Register crawler classes
 		CrawlerManager.registerCrawler(BandInfoCrawler.class, 
-			new Utils.Pair<String[], Integer>(DBPEDIA_ENDPOINTS, DB_UPDATE_INTERVAL));
+			Utils.createPair(DBPEDIA_ENDPOINTS, DB_UPDATE_INTERVAL));
 		CrawlerManager.registerCrawler(CityInfoCrawler.class,  
-			new Utils.Pair<String[], Integer>(DBPEDIA_ENDPOINTS, DB_UPDATE_INTERVAL));
+			Utils.createPair(DBPEDIA_ENDPOINTS, DB_UPDATE_INTERVAL));
 		//Execute crawlers
 		CrawlerManager.executeAll();
 		CrawlerManager.shutdown();

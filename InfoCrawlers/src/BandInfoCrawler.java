@@ -266,8 +266,7 @@ public class BandInfoCrawler extends SparqlCrawlerBase {
 	{
 		if (customData != null)
 			return null;
-		return new Utils.Pair<java.sql.ResultSet, Object>(
-					   DBConnection.getIncompleteBands(dbUpdateInterval), new Object());
+		return Utils.createPair(DBConnection.getIncompleteBands(dbUpdateInterval), new Object());
 	}
 
 	protected int getWorkerThdCount() 

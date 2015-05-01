@@ -30,9 +30,9 @@ public class DebugUtils {
 			}
 			
 			int entryLen = entry.length();
-			return new Utils.Pair<Integer, String>((int)Math.ceil(entryLen/ (float)maxEntryLen), 
-						   String.format(currRowFmtStr, entry.substring(0, 
-						   Math.min(maxEntryLen, entryLen))));
+			return Utils.createPair((int)Math.ceil(entryLen/ (float)maxEntryLen), 
+					   String.format(currRowFmtStr, entry.substring(0, 
+					   Math.min(maxEntryLen, entryLen))));
 		}
 		
 		private String getNextLine(String entry, int lineIdx)

@@ -73,9 +73,8 @@ public abstract class DBQueryBasedCrawler extends JobBasedCrawler {
 					return null;
 				datasetMeta = nextDataset.first.getMetaData();
 			}
-			return new Utils.Pair<WorkerJobBase, Object>(new DBWorkerJob(nextDataset.first, 
-						   datasetMeta), new Utils.Pair<Utils.Pair<ResultSet, Object>, 
-						   ResultSetMetaData>(nextDataset, datasetMeta));
+			return Utils.createPair(new DBWorkerJob(nextDataset.first, datasetMeta), 
+					   Utils.createPair(nextDataset, datasetMeta));
 		}
 		catch (Exception e) {
 			if (nextDataset != null && nextDataset.first != null) {

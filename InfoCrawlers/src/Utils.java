@@ -24,6 +24,11 @@ public class Utils {
 		}
 	}
 	
+	
+	public static <First, Second> Pair<First, Second> createPair(First first, Second second)
+	{
+		return new Pair<First, Second>(first, second);
+	}
 
 	@SafeVarargs
 	public static Map<String, String> createStrMap(Pair<String, String> ... pairs)

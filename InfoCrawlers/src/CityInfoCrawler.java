@@ -387,8 +387,7 @@ public class CityInfoCrawler extends SparqlCrawlerBase {
 	{
 		if (customData != null)
 			return null;
-		return new Utils.Pair<java.sql.ResultSet, Object>(
-					   DBConnection.getIncompleteCities(dbUpdateInterval), new Object());
+		return Utils.createPair(DBConnection.getIncompleteCities(dbUpdateInterval), new Object());
 	}
 
 	protected int getWorkerThdCount() 
