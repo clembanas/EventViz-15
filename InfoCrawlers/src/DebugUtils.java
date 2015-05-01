@@ -12,9 +12,9 @@ public class DebugUtils {
 		public static final int MAX_ENTRY_LEN = 40;
 		public static final int ROWIDX_ENTRY_LEN = 10;
 		
-		private String rowFmtStr = new String("%" + MAX_ENTRY_LEN + "." + MAX_ENTRY_LEN + "s");
-		private String rowIdxFmtStr = new String("| %" + ROWIDX_ENTRY_LEN + "." + 
-											  ROWIDX_ENTRY_LEN + "s | ");
+		private String rowFmtStr = "%" + MAX_ENTRY_LEN + "." + MAX_ENTRY_LEN + "s";
+		private String rowNullFmtStr = "%-" + MAX_ENTRY_LEN + "." + MAX_ENTRY_LEN + "s";
+		private String rowIdxFmtStr = "| %" + ROWIDX_ENTRY_LEN + "." + ROWIDX_ENTRY_LEN + "s | ";
 		private int maxEntryLen = MAX_ENTRY_LEN;
 		private int rowIdxEntryLen = ROWIDX_ENTRY_LEN;
 		private String[] header = null;
@@ -22,20 +22,32 @@ public class DebugUtils {
 		
 		private Utils.Pair<Integer, String> getFirstLine(String entry)
 		{
-			int entryLen = entry.length();
+			String currRowFmtStr = rowFmtStr;
 			
+			if (entry == null) {
+				entry = "NULL";
+				currRowFmtStr = rowNullFmtStr;
+			}
+			
+			int entryLen = entry.length();
 			return new Utils.Pair<Integer, String>((int)Math.ceil(entryLen/ (float)maxEntryLen), 
-						   String.format(rowFmtStr, entry.substring(0, 
+						   String.format(currRowFmtStr, entry.substring(0, 
 						   Math.min(maxEntryLen, entryLen))));
 		}
 		
 		private String getNextLine(String entry, int lineIdx)
 		{
-			int entryLen = entry.length();
+			String currRowFmtStr = rowFmtStr;
 			
+			if (entry == null) {
+				entry = "NULL";
+				currRowFmtStr = rowNullFmtStr;
+			}
+			
+			int entryLen = entry.length();
 			if (lineIdx * maxEntryLen > entryLen)
-				return String.format(rowFmtStr, "");
-			return String.format(rowFmtStr, entry.substring(lineIdx * maxEntryLen, 
+				return String.format(currRowFmtStr, "");
+			return String.format(currRowFmtStr, entry.substring(lineIdx * maxEntryLen, 
 					   Math.min(lineIdx * maxEntryLen + maxEntryLen, entryLen)));
 		}
 		
@@ -80,8 +92,9 @@ public class DebugUtils {
 		
 		public TableDebugger(int maxEntryLen, int rowIdxEntryLen)
 		{
-			rowFmtStr = new String("%" + maxEntryLen + "." + maxEntryLen + "s");
-			rowIdxFmtStr = new String("| %" + rowIdxEntryLen + "." + rowIdxEntryLen + "s | ");
+			rowFmtStr = "%" + maxEntryLen + "." + maxEntryLen + "s";
+			rowNullFmtStr = "%-" + maxEntryLen + "." + maxEntryLen + "s";
+			rowIdxFmtStr = "| %" + rowIdxEntryLen + "." + rowIdxEntryLen + "s | ";
 			this.rowIdxEntryLen = rowIdxEntryLen;
 			this.maxEntryLen = maxEntryLen;
 		}

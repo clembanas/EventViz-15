@@ -186,9 +186,14 @@ public class CrawlerManager {
 			ExceptionHandler.handle(e, "Failed to connect to database!\n");
 		}
 		finally {
-			DBConnection.disconnect();
 			for (CrawlerCtrlr crawlerCtrlr: crawlerCtrlrs.values()) 
 				crawlerCtrlr.join();
+			try {
+				DBConnection.disconnect();
+			}
+			catch (Exception e) {
+				ExceptionHandler.handle(e, "Failed to disconnect from database!\n");
+			}
 		}
 	}
 	

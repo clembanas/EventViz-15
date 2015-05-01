@@ -4,13 +4,19 @@
 
 public class Main {
 	
+	//Debug settings
 	public static final boolean DEBUG_DB = true;
 	public static final boolean DEBUG_DB_RESULTS = true;
-	public static final boolean DEBUG_SPARQL = true;
-	public static final boolean DEBUG_SPARQL_QUERIES = false;
+	public static final boolean DEBUG_SPARQL = false;
+	public static final boolean DEBUG_SPARQL_QUERIES = true;
 	public static final boolean DEBUG_SPARQL_RESULTS = true;
-	public static final boolean DEBUG_SPARQL_NO_QUERY_STR = true;
+	public static final boolean DEBUG_SPARQL_NO_QUERY_STR = false;
 	public static final boolean DEBUG_CRAWLER_MGR = true;
+	//DBPedia endpoints
+	public static final String[] DBPEDIA_ENDPOINTS = new String[]{"http://dbpedia.org/sparql", 
+		"http://live.de.dbpedia.org/sparql"};
+	//Database update interval in hours
+	public static final int DB_UPDATE_INTERVAL = 120;
 
 	
 	public static void main(String[] args) 
@@ -24,10 +30,12 @@ public class Main {
 		SparqlQuery.DEBUG_NO_QUERY_STR = DEBUG_SPARQL_NO_QUERY_STR;
 		CrawlerManager.DEBUG = DEBUG_CRAWLER_MGR;
 		CrawlerBase.debug_crawlers(CrawlerBase.class, DBQueryBasedCrawler.class, 
-			SparqlCrawlerBase.class, CityInfoCrawler.class);
+			BandInfoCrawler.class, CityInfoCrawler.class);
 		//Register crawler classes
-		CrawlerManager.registerCrawler(BandInfoCrawler.class);
-		CrawlerManager.registerCrawler(CityInfoCrawler.class);
+		CrawlerManager.registerCrawler(BandInfoCrawler.class, 
+			new Utils.Pair<String[], Integer>(DBPEDIA_ENDPOINTS, DB_UPDATE_INTERVAL));
+		CrawlerManager.registerCrawler(CityInfoCrawler.class,  
+			new Utils.Pair<String[], Integer>(DBPEDIA_ENDPOINTS, DB_UPDATE_INTERVAL));
 		//Execute crawlers
 		CrawlerManager.executeAll();
 		CrawlerManager.shutdown();

@@ -52,12 +52,36 @@ public class DBConnection {
 			debug_print("Query '" + query + "' returned no results!");
 	}
 	
+	private static ResultSet executeQuery(String query, Object ... args) throws Exception
+	{
+		String dbgQueryStr = query;
+		
+		if (DEBUG) {
+			for (int i = 0; i < args.length; ++i) 
+				dbgQueryStr = dbgQueryStr.replaceFirst("\\?", "arg:'" + args[i].toString() + "'");
+			debug_print("Executing query '" + dbgQueryStr + "'...");
+		}
+		
+		PreparedStatement stmnt = dbConn.prepareStatement(query, ResultSet.TYPE_SCROLL_INSENSITIVE, 
+							   		  ResultSet.CONCUR_READ_ONLY);
+		for (int i = 0; i < args.length; ++i) 
+			stmnt.setObject(i + 1, args[i]);
+		
+		ResultSet resSet = stmnt.executeQuery();
+		if (DEBUG && DEBUG_RESULTS) {
+			debug_queryResult(dbgQueryStr, resSet);
+			resSet.beforeFirst();
+		}
+		return resSet;
+	}
+	
+	@SuppressWarnings("unused")
 	private static ResultSet executeQuery(String query) throws Exception
 	{
 		debug_print("Executing query '" + query + "'...");
 		
 		ResultSet resSet = dbConn.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, 
-							    ResultSet.CONCUR_READ_ONLY).executeQuery(query);
+							   ResultSet.CONCUR_READ_ONLY).executeQuery(query);
 		
 		if (DEBUG_RESULTS) {
 			debug_queryResult(query, resSet);
@@ -170,23 +194,29 @@ public class DBConnection {
 		}
 	}
 	
-	public static void disconnect() 
+	public static void disconnect() throws Exception 
 	{
-		// TODO Auto-generated method stub
-		
+		if (dbConn != null) {
+			dbConn.close();
+			dbConn = null;
+		}
 	}
 	
-	public static ResultSet getIncompleteCities() throws Exception
+	public static ResultSet getIncompleteBands(int dbUpdateInterval) throws Exception
 	{
-		return executeQuery("SELECT id, name, country, region, postal_code FROM cities " +
-					"WHERE (longitude = 0 OR latitude = 0) AND id = 5"); //FIXME
+		return executeQuery("SELECT id, name FROM bands WHERE " +
+					"(band_crawler_ts IS NULL OR " +
+				    "{fn TIMESTAMPDIFF(SQL_TSI_HOUR, band_crawler_ts, ?)} >= ?) " +
+					"AND id NOT IN (SELECT band_id AS id FROM bandmembers)", 
+					new Timestamp(System.currentTimeMillis()), dbUpdateInterval);
 	}
 	
-	public static ResultSet getIncompleteBands() throws Exception
+	public static ResultSet getIncompleteCities(int dbUpdateInterval) throws Exception
 	{
-		return executeQuery("SELECT id, name FROM bands " +
-					"WHERE band_crawler_ts IS NULL AND " +
-					"id NOT IN (SELECT band_id AS id FROM bandmembers)");
+		return executeQuery("SELECT id, name, region, country FROM cities " +
+				   "WHERE city_crawler_ts IS NULL OR " +
+				   "{fn TIMESTAMPDIFF(SQL_TSI_HOUR, city_crawler_ts, ?)} >= ?",
+				   new Timestamp(System.currentTimeMillis()), dbUpdateInterval); 
 	}
 	
 	public synchronized static void insertBandArtist(int bandID, String name, String altName, 
@@ -237,6 +267,39 @@ public class DBConnection {
 				stmnt.setTimestamp(2, new Timestamp(System.currentTimeMillis()));
 				stmnt.setInt(3, bandID);
 			}
+			stmnt.executeUpdate();
+		}
+		finally {
+			endUpdate();
+		}
+	}
+	
+	public synchronized static void updateCity(int cityID, float latitude, float longitude, 
+		String regName, String ctryName, String cityResID) throws Exception
+	{
+		try {
+			beginUpdate();
+
+			PreparedStatement stmnt = dbConn.prepareStatement("UPDATE cities " +
+										  "SET region = ?, country = ?, latitude = ?," +
+										  "    longitude = ?, dbpedia_resource = ?, " +
+										  "    city_crawler_ts = ? WHERE id = ?");
+			if (regName == null || regName.isEmpty())
+				stmnt.setNull(1, java.sql.Types.VARCHAR);
+			else
+				stmnt.setString(1, regName);
+			if (ctryName == null || ctryName.isEmpty())
+				stmnt.setNull(2, java.sql.Types.VARCHAR);
+			else
+				stmnt.setString(2, ctryName);
+			stmnt.setFloat(3, latitude);
+			stmnt.setFloat(4, longitude);
+			if (cityResID == null || cityResID.isEmpty())
+				stmnt.setNull(5, java.sql.Types.VARCHAR);
+			else
+				stmnt.setString(5, cityResID);
+			stmnt.setTimestamp(6, new Timestamp(System.currentTimeMillis()));
+			stmnt.setInt(7, cityID);
 			stmnt.executeUpdate();
 		}
 		finally {

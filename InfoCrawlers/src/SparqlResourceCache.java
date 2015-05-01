@@ -10,8 +10,10 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+
 import com.hp.hpl.jena.rdf.model.RDFNode;
 
 
@@ -328,6 +330,9 @@ public class SparqlResourceCache {
 	private ReadWriteLock rwLock = new ReentrantReadWriteLock();
 	private Map<String, CacheItem> items = new TreeMap<String, CacheItem>(
 				 								   String.CASE_INSENSITIVE_ORDER);
+	private AtomicLong lookupCnt = new AtomicLong(0);
+	private AtomicLong lookupMissCnt = new AtomicLong(0);
+	private int maxLoad = 0;
 	
 	private CacheItem addItem(String resID)
 	{
@@ -372,11 +377,14 @@ public class SparqlResourceCache {
 		try {
 			CacheItem item = items.get(resID);
 			
+			lookupCnt.incrementAndGet();
 			if (item != null) {
 				PropertyValue[] props = item.lookup(RESPROP_NAME);
 				
-				return props == null || props.length == 0 ? null : props[0].value;
+				if (props != null && props.length > 0) 
+					return props[0].value;
 			}
+			lookupMissCnt.incrementAndGet();
 			return null;
 		}
 		finally {
@@ -389,8 +397,12 @@ public class SparqlResourceCache {
 		rwLock.readLock().lock();
 		try {
 			CacheItem item = items.get(resID);
+			PropertyValue[] props = null;
 			
-			return item == null ? null : item.lookup(propName);
+			lookupCnt.incrementAndGet();
+			if (item == null || (props = item.lookup(propName)) == null)
+				lookupMissCnt.incrementAndGet();
+			return props;
 		}
 		finally {
 			rwLock.readLock().unlock();
@@ -402,8 +414,12 @@ public class SparqlResourceCache {
 		rwLock.readLock().lock();
 		try {
 			CacheItem item = items.get(resID);
+			MultiPropValueList propValList = null;
 			
-			return item == null ? null : item.lookup(propNames);
+			lookupCnt.incrementAndGet();
+			if (item == null || (propValList = item.lookup(propNames)) == null)
+				lookupMissCnt.incrementAndGet();
+			return propValList;
 		}
 		finally {
 			rwLock.readLock().unlock();
@@ -437,6 +453,7 @@ public class SparqlResourceCache {
 			
 			addedItem.add(propName, propValues);
 			sizeInBytes += addedItem.getSizeInBytes() - prevSize;
+			maxLoad = (int)Math.max(maxLoad, sizeInBytes);
 			shrink(addedItem);
 		}
 		finally {
@@ -453,6 +470,7 @@ public class SparqlResourceCache {
 			
 			addedItem.add(propName, propValueNodes);
 			sizeInBytes += addedItem.getSizeInBytes() - prevSize;
+			maxLoad = (int)Math.max(maxLoad, sizeInBytes);
 			shrink(addedItem);
 		}
 		finally {
@@ -471,6 +489,7 @@ public class SparqlResourceCache {
 			
 			addedItem.add(propList);
 			sizeInBytes += addedItem.getSizeInBytes() - prevSize;
+			maxLoad = (int)Math.max(maxLoad, sizeInBytes);
 			shrink(addedItem);
 		}
 		finally {
@@ -499,5 +518,20 @@ public class SparqlResourceCache {
 		finally {
 			rwLock.readLock().unlock();
 		}
+	}
+	
+	public long getLookupCount()
+	{
+		return lookupCnt.get();
+	}
+	
+	public long getLookupMissCount()
+	{
+		return lookupMissCnt.get();
+	}
+	
+	public int getMaxLoadInBytes()
+	{
+		return maxLoad;
 	}
 }

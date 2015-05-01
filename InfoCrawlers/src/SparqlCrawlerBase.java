@@ -27,11 +27,14 @@ public abstract class SparqlCrawlerBase extends DBQueryBasedCrawler {
 		private int queryIdx = 0;
 		private String[] dataRow = null;
 		private int dataRowIdx = 0;
+		private String endpoint;
 		private ResultSet resultSet;
 		
-		public QueryContext(QueryExecutor queryExec, String[] dataRow, int dataRowIdx, int queryIdx)
+		public QueryContext(QueryExecutor queryExec, String endpoint, String[] dataRow, 
+			int dataRowIdx, int queryIdx)
 		{
 			this.queryExec = queryExec;
+			this.endpoint = endpoint;
 			this.dataRow = dataRow;
 			this.dataRowIdx = dataRowIdx;
 			this.queryIdx = queryIdx;
@@ -113,12 +116,21 @@ public abstract class SparqlCrawlerBase extends DBQueryBasedCrawler {
 		
 		public String escapeStr(String str)
 		{
-			return str.replace("\"", "\\\"");
+			return str.replace("\"", "\\\"").replace("'", "\\'");
 		}
 		
 		public String escapeRegEx(String str)
 		{
-			return "\\\\Q" + str + "\\\\E";
+			StringBuilder res = new StringBuilder(str.length());
+			char c;
+			
+			for (int i = 0; i < str.length(); ++i) {
+				if ((c = str.charAt(i)) >= 128)
+					res.append(String.format("\\u%04x", (int)c));
+				else
+					res.append(c);
+			}
+			return "\\\\Q" + res.toString() + "\\\\E";
 		}
 		
 		public String replaceWildcards(String fmtStr, String[] dataRow, boolean allRequired) 
@@ -156,6 +168,9 @@ public abstract class SparqlCrawlerBase extends DBQueryBasedCrawler {
 				//Escape column data so that it is a valid SPARQL RegEx
 				else if (currPart.startsWith("_asRegEx"))
 					fmtStr += escapeRegEx(currCol) + currPart.substring(8);	
+				//Escape column data so that it is a valid SPARQL lower case RegEx
+				else if (currPart.startsWith("_asLRegEx"))
+					fmtStr += escapeRegEx(currCol.toLowerCase()) + currPart.substring(9);	
 				//Invalid or missing escape specifier
 				else
 					throw new Exception("Invalid or missing escape specifier '" + currPart + "'!");
@@ -175,7 +190,7 @@ public abstract class SparqlCrawlerBase extends DBQueryBasedCrawler {
 		
 		public String getEndpoint()
 		{
-			return SparqlCrawlerBase.this.getEndpoint();
+			return endpoint;
 		}
 		
 		public QueryExecutor getQueryExecutor() 
@@ -482,17 +497,19 @@ public abstract class SparqlCrawlerBase extends DBQueryBasedCrawler {
 	}
 	
 
-	private String endpoint;
+	private String[] endpoints;
 	private QueryExecutor[] queryExecutors;
 	private String debugDSFmtStr;
 	protected SparqlResourceCache resCache = new SparqlResourceCache(RESPROP_NAME);
 	
 	protected void processDataRow(String[] dataRow, int dataRowIdx) throws Exception 
 	{
-		for (int i = 0, queryLen = queryExecutors.length; i < queryLen; ++i) {
-			if (queryExecutors[i].execute(new QueryContext(queryExecutors[i], dataRow, dataRowIdx, 
-				i + 1)))
-				break;
+		for (String endpoint: endpoints) {
+			for (int j = 0, queryLen = queryExecutors.length; j < queryLen; ++j) {
+				if (queryExecutors[j].execute(new QueryContext(queryExecutors[j], endpoint, dataRow, 
+					dataRowIdx,	j + 1)))
+					break;
+			}
 		}
 	}
 	
@@ -501,16 +518,17 @@ public abstract class SparqlCrawlerBase extends DBQueryBasedCrawler {
 		resCache = null;
 	}
 	
-	public SparqlCrawlerBase(String endpoint, QueryExecutor[] queryHandlers, String debugDSFmtStr)
+	public SparqlCrawlerBase(String[] endpoints, QueryExecutor[] queryHandlers, 
+		String debugDSFmtStr)
 	{
-		this.endpoint = endpoint;
+		this.endpoints = endpoints;
 		this.queryExecutors = queryHandlers;
 		this.debugDSFmtStr = debugDSFmtStr;
 	}
 	
-	public String getEndpoint()
+	public String[] getEndpoints()
 	{
-		return endpoint;
+		return endpoints;
 	}
 	
 	public String getDebugDSFmtStr()

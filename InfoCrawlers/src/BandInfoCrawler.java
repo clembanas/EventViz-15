@@ -3,6 +3,7 @@
  */
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import com.hp.hpl.jena.query.QuerySolution;
 import com.hp.hpl.jena.query.ResultSet;
@@ -15,7 +16,6 @@ import com.hp.hpl.jena.rdf.model.RDFNode;
 public class BandInfoCrawler extends SparqlCrawlerBase {
 	
 	public static final int WORKER_THD_CNT = 10;
-	public static final String SVC = "http://dbpedia.org/sparql";
 	public static final QueryExecutor[] QUERIES = new QueryExecutor[] {
 		//Find city by name, region and (optional) by country
 		new QueryExecutor(
@@ -54,8 +54,8 @@ public class BandInfoCrawler extends SparqlCrawlerBase {
 				"       }\n" +				
 				"       FILTER regex(str(?artist_type), \"org/Person|ontology/Person\" , \"i\")\n" +
 				"   }\n" +
-				"   FILTER regex(str(?type), \"Music|Artist|Band\", \"i\")\n" +
-				"	FILTER (LCASE(str(?band_label)) = \"%1col_asLStr\")   \n" +
+				"   FILTER regex(str(?type), \"Music|Artist|Band|Person\", \"i\")\n" +
+				"	FILTER regex(lcase(str(?band_label)), \"^%1col_asLRegEx$\")\n" +
 				"}",
 				new BandInfoQPP() 
 		)
@@ -201,17 +201,24 @@ public class BandInfoCrawler extends SparqlCrawlerBase {
 							artist.altName,	artist.memberType.toChar(), 
 							(artist.memberType == BandMemberType.BAND_IS_ARTIST && 
 							artist.resID == null ? bandResID : artist.resID));
+						addedArtistCnt.incrementAndGet();
 					}
 					//Update band's DBpedia resource identifier
 					DBConnection.updateBand(Integer.valueOf(bandID), bandResID);
+					updatedBandCnt.incrementAndGet();
 				}
 				catch (Exception e) {
 					queryContext.handleException(e, "Failed to store band information of band " +
 						"with ID '" + bandID + "'!");
+					return false;
 				}
 				return true;
 			}
 		}
+		
+		
+		private static AtomicInteger updatedBandCnt = new AtomicInteger(0);
+		private static AtomicInteger addedArtistCnt = new AtomicInteger(0);
 
 		protected boolean processQueryResult(QueryContext queryContext, ResultSet resSet) 
 			throws Exception
@@ -239,25 +246,51 @@ public class BandInfoCrawler extends SparqlCrawlerBase {
 			while (resSet.hasNext());
 			return bandInfos.store();
 		}
+
+		public static int getUpdatedBandCount()
+		{
+			return updatedBandCnt.get();
+		}
+
+		public static int getAddedArtistCount() 
+		{
+			return addedArtistCnt.get();
+		}
 	}
 
+
+	private int dbUpdateInterval;
 	
 	protected Utils.Pair<java.sql.ResultSet, Object> getNextDataset(Object customData) 
 		throws Exception 
 	{
 		if (customData != null)
 			return null;
-		return new Utils.Pair<java.sql.ResultSet, Object>(DBConnection.getIncompleteBands(), 
-					   new Object());
+		return new Utils.Pair<java.sql.ResultSet, Object>(
+					   DBConnection.getIncompleteBands(dbUpdateInterval), new Object());
 	}
 
 	protected int getWorkerThdCount() 
 	{
 		return WORKER_THD_CNT;
 	}
-
-	public BandInfoCrawler() 
+	
+	protected void finished()
 	{
-		super(SVC, QUERIES, DEBUG_DS_FMT);
+		long cacheLookups = resCache.getLookupCount();
+		long cacheMisses = resCache.getLookupMissCount();
+		int maxCacheLoad = resCache.getMaxLoadInBytes();
+		
+		super.finished();
+		debug_print(BandInfoQPP.getUpdatedBandCount() + " bands updated and " + 
+			BandInfoQPP.getAddedArtistCount() + " artists added (" + cacheMisses + 
+			" cache misses/ " + cacheLookups + " cache lookups; max cache load: " + maxCacheLoad + 
+			" Bytes)");
+	}
+
+	public BandInfoCrawler(Utils.Pair<String[], Integer> settings) 
+	{
+		super(settings.first, QUERIES, DEBUG_DS_FMT);
+		dbUpdateInterval = settings.second;
 	}
 }

@@ -30,7 +30,7 @@ public class Main {
 				sr = eo.search(esr);
 				for(int j = 0; j<sr.getEvents().size(); j++){
 					Event e = (Event)sr.getEvents().get(j);
-					int cityID = dbc.insertCity(e.getVenueCity(), e.getVenueCountry(), e.getVenuePostalCode(),  0, 0);
+					int cityID = dbc.insertCity(e.getVenueCity(), e.getVenueRegion(), e.getVenueCountry(), e.getVenuePostalCode(),  0, 0);
 					int locationID = dbc.insertLocation(e.getVenueName(), e.getVenueLongitude(), e.getVenueLatitude(), cityID);
 					int eventID = dbc.insertEvent(e.getTitle(), e.getDescription(), "", e.getSeid(), locationID);
 					if(e.getPerformers().size() > 0){
