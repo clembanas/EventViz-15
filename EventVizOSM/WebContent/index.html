@@ -9,7 +9,8 @@
 <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/jquery-ui.min.js"></script>
 <script src="JSON/Borders.js"></script>
 <script src="JSON/Events.js"></script>
-<title>EventViz</title>
+<script src="JavaScript/CountryOperations.js"></script>
+</script><title>EventViz</title>
 
 
 <style>
@@ -137,7 +138,59 @@
 			zoom : 2
 		});
 		
+		L.tileLayer('http://{s}.mqcdn.com/tiles/1.0.0/map/{z}/{x}/{y}.png',{
+			subdomains : [ 'otile1', 'otile2', 'otile3', 'otile4' ]
+		}).addTo(map);
+		
+		var hoverCountry = null;
 		var onGreyLayer = false;
+		
+		//set icons for events
+		var redIconHover = L.icon({
+			iconUrl: 'Icon/RedDotHover.png',
+			iconSize : [ 12, 12 ],
+			iconAnchor : [ 6, 6 ]
+		});
+		var redIcon = L.icon({
+			iconUrl : 'Icon/RedDot.png',
+			iconSize : [ 12, 12 ],
+			iconAnchor : [ 6, 6 ]
+		});
+		
+		var currentMarkers = [];
+
+		//define sytles for country layers
+		var normalStyle = {
+			color : '#0033ff',
+			weight : 1,
+			opacity : 0.1,
+			fillOpacity : 0.01,
+			fillColor : '#0033ff'
+		};		
+		var highlightStyle = {
+			color : '#0033ff',
+			weight : 1,
+			opacity : 0.4,
+			fillOpacity : 0.2,
+			fillColor : '#0033ff'
+		};		
+		var activeStyle = {
+			color : '#0033ff',
+			weight : 1,
+			opacity : 0.2,
+			fillOpacity : 0.1,
+			fillColor : '#0033ff'
+		};
+		var greyStyle = {
+			color : '#808080',
+			weight : 0,
+			opacity : 0.8,
+			fillOpacity : 0.8,
+			fillColor : '#808080'
+		};
+
+		var currentActiveCountries = [];
+		var countries = [];
 		
 		function updateFloatingInfobox(){
 			$("#floatingList").empty();				
@@ -151,12 +204,14 @@
 							}
 						}
 					}).hover(function(e){
+						$(this).css("background-Color", "#F4FA58");
 						for(var j = 0; j < currentMarkers.length; j++){
 							if(currentMarkers[j]._leaflet_id == e.currentTarget.id){
 								hoverMarker(currentMarkers[j]);
 							}
 						}
 					}).mouseout(function(e){
+						$(this).css("background-Color", "#FFFFFF");
 						for(var j = 0; j < currentMarkers.length; j++){
 							if(currentMarkers[j]._leaflet_id == e.currentTarget.id){
 								hoverExitMarker(currentMarkers[j]);
@@ -179,11 +234,16 @@
 				$("#floatingInfo").animate({"width": "-=20%" }, 200, function(){
 					$(this).css("visibility", "hidden");
 				});
-				addCountries();
 			}
 			else if($("#infobox").css("visibility") == "visible" && $(this)[0]._zoom < 15){
 				$("#infobox").css("visibility", "hidden");
 				$("#social").css("visibility", "hidden");
+				$("#floatingInfo").css("visibility", "visible");
+				$("#floatingInfo").animate({"width": "+=20%"}, 200);
+				updateFloatingInfobox();
+				if(hoverCountry != null){
+					countryOver(hoverCountry);
+				}
 			}
 		});
 		
@@ -203,108 +263,10 @@
 			return isInCoordinates(coordinates, marker._latlng.lng, marker._latlng.lat);
 		}
 		
-		var redIconHover = L.icon({
-			iconUrl: 'Icon/RedDotHover.png',
-			iconSize : [ 12, 12 ],
-			iconAnchor : [ 6, 6 ]
-		});
-
-		var redIcon = L.icon({
-			iconUrl : 'Icon/RedDot.png',
-			iconSize : [ 12, 12 ],
-			iconAnchor : [ 6, 6 ]
-		});
-
-		L.tileLayer(
-						'http://{s}.mqcdn.com/tiles/1.0.0/map/{z}/{x}/{y}.png',
-						{
-							subdomains : [ 'otile1', 'otile2', 'otile3', 'otile4' ]
-						}).addTo(map);
-		var currentMarkers = [];
-		zoom();
-		var GEOdata = [];
-
-		var normalStyle = {
-			color : '#0033ff',
-			weight : 1,
-			opacity : 0.1,
-			fillOpacity : 0.01,
-			fillColor : '#0033ff'
-		};
-		
-		var highlightStyle = {
-			color : '#0033ff',
-			weight : 1,
-			opacity : 0.4,
-			fillOpacity : 0.2,
-			fillColor : '#0033ff'
-		};
-		
-		var activeStyle = {
-			color : '#0033ff',
-			weight : 1,
-			opacity : 0.2,
-			fillOpacity : 0.1,
-			fillColor : '#0033ff'
-		};
-		
-		var greyStyle = {
-			color : '#808080',
-			weight : 0,
-			opacity : 0.8,
-			fillOpacity : 0.8,
-			fillColor : '#808080'
-		};
-
-		var currentActiveCountry = [];
-		var countries = [];
 		addCountries();
+		zoom();
 		
 		
-		function addCountries(){
-			for(var i = 0; i < borderData.features.length; i++){				
-				countries.push(L.geoJson(borderData.features[i], {
-					onEachFeature: OnEachCountry,
-					style : normalStyle
-				}).addTo(map));
-				countries[countries.length-1].options.name = borderData.features[i].properties.name;
-			}
-		}
-		
-		function addCountry(name){
-			for(var i = 0; i < borderData.features.length; i++){
-				if(borderData.features[i].properties.name == name){					
-					countries.push(L.geoJson(borderData.features[i], {
-						onEachFeature: OnEachCountry,
-						style : normalStyle
-					}).addTo(map));
-					countries[countries.length-1].options.name = borderData.features[i].properties.name;
-				}
-			}
-		}
-		
-		function removeCountry(name){
-			for(var i = 0; i < countries.length; i++){
-				if(countries[i].options.name === name){
-					map.removeLayer(countries[i]);
-					break;
-				}
-			}
-		}
-		
-		function removeCountries(){
-			for(var i = 0; i < countries.length; i++){				
-				map.removeLayer(countries);
-			}
-		}
-		
-		function OnEachCountry(feature, layer){
-			layer.on({
-				click: countryClick,
-				mouseover: countryOver,
-				mouseout: countryOut
-			})
-		}
 		
 		/* Useful to draw borders
 		var borders = [];
@@ -319,65 +281,9 @@
         });
 		*/
 		
-		function countryClick(e){
-			onGreyLayer = false;
-			removeCountries();
-			var greyLayer = [];
-			/*var countryLayers = e.target.feature.geometry.coordinates;
-			jQuery.each(countryLayers, function(){
-				greyLayer[greyLayer.length] = [];
-				jQuery.each($(this).length > 1 ? $(this) : $(this)[0], function(){
-					greyLayer[greyLayer.length-1].push(new L.LatLng($(this)[1], $(this)[0]));
-				});
-			});
-			var greyPolygon = L.mask(greyLayer).on("mouseover", function(e){
-				if(onGreyLayer){
-					map.removeLayer(e.target);
-					addCountries();
-				}
-				onGreyLayer = true;
-			}).addTo(map);
-			greyPolygon.setStyle(greyStyle);*/
-			map.fitBounds(e.target.getBounds());
-			/*if(currentActiveCountry != null){
-				currentActiveCountry.target.setStyle(normalStyle);
-			}*/
-			if(currentActiveCountry.length == 0){
-				$("#filterbox").css("visibility", "visible");
-			}
-			var countryName = e.target.feature.properties.name;
-			if(!isActive(countryName)){
-				currentActiveCountry.push(countryName);
-			}
-			updateMarkers();
-			$("#filterbox").append($("<p id="+countryName.split(" ").join("_").split(".").join("")+">").text(countryName));
-			doBlink("#"+countryName.split(" ").join("_").split(".").join(""), 3);
-			$("#"+countryName.split(" ").join("_").split(".").join("")).click(function(){
-				$(this).slideUp();
-				addCountry($(this)[0].innerText);
-				if(currentActiveCountry.length == 1){
-					currentActiveCountry.pop();
-					$("#filterbox").css("visibility", "hidden");
-				}
-				for(var i = 0; i<currentActiveCountry.length; i++){
-					if(currentActiveCountry[i] === $(this)[0].innerText){
-						currentActiveCountry.splice(i,1);
-					}
-				}
-				updateMarkers();
-			});
-			$("#"+countryName.split(" ").join("_").split(".").join("")).mouseover(function(){
-				$(this).css("background-Color", "#F4FA58");
-			});
-			$("#"+countryName.split(" ").join("_").split(".").join("")).mouseout(function(){
-				$(this).css("background-Color", "#FFFFFF");
-			});
-			removeCountry(countryName);
-		}
-		
 		function updateMarkers(){
 			for(var i = 0; i<currentMarkers.length; i++){
-				if(currentActiveCountry.length == 0){
+				if(currentActiveCountries.length == 0){
 					if(!map.hasLayer(currentMarkers[i])){
 						currentMarkers[i].addTo(map);
 					}
@@ -409,14 +315,10 @@
 		    });
 		}
 		
-		function filterClick(e){
-			console.log();
-		}
-		
 		function isInActiveCountry(eventMarker){
 			var inside = false;
-			for(var i = 0; i < currentActiveCountry.length; i++){
-				if(eventMarker === currentActiveCountry[i]){
+			for(var i = 0; i < currentActiveCountries.length; i++){
+				if(eventMarker === currentActiveCountries[i]){
 					inside = true;
 				}
 			}
@@ -436,37 +338,6 @@
 		}
 		*/
 		
-		function isInCoordinates(coordinates, pointLat, pointLng){
-			var inside = false;
-			for (var i = 0, j = coordinates.length - 1; i < coordinates.length; j = i++) {
-			 	var xi = coordinates[i][0], yi = coordinates[i][1];
-			 	var xj = coordinates[j][0], yj = coordinates[j][1];
-			 	var intersect = ((yi > pointLat) != (yj > pointLat)) && (pointLng < (xj - xi) * (pointLat - yi) / (yj - yi) + xi);
-			 	if (intersect){
-			 		inside = !inside;
-			 	}
-			 }
-			return inside;
-		}
-		
-		function isActive(country){
-			var active = false;
-			jQuery.each(currentActiveCountry, function(){
-				if($(this)[0] === country){
-					active = true;
-				}
-			});
-			return active;
-		}
-		
-		function countryOver(e){
-			e.target.setStyle(highlightStyle);
-		}
-		
-		function countryOut(e){
-			e.target.setStyle(normalStyle);
-		}
-
 		function zoom() {
 			//map.setView(new L.LatLng(e.latlng.lat, e.latlng.lng), 8);
 			for (var i = 0; i < events.length; i++) {
@@ -573,6 +444,12 @@
 			info.innerHTML += "<p>Location: </p>";
 			info.innerHTML += "<p>Start time: </p>";
 			info.innerHTML += "<p>Duration: </p>";
+			
+			makeCityRequests(options.city, options.country);
+		}
+		
+		function makeCityRequests(city, country){
+			var result = $.get( "index.html", { city: city, country: country } );
 		}
 		
 		
@@ -603,9 +480,11 @@
 			},
 
 		});
+		/*
 		L.mask = function (latLngs, options) {
 			return new L.Mask(latLngs, options);
 		};
+		*/
 	</script>
 </body>
 </html>
