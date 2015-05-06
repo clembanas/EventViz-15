@@ -6,6 +6,7 @@
 	href="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.css" />
 <script src="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.js"></script>
 <script src="http://code.jquery.com/jquery-2.1.3.min.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/jquery-ui.min.js"></script>
 <script src="JSON/Borders.js"></script>
 <script src="JSON/Events.js"></script>
 <title>EventViz</title>
@@ -40,16 +41,17 @@
 }
 
 #filterbox {
-	height: 20%;
+	height: 30%;
 	width: 10%;
 	left: 1%;
 	top: 10%;
 	position: absolute;
 	background-color: white;
 	border: 3px solid blue;
-	font-size: 16pt;
+	font-size: 14pt;
 	padding-left: 10px;
-	opacity: 0.5;
+	overflow-y: scroll;
+	opacity: 0.7;
 	visibility: hidden;
 }
 
@@ -255,27 +257,45 @@
 		};
 
 		var currentActiveCountry = [];
-		var countries = null;
+		var countries = [];
 		addCountries();
 		
 		
 		function addCountries(){
-			countries = L.geoJson(borderData, {
-				onEachFeature: OnEachCountry,
-				style : normalStyle
-			}).addTo(map);
-			jQuery.each(currentActiveCountry, function(){
-				var c = $(this)[0];
-				jQuery.each(countries._layers, function(){
-					if($(this)[0].feature == c.target.feature){
-						$(this)[0].setStyle(activeStyle);
-					}
-				});
-			});
+			for(var i = 0; i < borderData.features.length; i++){				
+				countries.push(L.geoJson(borderData.features[i], {
+					onEachFeature: OnEachCountry,
+					style : normalStyle
+				}).addTo(map));
+				countries[countries.length-1].options.name = borderData.features[i].properties.name;
+			}
+		}
+		
+		function addCountry(name){
+			for(var i = 0; i < borderData.features.length; i++){
+				if(borderData.features[i].properties.name == name){					
+					countries.push(L.geoJson(borderData.features[i], {
+						onEachFeature: OnEachCountry,
+						style : normalStyle
+					}).addTo(map));
+					countries[countries.length-1].options.name = borderData.features[i].properties.name;
+				}
+			}
+		}
+		
+		function removeCountry(name){
+			for(var i = 0; i < countries.length; i++){
+				if(countries[i].options.name === name){
+					map.removeLayer(countries[i]);
+					break;
+				}
+			}
 		}
 		
 		function removeCountries(){
-			map.removeLayer(countries);
+			for(var i = 0; i < countries.length; i++){				
+				map.removeLayer(countries);
+			}
 		}
 		
 		function OnEachCountry(feature, layer){
@@ -303,7 +323,7 @@
 			onGreyLayer = false;
 			removeCountries();
 			var greyLayer = [];
-			var countryLayers = e.target.feature.geometry.coordinates;
+			/*var countryLayers = e.target.feature.geometry.coordinates;
 			jQuery.each(countryLayers, function(){
 				greyLayer[greyLayer.length] = [];
 				jQuery.each($(this).length > 1 ? $(this) : $(this)[0], function(){
@@ -317,7 +337,7 @@
 				}
 				onGreyLayer = true;
 			}).addTo(map);
-			greyPolygon.setStyle(greyStyle);
+			greyPolygon.setStyle(greyStyle);*/
 			map.fitBounds(e.target.getBounds());
 			/*if(currentActiveCountry != null){
 				currentActiveCountry.target.setStyle(normalStyle);
@@ -325,32 +345,86 @@
 			if(currentActiveCountry.length == 0){
 				$("#filterbox").css("visibility", "visible");
 			}
-			if(!isActive(e)){
-				currentActiveCountry.push(e);
+			var countryName = e.target.feature.properties.name;
+			if(!isActive(countryName)){
+				currentActiveCountry.push(countryName);
 			}
+			updateMarkers();
+			$("#filterbox").append($("<p id="+countryName.split(" ").join("_").split(".").join("")+">").text(countryName));
+			doBlink("#"+countryName.split(" ").join("_").split(".").join(""), 3);
+			$("#"+countryName.split(" ").join("_").split(".").join("")).click(function(){
+				$(this).slideUp();
+				addCountry($(this)[0].innerText);
+				if(currentActiveCountry.length == 1){
+					currentActiveCountry.pop();
+					$("#filterbox").css("visibility", "hidden");
+				}
+				for(var i = 0; i<currentActiveCountry.length; i++){
+					if(currentActiveCountry[i] === $(this)[0].innerText){
+						currentActiveCountry.splice(i,1);
+					}
+				}
+				updateMarkers();
+			});
+			$("#"+countryName.split(" ").join("_").split(".").join("")).mouseover(function(){
+				$(this).css("background-Color", "#F4FA58");
+			});
+			$("#"+countryName.split(" ").join("_").split(".").join("")).mouseout(function(){
+				$(this).css("background-Color", "#FFFFFF");
+			});
+			removeCountry(countryName);
+		}
+		
+		function updateMarkers(){
 			for(var i = 0; i<currentMarkers.length; i++){
-				if(!isInActiveCountry(currentMarkers[i])){
-					map.removeLayer(currentMarkers[i]);
+				if(currentActiveCountry.length == 0){
+					if(!map.hasLayer(currentMarkers[i])){
+						currentMarkers[i].addTo(map);
+					}
 				}
-				else if(!map.hasLayer(currentMarkers[i])){
-					currentMarkers[i].addTo(map);
+				else{					
+					if(!isInActiveCountry(currentMarkers[i].options.country)){
+						map.removeLayer(currentMarkers[i]);
+					}
+					else if(!map.hasLayer(currentMarkers[i])){
+						currentMarkers[i].addTo(map);
+					}
 				}
 			}
-			e.target.setStyle(activeStyle);
+		}
+		
+		function doBlink(id, count) {
+		    $(id).animate({ backgroundColor: "#F4FA58" }, {
+		        duration: 100, 
+		        complete: function() {
+		            $(id).delay(100).animate({ backgroundColor: "#ffffff" }, {
+		                duration: 100,
+		                complete: function() {
+		                    if(count > 1) {
+		                        doBlink(id, --count);
+		                    }
+		                }
+		            });
+		        }
+		    });
+		}
+		
+		function filterClick(e){
+			console.log();
 		}
 		
 		function isInActiveCountry(eventMarker){
 			var inside = false;
-			jQuery.each(currentActiveCountry, function(){
-				if(isInCountry($(this)[0], eventMarker)){
+			for(var i = 0; i < currentActiveCountry.length; i++){
+				if(eventMarker === currentActiveCountry[i]){
 					inside = true;
 				}
-			});
+			}
 			return inside;
 		}
 		
-		function isInCountry(e, eventMarker) {
-			var coordinates = e.target.feature.geometry.coordinates;
+		/*
+		function isInCountry(countryName, eventMarker) {
 			inside = false;
 			for(var m = 0; m< coordinates.length; m++){
 				var inside = isInCoordinates(e.target.feature.geometry.type == "Polygon" ? coordinates[m] : coordinates[m][0], eventMarker._latlng.lat, eventMarker._latlng.lng);
@@ -360,6 +434,7 @@
 			}
 			return inside;
 		}
+		*/
 		
 		function isInCoordinates(coordinates, pointLat, pointLng){
 			var inside = false;
@@ -377,7 +452,7 @@
 		function isActive(country){
 			var active = false;
 			jQuery.each(currentActiveCountry, function(){
-				if($(this)[0].target.feature.properties.name === country.target.feature.properties.name){
+				if($(this)[0] === country){
 					active = true;
 				}
 			});
@@ -385,15 +460,11 @@
 		}
 		
 		function countryOver(e){
-			if(!isActive(e) ){
-				e.target.setStyle(highlightStyle);
-			}
+			e.target.setStyle(highlightStyle);
 		}
 		
 		function countryOut(e){
-			if(!isActive(e) ){	
-				e.target.setStyle(normalStyle);
-			}
+			e.target.setStyle(normalStyle);
 		}
 
 		function zoom() {
