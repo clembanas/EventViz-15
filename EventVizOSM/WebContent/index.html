@@ -79,22 +79,35 @@
 	position: absolute;
 	background-color: white;
 	border: 3px solid blue;
-	font-size: 16pt;
+	font-size: 14pt;
 	padding-left: 10px;
 	opacity: 0.8;
 	visibility: hidden;
 	z-index : 1;
 }
 
+#navigation {
+	left: 10px;
+	position: absolute;
+}
+
+.navElement {
+	margin: 0;
+	padding-top: 5px;
+	padding-right: 5px;
+	display: inline-block;
+}
+
 #info {
-	top: 10px;
+	top: 25px;
 	left: 10px;
 	width: 50%;
+	font-size: 16pt;
 	height: 100%;
 	position: absolute;
 }
 #image {
-	top: 20px;
+	top: 35px;
 	right: 20px;
 	width: 200px;
 	height: 300px;
@@ -170,6 +183,9 @@
 		<ol id="floatingList"></ol>
 		</div>
 		<div id="infobox">
+			<div id="navigation">
+				<p class="navElement" id="navEvent">Event ></p>
+			</div>
 			<div id="info"></div>
 			<div id="image">image</div>
 		</div>
@@ -181,6 +197,13 @@
 		<div id="social"> social mention information</div>
 	</div>
 	<script>
+		$("#navEvent").click(function(){
+			jQuery.each($(this).nextAll(), function(){
+				$(this).remove();
+			});
+			infoboxEvent();
+		});
+	
 		$("#pullButton").click(function(){
 			if($("#infobox2").css("visibility") === "visible"){				
 				pullBackInfobox2();
@@ -219,6 +242,8 @@
 			zoom : 2
 		});
 		
+		var showInfo = false;
+		
 		L.tileLayer('http://{s}.mqcdn.com/tiles/1.0.0/map/{z}/{x}/{y}.png',{
 			subdomains : [ 'otile1', 'otile2', 'otile3', 'otile4' ]
 		}).addTo(map);
@@ -237,6 +262,29 @@
 			iconSize : [ 12, 12 ],
 			iconAnchor : [ 6, 6 ]
 		});
+		
+		var currentEvent = {
+			name: "Event",
+			description: "Description",
+			city: "city",
+			country: "country",
+			location: "location",
+			startTime: "time",
+			duration: "duration"
+		}
+		
+		var currentCity = {
+			name: "City",
+			country: "Country",
+			population: "Population"
+		}
+		
+		var currentCountry = {
+			name: "Country",
+			capital: "Capital",
+			population: "Population",
+			area: "Area"
+		}
 		
 		var currentMarkers = [];
 
@@ -304,19 +352,20 @@
 		}
 		
 		map.on("zoomend", function(e){
-			if($(this)[0]._zoom >= 8 && $("#infobox").css("visibility") == "hidden"){
+			if($(this)[0]._zoom < 8 && $("#floatingInfo").css("visibility") == "visible"){
+				$("#floatingInfo").animate({"width": "-=20%" }, 200, function(){
+					$(this).css("visibility", "hidden");
+				});
+			}
+			else if($(this)[0]._zoom >= 8 && $("#infobox").css("visibility") == "hidden" && !showInfo){
 				if($("#floatingInfo").css("visibility") == "hidden"){
 					$("#floatingInfo").css("visibility", "visible");
 					$("#floatingInfo").animate({"width": "+=20%"}, 200);
 				}
 				updateFloatingInfobox();
 			}
-			else if($(this)[0]._zoom < 8 && $("#floatingInfo").css("visibility") == "visible"){
-				$("#floatingInfo").animate({"width": "-=20%" }, 200, function(){
-					$(this).css("visibility", "hidden");
-				});
-			}
 			else if($("#infobox").css("visibility") == "visible" && $(this)[0]._zoom < 15){
+				showInfo = false;
 				$("#infobox").css("visibility", "hidden");
 				$.when($.ajax(pullBackInfobox2())).then(function () {
 					$("#pullButton").css("visibility", "hidden");
@@ -505,74 +554,151 @@
 		}
 		
 		function clickMarker(marker){
+			showInfo = true;
 			removeCountries();
 			var tmpLatLng = marker.latlng == undefined ?  $.extend( {}, marker._latlng  ): $.extend({}, marker.latlng  );
 			tmpLatLng.lng += 0.01021508561708;
 			tmpLatLng.lat -= 0.003382020592895;
 			var options = marker.target == undefined ? marker.options : marker.target.options;
 			map.setView(tmpLatLng, 16);
-			var mapDiv = document.getElementById("map");
-			var infobox = document.getElementById("infobox");
-			infobox.style.visibility = "visible";
-			$("#floatingInfo").animate({"width": "-=20%" }, 200, function(){
-				$(this).css("visibility", "hidden");
-			});
-			var social = document
-					.getElementById("social");
-			social.style.visibility = "visible";
-			var info = document.getElementById("info");
-			$("#info").empty();
-			$("#info").append($("<p>").text("Name: " + options.name));
-			$("#info").append($("<p>").text("Description: " + options.description));
-			$("#info").append($("<p id=city>").text("City: " + options.city));
-			$("#info").append($("<p id=country>").text("Country: " + options.country));
-			$("#info").append($("<p id=location>").text("Location: "));
-			$("#info").append($("<p>").text("Start time: "));
-			$("#info").append($("<p>").text("Duration: "));
+			$("#infobox").css("visibility", "visible");
+			if($("#floatingInfo").css("visibility") === "visible"){				
+				$("#floatingInfo").animate({"width": "-=20%" }, 200, function(){
+					$(this).css("visibility", "hidden");
+				});
+			}
 			
-			$("#city").click(function(){
-				$("#info2").empty();
-				$("#info2").append($("<p>").text("City Information"));
-				pullOutInfobox2();
-			})
-			$("#city").mouseover(function(){
-				$(this).css("background-Color", "#F4FA58");
-			});
-			$("#city").mouseout(function(){
-				$(this).css("background-Color", "#FFFFFF");
-			});
-			
-			$("#country").click(function(){
-				$("#info2").empty();
-				$("#info2").append($("<p>").text("Country Information"));
-				pullOutInfobox2();
-			})
-			$("#country").mouseover(function(){
-				$(this).css("background-Color", "#F4FA58");
-			});
-			$("#country").mouseout(function(){
-				$(this).css("background-Color", "#FFFFFF");
-			});
-			
-			$("#location").click(function(){
-				$("#info2").empty();
-				$("#info2").append($("<p>").text("Location Information"));
-				pullOutInfobox2();
-			})
-			$("#location").mouseover(function(){
-				$(this).css("background-Color", "#F4FA58");
-			});
-			$("#location").mouseout(function(){
-				$(this).css("background-Color", "#FFFFFF");
-			});
-			
-			makeCityRequests(options.city, options.country);
+			$("#social").css("visibility", "visible");
+			currentEvent.name = options.name;
+			currentEvent.description = options.description;
+			currentEvent.city = options.city;
+			currentEvent.country = options.country;
+			infoboxEvent();
 		}
 		
 		function makeCityRequests(city, country){
 			var result = $.get( "index.html", { city: city, country: country } );
+			result = {
+				name: "City",
+				country: "Country",
+				population: "5000"
+			}
+			currentCity.name = result.name;
+			currentCity.country = result.country;
+			currentCity.population = result.population;
 		}
 		
+		function makeCountryRequests(country){
+			var result = $.get( "index.html", { country: country } );
+			result = {
+				name: "Country",
+				capital: "Capital",
+				population: "5000",
+				area: "3000"
+			}
+			currentCountry.name = result.name;
+			currentCountry.capital = result.capital;
+			currentCountry.population = result.population;
+			currentCountry.area = result.area;
+		}
+		
+		function infoboxEvent(){
+			$("#info").empty();
+			$("#info").append($("<p id=eventName>").text("Name: " + currentEvent.name));
+			$("#info").append($("<p id=eventDescription>").text("Description: " + currentEvent.description));
+			$("#info").append($("<p id=eventCity>").text("City: " + currentEvent.city));
+			$("#info").append($("<p id=eventCountry>").text("Country: " + currentEvent.country));
+			$("#info").append($("<p id=eventLocation>").text("Location: "));
+			$("#info").append($("<p id=eventTime>").text("Start time: "));
+			$("#info").append($("<p id=eventDuration>").text("Duration: "));
+			
+			$("#eventCity").click(function(){
+				makeCityRequests(currentEvent.city, currentEvent.country);
+				infoboxCity();
+				$("#navigation").append($("<p class=navElement id=navCity>").text("City >"));
+				$("#navCity").click(function(){
+					jQuery.each($(this).nextAll(), function(){
+						$(this).remove();
+					});
+					infoboxCity();
+				});
+				/*$("#info2").empty();
+				$("#info2").append($("<p>").text("City Information"));
+				pullOutInfobox2();*/
+			})
+			$("#eventCity").mouseover(function(){
+				$(this).css("background-Color", "#F4FA58");
+			});
+			$("#eventCity").mouseout(function(){
+				$(this).css("background-Color", "#FFFFFF");
+			});
+			
+			$("#eventCountry").click(function(){
+				makeCountryRequests(currentEvent.country);
+				infoboxCountry();
+				$("#navigation").append($("<p class=navElement id=navCountry>").text("Country >"));
+				$("#navCountry").click(function(){
+					jQuery.each($(this).nextAll(), function(){
+						$(this).remove();
+					});
+					infoboxCountry();
+				});
+				/*$("#info2").empty();
+				$("#info2").append($("<p>").text("Country Information"));
+				pullOutInfobox2();*/
+			})
+			$("#eventCountry").mouseover(function(){
+				$(this).css("background-Color", "#F4FA58");
+			});
+			$("#eventCountry").mouseout(function(){
+				$(this).css("background-Color", "#FFFFFF");
+			});
+			
+			$("#eventLocation").click(function(){
+				/*$("#info2").empty();
+				$("#info2").append($("<p>").text("Location Information"));
+				pullOutInfobox2();*/
+			})
+			$("#eventLocation").mouseover(function(){
+				$(this).css("background-Color", "#F4FA58");
+			});
+			$("#eventLocation").mouseout(function(){
+				$(this).css("background-Color", "#FFFFFF");
+			});
+		}
+		
+		function infoboxCity(){
+			$("#info").empty();
+			$("#info").append($("<p id=cityName>").text("Name: " + currentCity.name));
+			$("#info").append($("<p id=cityCountry>").text("Country: " + currentCity.country));
+			$("#info").append($("<p id=cityPopulation>").text("Population: " + currentCity.population));
+			
+			$("#cityCountry").click(function(){
+				makeCountryRequests(currentCity.country);
+				infoboxCountry();
+				$("#navigation").append($("<p class=navElement id=navCountry>").text("Country >"));
+				$("#navCountry").click(function(){
+					jQuery.each($(this).nextAll(), function(){
+						$(this).remove();
+					});
+					infoboxCountry();
+				});
+			})
+			$("#cityCountry").mouseover(function(){
+				$(this).css("background-Color", "#F4FA58");
+			});
+			$("#cityCountry").mouseout(function(){
+				$(this).css("background-Color", "#FFFFFF");
+			});
+		}
+		
+		function infoboxCountry(){
+			$("#info").empty();
+			$("#info").append($("<p id=countryName>").text("Name: " + currentCountry.name));
+			$("#info").append($("<p id=countryCountry>").text("Capital: " + currentCountry.capital));
+			$("#info").append($("<p id=countryPopulation>").text("Population: " + currentCountry.population));
+			$("#info").append($("<p id=countryArea>").text("Area: " + currentCountry.area));
+		}
 		
 		L.Mask = L.Polygon.extend({
 			options: {
