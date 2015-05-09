@@ -12,6 +12,9 @@ public class Main_InfoCrawlers {
 	public static final boolean DEBUG_SPARQL_RESULTS = true;
 	public static final boolean DEBUG_SPARQL_NO_QUERY_STR = false;
 	public static final boolean DEBUG_CRAWLER_MGR = true;
+	//Database settings
+	public static final Class<? extends DBConnection> DB_CONNECTION_CLASS = 
+		DBConnection_Derby.class;
 	//DBPedia endpoints
 	public static final String[] DBPEDIA_ENDPOINTS = new String[]{"http://dbpedia.org/sparql", 
 		"http://live.de.dbpedia.org/sparql"};
@@ -31,6 +34,8 @@ public class Main_InfoCrawlers {
 		CrawlerManager.DEBUG = DEBUG_CRAWLER_MGR;
 		CrawlerBase.debug_crawlers(CrawlerBase.class, DBQueryBasedCrawler.class, 
 			BandInfoCrawler.class, CityInfoCrawler.class);
+		//Setup database connection class
+		DBConnection.DB_CONNECTION_CLASS = DB_CONNECTION_CLASS;
 		//Register crawler classes
 		CrawlerManager.registerCrawler(BandInfoCrawler.class, 
 			Utils.createPair(DBPEDIA_ENDPOINTS, DB_UPDATE_INTERVAL));

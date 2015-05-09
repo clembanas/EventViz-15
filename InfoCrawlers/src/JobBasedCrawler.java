@@ -54,7 +54,7 @@ public abstract class JobBasedCrawler extends CrawlerBase {
 		while (!job.done);
 	}
 	
-	public void execute(ExecutorService thdPool)
+	public void execute(ExecutorService thdPool, DBConnection dbConnection)
 	{
 		final int workerThdCnt = getWorkerThdCount();
 		workerJobs = new  ArrayBlockingQueue<WorkerJobBase>(QUEUE_SIZE_MULTI * workerThdCnt);
@@ -62,6 +62,7 @@ public abstract class JobBasedCrawler extends CrawlerBase {
 		Utils.Pair<WorkerJobBase, Object> nextJob;
 
 		associateThdPool(thdPool);
+		associateDBConnection(dbConnection);
 		debug_print("Crawler started...", JobBasedCrawler.class);
 		try {
 			nextJob = getNextWorkerJob(null);

@@ -31,6 +31,7 @@ public abstract class CrawlerBase {
 	private static Set<Class<?>> debug_crawlerClasses = new HashSet<Class<?>>();
 	private ExecutorService thdPool;
 	private List<Future<?>> pendingWorkerThds = new ArrayList<Future<?>>();
+	protected DBConnection dbConnection;
 	
 	protected abstract int getWorkerThdCount();
 	protected abstract void workerThd_run();
@@ -70,6 +71,11 @@ public abstract class CrawlerBase {
 		this.thdPool = thdPool;
 	}
 	
+	protected void associateDBConnection(DBConnection dbConn)
+	{
+		this.dbConnection = dbConn;
+	}
+	
 	protected void startWorkerThd()
 	{
 		synchronized (pendingWorkerThds) {
@@ -104,11 +110,12 @@ public abstract class CrawlerBase {
 	{
 	}
 	
-	public void execute(ExecutorService thdPool)
+	public void execute(ExecutorService thdPool, DBConnection dbConnection)
 	{
 		final int workerThdCnt = getWorkerThdCount();
 
 		associateThdPool(thdPool);
+		associateDBConnection(dbConnection);
 		debug_print("Crawler started...", CrawlerBase.class);
 		try {
 			for (int i = 0; i < workerThdCnt; ++i)

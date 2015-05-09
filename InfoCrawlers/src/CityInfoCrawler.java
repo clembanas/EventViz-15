@@ -125,8 +125,9 @@ public class CityInfoCrawler extends SparqlCrawlerBase {
 			public boolean store(QueryContext queryContext)
 			{
 				try {
-					DBConnection.updateCity(Integer.valueOf(queryContext.getDataRow()[0]), latitude, 
-						longitude, regionName == null ? queryContext.getDataRow()[2] : regionName, 
+					queryContext.getDBConnection().updateCity(
+						Integer.valueOf(queryContext.getDataRow()[0]), latitude, longitude, 
+						regionName == null ? queryContext.getDataRow()[2] : regionName, 
 						countryName == null ? queryContext.getDataRow()[3] : countryName, 
 						cityResID);
 					updatedCityCnt.incrementAndGet();
@@ -387,7 +388,7 @@ public class CityInfoCrawler extends SparqlCrawlerBase {
 	{
 		if (customData != null)
 			return null;
-		return Utils.createPair(DBConnection.getIncompleteCities(dbUpdateInterval), new Object());
+		return Utils.createPair(dbConnection.getIncompleteCities(dbUpdateInterval), new Object());
 	}
 
 	protected int getWorkerThdCount() 

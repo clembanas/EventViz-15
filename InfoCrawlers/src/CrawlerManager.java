@@ -60,7 +60,7 @@ public class CrawlerManager {
 									  ctorData);
 					CrawlerManager.debug_print("Executing crawler '" + crawlerClass.getName() + 
 						"' ... ");
-					crawler.execute(thdPool);
+					crawler.execute(thdPool, dbConn);
 					crawler = null;
 					CrawlerManager.debug_print("Executing crawler '" + crawlerClass.getName() + 
 						"' ... Done");
@@ -134,6 +134,7 @@ public class CrawlerManager {
 	
 	
 	private static ExecutorService thdPool = Executors.newCachedThreadPool();
+	private static DBConnection dbConn = null;
 	private static Map<Class<? extends CrawlerBase>, CrawlerCtrlr> crawlerCtrlrs = 
 		new HashMap<Class<? extends CrawlerBase>, CrawlerCtrlr>();
 	
@@ -178,7 +179,8 @@ public class CrawlerManager {
 	public static void executeAll()
 	{
 		try {
-			DBConnection.connect();
+			dbConn = DBConnection.getInstance();
+			dbConn.connect();
 			for (CrawlerCtrlr crawlerCtrlr: crawlerCtrlrs.values()) 
 				crawlerCtrlr.start();
 		} 
@@ -189,7 +191,9 @@ public class CrawlerManager {
 			for (CrawlerCtrlr crawlerCtrlr: crawlerCtrlrs.values()) 
 				crawlerCtrlr.join();
 			try {
-				DBConnection.disconnect();
+				if (dbConn != null)
+					dbConn.disconnect();
+				dbConn = null;
 			}
 			catch (Exception e) {
 				ExceptionHandler.handle(e, "Failed to disconnect from database!\n");

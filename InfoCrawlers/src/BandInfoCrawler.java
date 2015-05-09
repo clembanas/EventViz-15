@@ -193,18 +193,19 @@ public class BandInfoCrawler extends SparqlCrawlerBase {
 			public boolean store()
 			{
 				String bandID = queryContext.getDataRow()[0];
+				DBConnection dbConn = queryContext.getDBConnection();
 				
 				try {
 					//Store band artists
 					for (Artist artist: artists.values()) {
-						DBConnection.insertBandArtist(Integer.valueOf(bandID), artist.name, 
+						dbConn.insertBandArtist(Integer.valueOf(bandID), artist.name, 
 							artist.altName,	artist.memberType.toChar(), 
 							(artist.memberType == BandMemberType.BAND_IS_ARTIST && 
 							artist.resID == null ? bandResID : artist.resID));
 						addedArtistCnt.incrementAndGet();
 					}
 					//Update band's DBpedia resource identifier
-					DBConnection.updateBand(Integer.valueOf(bandID), bandResID);
+					dbConn.updateBand(Integer.valueOf(bandID), bandResID);
 					updatedBandCnt.incrementAndGet();
 				}
 				catch (Exception e) {
@@ -266,7 +267,7 @@ public class BandInfoCrawler extends SparqlCrawlerBase {
 	{
 		if (customData != null)
 			return null;
-		return Utils.createPair(DBConnection.getIncompleteBands(dbUpdateInterval), new Object());
+		return Utils.createPair(dbConnection.getIncompleteBands(dbUpdateInterval), new Object());
 	}
 
 	protected int getWorkerThdCount() 

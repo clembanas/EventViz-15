@@ -203,6 +203,11 @@ public abstract class SparqlCrawlerBase extends DBQueryBasedCrawler {
 			return queryIdx;
 		}
 		
+		public DBConnection getDBConnection()
+		{
+			return SparqlCrawlerBase.this.dbConnection; 
+		}
+		
 		public String[] getDataRow() 
 		{
 			return dataRow;
