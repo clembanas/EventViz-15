@@ -2,7 +2,7 @@
  * @author Bernhard Weber
  */
 
-public class Main {
+public class Main_InfoCrawlers {
 	
 	//Debug settings
 	public static final boolean DEBUG_DB = true;
