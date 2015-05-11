@@ -2,20 +2,21 @@
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
-<link rel="stylesheet"
-	href="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.css" />
+<link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.css" />
 <script src="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.js"></script>
 <script src="http://code.jquery.com/jquery-2.1.3.min.js"></script>
-<script src="@routes.Assets.at("/public/javascripts", "Borders.js")"></script>
-<script src="@routes.Assets.at("/public/javascripts", "Events.js")"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/jquery-ui.min.js"></script>
+<script src="JavaScript/Borders.js"></script>
+<script src="JavaScript/Events.js"></script>
+<script src="JavaScript/CountryOperations.js"></script>
 <title>EventViz</title>
-
 
 <style>
 #container {
 	height: 800px;
 	width: 100%;
 	position: relative;
+	z-index:0;
 }
 
 #map {
@@ -24,6 +25,34 @@
 	top: 0;
 	left: 0;
 	position: absolute;
+}
+
+#search {
+	height: 6%;
+	width: 20%;
+	left: 1%;
+	top: 2%;
+	position: absolute;
+	background-color: white;
+	border: 3px solid blue;
+	font-size: 16pt;
+	padding-left: 10px;
+	opacity: 0.8;
+}
+
+#filterbox {
+	height: 30%;
+	width: 10%;
+	left: 1%;
+	top: 10%;
+	position: absolute;
+	background-color: white;
+	border: 3px solid blue;
+	font-size: 14pt;
+	padding-left: 10px;
+	overflow-y: scroll;
+	opacity: 0.7;
+	visibility: hidden;
 }
 
 #floatingInfo {
@@ -37,6 +66,7 @@
 	font-size: 16pt;
 	padding-left: 10px;
 	overflow-y: scroll;
+	opacity: 0.8;
 	visibility: hidden;
 }
 
@@ -47,27 +77,85 @@
 	position: absolute;
 	background-color: white;
 	border: 3px solid blue;
-	font-size: 16pt;
+	font-size: 14pt;
 	padding-left: 10px;
 	opacity: 0.8;
 	visibility: hidden;
+	z-index : 1;
 }
 
-#info {
-	top: 10px;
+#navigation {
 	left: 10px;
-	width: 50%;
-	height: 100%;
 	position: absolute;
 }
 
+.navElement {
+	margin: 0;
+	padding-top: 5px;
+	padding-right: 5px;
+	display: inline-block;
+}
+
+#info {
+	top: 25px;
+	left: 10px;
+	width: 50%;
+	font-size: 16pt;
+	height: 100%;
+	position: absolute;
+}
 #image {
+	top: 35px;
+	right: 20px;
+	width: 200px;
+	height: 300px;
+	background-color: red;
+	position: absolute;
+}
+
+#infobox2 {
+	height: 99%;
+	width: 0%;
+	right: 0;
+	top: 1%;
+	position: absolute;
+	visibility: hidden;
+	z-index : 2;
+}
+
+#info2 {
+	top: 0;
+	right: 0;
+	height: calc(100% - 6px);
+	width: calc(100% - 16px);
+	background-color: white;
+	font-size: 16pt;
+	padding-left: 10px;
+	border: 3px solid blue;
+	position: absolute;
+}
+
+#image2 {
 	top: 20px;
 	right: 20px;
 	width: 200px;
 	height: 300px;
 	background-color: red;
 	position: absolute;
+}
+
+#pullButton {
+	height: 8%;
+	width: 1%;
+	left: 99%;
+	top: 0%;
+	z-index: 2;
+	background-image: url("image/PullButton.png");
+	background-size: contain;
+	background-repeat: no-repeat;
+	transform: rotate(0deg);
+	position: absolute;
+	visibility: hidden;
 }
 
 #social {
@@ -87,16 +175,63 @@
 <body>
 	<div id="container">
 		<div id="map"></div>
+		<input id="search"/>
+		<div id="filterbox"></div>
 		<div id="floatingInfo">
 		<ol id="floatingList"></ol>
 		</div>
 		<div id="infobox">
+			<div id="navigation">
+				<p class="navElement" id="navEvent">Event ></p>
+			</div>
 			<div id="info"></div>
 			<div id="image">image</div>
+		</div>
+		<span id="pullButton"></span>
+		<div id="infobox2">
+			<div id="info2"></div>
+			<div id="image2">image</div>
 		</div>
 		<div id="social"> social mention information</div>
 	</div>
 	<script>
+		$("#navEvent").click(function(){
+			jQuery.each($(this).nextAll(), function(){
+				$(this).remove();
+			});
+			infoboxEvent();
+		});
+	
+		$("#pullButton").click(function(){
+			if($("#infobox2").css("visibility") === "visible"){				
+				pullBackInfobox2();
+			}else{
+				pullOutInfobox2();
+			}
+		});
+		
+		function pullOutInfobox2(){
+			if($("#pullButton").css("visibility") === "hidden"){
+				$("#pullButton").css("visibility", "visible");
+			}
+			$("#pullButton").animate({"top": "46%"}, 200, function(){
+				$(this).css("transform", "rotate(180deg)");
+				$(this).animate({"left": "53%"}, 200);
+				$("#infobox2").css("visibility", "visible");
+				$("#infobox2").animate({"width": "46%"}, 200);
+			});
+		};
+		
+		function pullBackInfobox2(){
+			$("#infobox2").animate({"width": "0"}, 200, function(){
+				$(this).css("visibility", "hidden");
+			});
+			$("#pullButton").animate({"left": "99%"}, 200, function(){
+				$(this).css("transform", "rotate(0deg)");
+				$(this).animate({"top": "0%"}, 200);
+			});
+		};
+	
 		var map = L.map('map', {
 			attributionControl : false,
 			center : [ 20.0, 5.0 ],
@@ -105,32 +240,147 @@
 			zoom : 2
 		});
 		
-		var visibleMarkers = [];
+		var showInfo = false;
+		
+		L.tileLayer('http://{s}.mqcdn.com/tiles/1.0.0/map/{z}/{x}/{y}.png',{
+			subdomains : [ 'otile1', 'otile2', 'otile3', 'otile4' ]
+		}).addTo(map);
+		
+		var hoverCountry = null;
+		var onGreyLayer = false;
+		
+		//set icons for events
+		var redIconHover = L.icon({
+			iconUrl: 'Icon/RedDotHover.png',
+			iconSize : [ 12, 12 ],
+			iconAnchor : [ 6, 6 ]
+		});
+		var redIcon = L.icon({
+			iconUrl : 'Icon/RedDot.png',
+			iconSize : [ 12, 12 ],
+			iconAnchor : [ 6, 6 ]
+		});
+		
+		var currentEvent = {
+			name: "Event",
+			description: "Description",
+			city: "city",
+			country: "country",
+			location: "location",
+			startTime: "time",
+			duration: "duration"
+		}
+		
+		var currentCity = {
+			name: "City",
+			country: "Country",
+			population: "Population"
+		}
+		
+		var currentCountry = {
+			name: "Country",
+			capital: "Capital",
+			population: "Population",
+			area: "Area"
+		}
+		
+		var currentMarkers = [];
+
+		//define sytles for country layers
+		var normalStyle = {
+			color : '#0033ff',
+			weight : 1,
+			opacity : 0.1,
+			fillOpacity : 0.01,
+			fillColor : '#0033ff'
+		};		
+		var highlightStyle = {
+			color : '#0033ff',
+			weight : 1,
+			opacity : 0.4,
+			fillOpacity : 0.2,
+			fillColor : '#0033ff'
+		};		
+		var activeStyle = {
+			color : '#0033ff',
+			weight : 1,
+			opacity : 0.2,
+			fillOpacity : 0.1,
+			fillColor : '#0033ff'
+		};
+		var greyStyle = {
+			color : '#808080',
+			weight : 0,
+			opacity : 0.8,
+			fillOpacity : 0.8,
+			fillColor : '#808080'
+		};
+
+		var currentActiveCountries = [];
+		var countries = [];
+		
+		function updateFloatingInfobox(){
+			$("#floatingList").empty();				
+			for(var i = 0; i<currentMarkers.length; i++){
+				if(isMarkerVisible(currentMarkers[i])){
+					$("#floatingList").append($("<li id="+currentMarkers[i]._leaflet_id+">").text(currentMarkers[i].options.name));
+					$("#" + currentMarkers[i]._leaflet_id).click(function(e){
+						for(var j = 0; j < currentMarkers.length; j++){
+							if(currentMarkers[j]._leaflet_id == e.currentTarget.id){
+								clickMarker(currentMarkers[j]);
+							}
+						}
+					}).hover(function(e){
+						$(this).css("background-Color", "#F4FA58");
+						for(var j = 0; j < currentMarkers.length; j++){
+							if(currentMarkers[j]._leaflet_id == e.currentTarget.id){
+								hoverMarker(currentMarkers[j]);
+							}
+						}
+					}).mouseout(function(e){
+						$(this).css("background-Color", "#FFFFFF");
+						for(var j = 0; j < currentMarkers.length; j++){
+							if(currentMarkers[j]._leaflet_id == e.currentTarget.id){
+								hoverExitMarker(currentMarkers[j]);
+							}
+						}
+					});
+				}
+			}
+		}
 		
 		map.on("zoomend", function(e){
-			if($(this)[0]._zoom >= 8 && $("#floatingInfo").css("visibility") == "hidden" && $("#infobox").css("visibility") == "hidden"){
-				$("#floatingInfo").css("visibility", "visible");
-				$("#floatingInfo").animate({"width": "+=20%"}, 200);
-				$("#floatingList").empty();				
-				for(var i = 0; i<currentMarkers.length; i++){
-					if(isMarkerVisible(currentMarkers[i])){
-						console.log("true");
-						$("#floatingList").append($("<li id="+currentMarkers[i]._leaflet_id+">").text(currentMarkers[i].options.name));
-						$("#" + currentMarkers[i]._leaflet_id).click(function(e){
-							for(var j = 0; j < currentMarkers.length; j++){
-								if(currentMarkers[j]._leaflet_id == e.currentTarget.id){
-									clickMarker(currentMarkers[j]);
-								}
-							}
-						});
-					}
-				}
-				
-			}
-			else if($(this)[0]._zoom < 8 && $("#floatingInfo").css("visibility") == "visible"){
+			if($(this)[0]._zoom < 8 && $("#floatingInfo").css("visibility") == "visible"){
 				$("#floatingInfo").animate({"width": "-=20%" }, 200, function(){
 					$(this).css("visibility", "hidden");
 				});
+			}
+			else if($(this)[0]._zoom >= 8 && $("#infobox").css("visibility") == "hidden" && !showInfo){
+				if($("#floatingInfo").css("visibility") == "hidden"){
+					$("#floatingInfo").css("visibility", "visible");
+					$("#floatingInfo").animate({"width": "+=20%"}, 200);
+				}
+				updateFloatingInfobox();
+			}
+			else if($("#infobox").css("visibility") == "visible" && $(this)[0]._zoom < 15){
+				showInfo = false;
+				$("#infobox").css("visibility", "hidden");
+				$.when($.ajax(pullBackInfobox2())).then(function () {
+					$("#pullButton").css("visibility", "hidden");
+				});
+				$("#social").css("visibility", "hidden");
+				$("#floatingInfo").css("visibility", "visible");
+				$("#floatingInfo").animate({"width": "+=20%"}, 200);
+				updateFloatingInfobox();
+				if(hoverCountry != null){
+					countryOver(hoverCountry);
+				}
+			}
+		});
+		
+		map.on("moveend", function(e){
+			if($("#floatingInfo").css("visibility") == "visible"){
+				updateFloatingInfobox();
 			}
 		});
 		
@@ -144,74 +394,10 @@
 			return isInCoordinates(coordinates, marker._latlng.lng, marker._latlng.lat);
 		}
 		
-		var smallRedIcon = L.icon({
-			iconUrl : 'Icon/RedDot.png',
-			iconSize : [ 6, 6 ],
-			iconAnchor : [ 3, 3 ]
-		});
-
-		var redIcon = L.icon({
-			iconUrl : 'Icon/RedDot.png',
-			iconSize : [ 12, 12 ],
-			iconAnchor : [ 6, 6 ]
-		});
-
-		L.tileLayer(
-						'http://{s}.mqcdn.com/tiles/1.0.0/map/{z}/{x}/{y}.png',
-						{
-							subdomains : [ 'otile1', 'otile2', 'otile3', 'otile4' ]
-						}).addTo(map);
-		var currentMarkers = [];
-		zoom();
-		var GEOdata = [];
-
-		var normalStyle = {
-			color : '#0033ff',
-			weight : 1,
-			opacity : 0.1,
-			fillOpacity : 0.01,
-			fillColor : '#0033ff'
-		};
-		
-		var highlightStyle = {
-			color : '#0033ff',
-			weight : 1,
-			opacity : 0.4,
-			fillOpacity : 0.2,
-			fillColor : '#0033ff'
-		};
-		
-		var activeStyle = {
-			color : '#0033ff',
-			weight : 1,
-			opacity : 0.2,
-			fillOpacity : 0.1,
-			fillColor : '#0033ff'
-		};
-	
-		var currentActiveCountry = null;
-		var countries = null;
 		addCountries();
+		zoom();
 		
 		
-		function addCountries(){
-			countries = L.geoJson(borderData, {
-				onEachFeature: OnEachCountry,
-				style : normalStyle
-			}).addTo(map);
-		}
-		
-		function removeCountries(){
-			map.removeLayer(countries);
-		}
-		
-		function OnEachCountry(feature, layer){
-			layer.on({
-				click: countryClick,
-				mouseover: countryOver,
-				mouseout: countryOut
-			})
-		}
 		
 		/* Useful to draw borders
 		var borders = [];
@@ -226,14 +412,15 @@
         });
 		*/
 		
-		function countryClick(e){
-			map.fitBounds(e.target.getBounds());
-			if(currentActiveCountry != null){
-				currentActiveCountry.target.setStyle(normalStyle);
-			}
-			if(currentActiveCountry == null || e.target.feature.properties.name != currentActiveCountry.target.feature.properties.name){
-				for(var i = 0; i<currentMarkers.length; i++){
-					if(!isInCountry(e, currentMarkers[i])){
+		function updateMarkers(){
+			for(var i = 0; i<currentMarkers.length; i++){
+				if(currentActiveCountries.length == 0){
+					if(!map.hasLayer(currentMarkers[i])){
+						currentMarkers[i].addTo(map);
+					}
+				}
+				else{					
+					if(!isInActiveCountry(currentMarkers[i].options.country)){
 						map.removeLayer(currentMarkers[i]);
 					}
 					else if(!map.hasLayer(currentMarkers[i])){
@@ -241,12 +428,36 @@
 					}
 				}
 			}
-			currentActiveCountry = e;
-			e.target.setStyle(activeStyle);
 		}
 		
-		function isInCountry(e, eventMarker) {
-			var coordinates = e.target.feature.geometry.coordinates;
+		function doBlink(id, count) {
+		    $(id).animate({ backgroundColor: "#F4FA58" }, {
+		        duration: 100, 
+		        complete: function() {
+		            $(id).delay(100).animate({ backgroundColor: "#ffffff" }, {
+		                duration: 100,
+		                complete: function() {
+		                    if(count > 1) {
+		                        doBlink(id, --count);
+		                    }
+		                }
+		            });
+		        }
+		    });
+		}
+		
+		function isInActiveCountry(eventMarker){
+			var inside = false;
+			for(var i = 0; i < currentActiveCountries.length; i++){
+				if(eventMarker === currentActiveCountries[i]){
+					inside = true;
+				}
+			}
+			return inside;
+		}
+		
+		/*
+		function isInCountry(countryName, eventMarker) {
 			inside = false;
 			for(var m = 0; m< coordinates.length; m++){
 				var inside = isInCoordinates(e.target.feature.geometry.type == "Polygon" ? coordinates[m] : coordinates[m][0], eventMarker._latlng.lat, eventMarker._latlng.lng);
@@ -256,179 +467,266 @@
 			}
 			return inside;
 		}
+		*/
 		
-		function isInCoordinates(coordinates, pointLat, pointLng){
-			var inside = false;
-			for (var i = 0, j = coordinates.length - 1; i < coordinates.length; j = i++) {
-			 	var xi = coordinates[i][0], yi = coordinates[i][1];
-			 	var xj = coordinates[j][0], yj = coordinates[j][1];
-			 	var intersect = ((yi > pointLat) != (yj > pointLat)) && (pointLng < (xj - xi) * (pointLat - yi) / (yj - yi) + xi);
-			 	if (intersect){
-			 		inside = !inside;
-			 	}
-			 }
-			return inside;
-		}
-		
-		function countryOver(e){
-			if(currentActiveCountry == null || e.target.feature.properties.name != currentActiveCountry.target.feature.properties.name){
-				e.target.setStyle(highlightStyle);
-			}
-		}
-		
-		function countryOut(e){
-			if(currentActiveCountry == null || e.target.feature.properties.name != currentActiveCountry.target.feature.properties.name){	
-				e.target.setStyle(normalStyle);
-			}
-		}
-
 		function zoom() {
 			//map.setView(new L.LatLng(e.latlng.lat, e.latlng.lng), 8);
 			for (var i = 0; i < events.length; i++) {
 				if (events[i].multiple != undefined) {
-					events[currentMarkers.length] = L
-							.marker(closerMarkers[i].position, {
+					events[currentMarkers.length] = L.marker(closerMarkers[i].position, {
+						icon : redIcon,
+						multiple : closerMarkers[i].multiple
+					}).on("click",function(e) {
+						//zoom closer to that point
+						map.setView(e.latlng, 10);
+
+						//remove the previous markers
+						for ( var m = 0; m < currentMarkers.length; m++) {
+							map.removeLayer(currentMarkers[m]);
+						}
+
+						//add center marker
+						var centerMarker = L.marker(e.latlng, {
+							icon : smallRedIcon
+						}).addTo(map);
+
+						//add a circle of markers around the center marker
+						for ( var m = 0; m < e.target.options.multiple.length; m++) {
+							var x = 0.025* Math.cos(m/ e.target.options.multiple.length* 2* Math.PI)+ e.latlng.lat;
+							var y = 0.05* Math.sin(m/ e.target.options.multiple.length* 2* Math.PI)+ e.latlng.lng;
+							L.marker([ x, y ],
+							{
 								icon : redIcon,
-								multiple : closerMarkers[i].multiple
-							})
-							.on(
-									"click",
-									function(e) {
-										//zoom closer to that point
-										map.setView(e.latlng, 10);
+								text : e.target.options.multiple[m].text
+							}).on("click", function(e) {
+								infobox.style.visibility = "visible";
+								infobox.innerHTML = "<p>Name: " + e.target.options.text + "</p>";
+								infobox.innerHTML += "<p>Description: " + e.target.options.text + "</p>";
+								infobox.innerHTML += "<p>City: " + e.target.options.text + "</p>";
+								infobox.innerHTML += "<p>Country: " + e.target.options.text + "</p>";
+								infobox.innerHTML += "<p>Location: " + e.target.options.text + "</p>";
+								infobox.innerHTML += "<p>Start time: " + e.target.options.text + "</p>";
+								infobox.innerHTML += "<p>Duration: " + e.target.options.text + "</p>";
+							}).addTo(map);
 
-										//remove the previous markers
-										for ( var m = 0; m < currentMarkers.length; m++) {
-											map.removeLayer(currentMarkers[m]);
-										}
-
-										//add center marker
-										var centerMarker = L.marker(e.latlng, {
-											icon : smallRedIcon
-										}).addTo(map);
-
-										//add a circle of markers around the center marker
-										for ( var m = 0; m < e.target.options.multiple.length; m++) {
-											var x = 0.025
-													* Math
-															.cos(m
-																	/ e.target.options.multiple.length
-																	* 2
-																	* Math.PI)
-													+ e.latlng.lat;
-											var y = 0.05
-													* Math
-															.sin(m
-																	/ e.target.options.multiple.length
-																	* 2
-																	* Math.PI)
-													+ e.latlng.lng;
-											L
-													.marker(
-															[ x, y ],
-															{
-																icon : redIcon,
-																text : e.target.options.multiple[m].text
-															})
-													.on(
-															"click",
-															function(e) {
-																infobox.style.visibility = "visible";
-																infobox.innerHTML = "<p>Name: "
-																		+ e.target.options.text
-																		+ "</p>";
-																infobox.innerHTML += "<p>Description: "
-																		+ e.target.options.text
-																		+ "</p>";
-																infobox.innerHTML += "<p>City: "
-																		+ e.target.options.text
-																		+ "</p>";
-																infobox.innerHTML += "<p>Country: "
-																		+ e.target.options.text
-																		+ "</p>";
-																infobox.innerHTML += "<p>Location: "
-																		+ e.target.options.text
-																		+ "</p>";
-																infobox.innerHTML += "<p>Start time: "
-																		+ e.target.options.text
-																		+ "</p>";
-																infobox.innerHTML += "<p>Duration: "
-																		+ e.target.options.text
-																		+ "</p>";
-															}).addTo(map);
-
-											var linePoints = [ [ x, y ],
-													e.latlng ];
-											L.polyline(linePoints, {
-												color : "red",
-												weight : 2,
-												smoothFactor : 1
-											}).addTo(map);
-										}
-									}).addTo(map);
+							var linePoints = [ [ x, y ], e.latlng ];
+							L.polyline(linePoints, {
+								color : "red",
+								weight : 2,
+								smoothFactor : 1
+							}).addTo(map);
+						}
+					}).addTo(map);
 				} else {
-					visibleMarkers[i] = currentMarkers[currentMarkers.length] = L
-							.marker(events[i].latlng, {
-								icon : redIcon,
-								name : events[i].name,
-								description : events[i].description,
-								city : events[i].city,
-								country : events[i].country
-							})
-							.on(
-									"click",
-									function(e) {
-										clickMarker(e);
-									}).addTo(map);
-					
+					currentMarkers[currentMarkers.length] = L.marker(events[i].latlng, {
+						icon : redIcon,
+						name : events[i].name,
+						description : events[i].description,
+						city : events[i].city,
+						country : events[i].country
+					}).on("click", function(e) {
+						clickMarker(e);
+					}).on("mouseover", function(e){
+						hoverMarker(e);
+					}).on("mouseout", function(e){
+						hoverExitMarker(e);
+					}).addTo(map);
 				}
 			}
 		}
 		
-		map.on("moveend", function(){
-			console.log(map.getCenter());
-		});
+		function hoverMarker(marker){
+			if(marker.target != undefined){				
+				marker.target.setIcon(redIconHover);
+			}else{
+				marker.setIcon(redIconHover);
+			}
+		}
+		
+		function hoverExitMarker(marker){
+			if(marker.target != undefined){
+				marker.target.setIcon(redIcon);
+			}else{
+				marker.setIcon(redIcon);
+			}
+		}
 		
 		function clickMarker(marker){
+			showInfo = true;
 			removeCountries();
 			var tmpLatLng = marker.latlng == undefined ?  $.extend( {}, marker._latlng  ): $.extend({}, marker.latlng  );
-			
 			tmpLatLng.lng += 0.01021508561708;
 			tmpLatLng.lat -= 0.003382020592895;
-			console.log(tmpLatLng.lat);
-			console.log(tmpLatLng.lng);
 			var options = marker.target == undefined ? marker.options : marker.target.options;
 			map.setView(tmpLatLng, 16);
-			console.log(map.getBounds());
-			var mapDiv = document
-					.getElementById("map");
-			var infobox = document
-					.getElementById("infobox");
-			infobox.style.visibility = "visible";
-			var floatingInfo= document
-					.getElementById("floatingInfo");
-			floatingInfo.style.visibility = "hidden";
-			var social = document
-					.getElementById("social");
-			social.style.visibility = "visible";
-			var info = document
-					.getElementById("info");
-			info.innerHTML = "<p>Name: "
-					+ options.name
-					+ "</p>";
-			info.innerHTML += "<p>Description: "
-					+ options.description
-					+ "</p>";
-			info.innerHTML += "<p>City: "
-					+ options.city
-					+ "</p>";
-			info.innerHTML += "<p>Country: "
-					+ options.country
-					+ "</p>";
-			info.innerHTML += "<p>Location: </p>";
-			info.innerHTML += "<p>Start time: </p>";
-			info.innerHTML += "<p>Duration: </p>";
+			$("#infobox").css("visibility", "visible");
+			if($("#floatingInfo").css("visibility") === "visible"){				
+				$("#floatingInfo").animate({"width": "-=20%" }, 200, function(){
+					$(this).css("visibility", "hidden");
+				});
+			}
+			
+			$("#social").css("visibility", "visible");
+			currentEvent.name = options.name;
+			currentEvent.description = options.description;
+			currentEvent.city = options.city;
+			currentEvent.country = options.country;
+			infoboxEvent();
 		}
+		
+		function makeCityRequests(city, country){
+			var result = $.getJSON( "/city", { city: city, country: country } ).done(function(result){
+				currentCity.name = result.name;
+				currentCity.country = result.country;
+				currentCity.population = result.population;
+				infoboxCity();
+			});
+		}
+		
+		function makeCountryRequests(country){
+			var result = $.get( "index.html", { country: country } );
+			result = {
+				name: "Country",
+				capital: "Capital",
+				population: "5000",
+				area: "3000"
+			}
+			currentCountry.name = result.name;
+			currentCountry.capital = result.capital;
+			currentCountry.population = result.population;
+			currentCountry.area = result.area;
+		}
+		
+		function infoboxEvent(){
+			$("#info").empty();
+			$("#info").append($("<p id=eventName>").text("Name: " + currentEvent.name));
+			$("#info").append($("<p id=eventDescription>").text("Description: " + currentEvent.description));
+			$("#info").append($("<p id=eventCity>").text("City: " + currentEvent.city));
+			$("#info").append($("<p id=eventCountry>").text("Country: " + currentEvent.country));
+			$("#info").append($("<p id=eventLocation>").text("Location: "));
+			$("#info").append($("<p id=eventTime>").text("Start time: "));
+			$("#info").append($("<p id=eventDuration>").text("Duration: "));
+			
+			$("#eventCity").click(function(){
+				makeCityRequests(currentEvent.city, currentEvent.country);
+				/*$("#info2").empty();
+				$("#info2").append($("<p>").text("City Information"));
+				pullOutInfobox2();*/
+			})
+			$("#eventCity").mouseover(function(){
+				$(this).css("background-Color", "#F4FA58");
+			});
+			$("#eventCity").mouseout(function(){
+				$(this).css("background-Color", "#FFFFFF");
+			});
+			
+			$("#eventCountry").click(function(){
+				makeCountryRequests(currentEvent.country);
+				infoboxCountry();
+				$("#navigation").append($("<p class=navElement id=navCountry>").text("Country >"));
+				$("#navCountry").click(function(){
+					jQuery.each($(this).nextAll(), function(){
+						$(this).remove();
+					});
+					infoboxCountry();
+				});
+				/*$("#info2").empty();
+				$("#info2").append($("<p>").text("Country Information"));
+				pullOutInfobox2();*/
+			})
+			$("#eventCountry").mouseover(function(){
+				$(this).css("background-Color", "#F4FA58");
+			});
+			$("#eventCountry").mouseout(function(){
+				$(this).css("background-Color", "#FFFFFF");
+			});
+			
+			$("#eventLocation").click(function(){
+				/*$("#info2").empty();
+				$("#info2").append($("<p>").text("Location Information"));
+				pullOutInfobox2();*/
+			})
+			$("#eventLocation").mouseover(function(){
+				$(this).css("background-Color", "#F4FA58");
+			});
+			$("#eventLocation").mouseout(function(){
+				$(this).css("background-Color", "#FFFFFF");
+			});
+		}
+		
+		function infoboxCity(){
+			$("#info").empty();
+			$("#info").append($("<p id=cityName>").text("Name: " + currentCity.name));
+			$("#info").append($("<p id=cityCountry>").text("Country: " + currentCity.country));
+			$("#info").append($("<p id=cityPopulation>").text("Population: " + currentCity.population));
+			
+			$("#cityCountry").click(function(){
+				makeCountryRequests(currentCity.country);
+				infoboxCountry();
+				$("#navigation").append($("<p class=navElement id=navCountry>").text("Country >"));
+				$("#navCountry").click(function(){
+					jQuery.each($(this).nextAll(), function(){
+						$(this).remove();
+					});
+					infoboxCountry();
+				});
+			})
+			$("#cityCountry").mouseover(function(){
+				$(this).css("background-Color", "#F4FA58");
+			});
+			$("#cityCountry").mouseout(function(){
+				$(this).css("background-Color", "#FFFFFF");
+			});
+			
+			$("#navigation").append($("<p class=navElement id=navCity>").text("City >"));
+			$("#navCity").click(function(){
+				jQuery.each($(this).nextAll(), function(){
+					$(this).remove();
+				});
+				infoboxCity();
+			});
+		}
+		
+		function infoboxCountry(){
+			$("#info").empty();
+			$("#info").append($("<p id=countryName>").text("Name: " + currentCountry.name));
+			$("#info").append($("<p id=countryCountry>").text("Capital: " + currentCountry.capital));
+			$("#info").append($("<p id=countryPopulation>").text("Population: " + currentCountry.population));
+			$("#info").append($("<p id=countryArea>").text("Area: " + currentCountry.area));
+		}
+		
+		L.Mask = L.Polygon.extend({
+			options: {
+				stroke: false,
+				color: '#333',
+				fillOpacity: 0.5,
+				clickable: true,
+
+				outerBounds: new L.LatLngBounds([-90, -360], [90, 360])
+			},
+
+			initialize: function (latLngs, options) {
+		        
+		         var outerBoundsLatLngs = [
+					this.options.outerBounds.getSouthWest(),
+					this.options.outerBounds.getNorthWest(),
+					this.options.outerBounds.getNorthEast(),
+					this.options.outerBounds.getSouthEast()
+				];
+		        var bounds = [];
+		        bounds[0] = outerBoundsLatLngs;
+		        jQuery.each(latLngs, function(){
+		        	bounds.push($(this));
+		        });
+		        L.Polygon.prototype.initialize.call(this, bounds, options);	
+			},
+
+		});
+		/*
+		L.mask = function (latLngs, options) {
+			return new L.Mask(latLngs, options);
+		};
+		*/
 	</script>
 </body>
 </html>
