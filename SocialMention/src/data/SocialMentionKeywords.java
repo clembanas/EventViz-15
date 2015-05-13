@@ -29,7 +29,7 @@ public class SocialMentionKeywords {
 		this.keywords.put(keyword, occurrence);
 	}
 
-	public Map<String, Integer> getSortedMap() {
+	public Map<String, Integer> getSortedKeywords() {
 		final List<Map.Entry<String, Integer>> list = new LinkedList<Map.Entry<String, Integer>>(this.getKeywords().entrySet());
 		Collections.sort(list, new Comparator<Map.Entry<String, Integer>>() {
 			@Override
