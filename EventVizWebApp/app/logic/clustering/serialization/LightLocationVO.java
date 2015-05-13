@@ -11,6 +11,10 @@ public class LightLocationVO {
 		this.realLocation = location;
 	}
 	
+	public String getId(){
+		return realLocation.getId();
+	}
+	
 	public double getLat()
 	{
 		return realLocation.getLatitude();

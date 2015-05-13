@@ -113,7 +113,7 @@ public class MarkerCluster implements IMarker {
 
         //Calculate weighted latlng for display
         if (this._wLatLng == null) {
-            this._latlng = this._wLatLng = new Location(addedLatLng.getLatitude(), addedLatLng.getLongitude());
+            this._latlng = this._wLatLng = new Location(addedLatLng.getId(), addedLatLng.getLatitude(), addedLatLng.getLongitude());
         } else {
             this._wLatLng.setLat((addedLatLng.getLatitude() * addedCount + this._wLatLng.getLatitude() * this._childCount) / totalCount);
             this._wLatLng.setLng((addedLatLng.getLongitude() * addedCount + this._wLatLng.getLongitude() * this._childCount) / totalCount);
@@ -140,6 +140,11 @@ public class MarkerCluster implements IMarker {
 
 	public List<MarkerCluster> getChildClusters() {
 		return this.children;
+	}
+
+	@Override
+	public String getId() {
+		return null;
 	}
 
 }

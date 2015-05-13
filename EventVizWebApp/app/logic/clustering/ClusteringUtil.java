@@ -62,7 +62,7 @@ public class ClusteringUtil {
 		
 		List<ILocation> locations = new ArrayList<ILocation>();		
 		
-		java.io.File f = new java.io.File("./test/resources/ClusterPoints32000.txt");		
+		java.io.File f = new java.io.File("./test/resources/ClusterPointsWithID10000.txt");		
 		try (BufferedReader br = new BufferedReader(new FileReader(f))) {
 		    String line;
 		    while ((line = br.readLine()) != null) {
@@ -70,11 +70,11 @@ public class ClusteringUtil {
 		    	{
 		    		continue;
 		    	}
-		    	String[] splitted = line.split(",");
-		    	String lat = splitted[0];
-		    	String lng = splitted[1];
-		    	
-		    	locations.add(new Location(Double.parseDouble(lat), Double.parseDouble(lng)));
+		    	String[] splitted = line.split(";");
+		    	String id = splitted[0];
+		    	String lat = splitted[1];
+		    	String lng = splitted[2];
+		    	locations.add(new Location(id, Double.parseDouble(lat), Double.parseDouble(lng)));
 		    }
 		} catch (IOException e) {
 			// TODO Auto-generated catch block

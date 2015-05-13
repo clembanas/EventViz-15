@@ -7,6 +7,10 @@ public class LocationProxy implements ILocation {
 	{
 		this.realSubject = realSubject;
 	}
+	
+	public String getId(){
+		return realSubject.getId();
+	}
 
 	@Override
 	public double getLatitude() {

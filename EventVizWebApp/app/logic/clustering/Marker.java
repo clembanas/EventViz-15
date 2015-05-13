@@ -3,9 +3,11 @@ package logic.clustering;
 public class Marker extends LocationProxy implements IMarker {
 	
 	private MarkerCluster parent = null;
+	private String id = "";
 
 	public Marker(ILocation realSubject) {
 		super(realSubject);
+		id = realSubject.getId();
 	}
 
 	@Override
@@ -18,4 +20,8 @@ public class Marker extends LocationProxy implements IMarker {
 		return this.parent;
 	}
 
+	@Override
+	public String getId(){
+		return this.id;
+	}
 }
