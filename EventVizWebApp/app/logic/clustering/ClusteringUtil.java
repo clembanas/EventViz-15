@@ -1,9 +1,15 @@
 package logic.clustering;
 
+import java.io.BufferedReader;
+import java.io.FileInputStream;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 
 import logic.clustering.serialization.LightMarkerClusterVO;
+import play.Play;
 import play.libs.Json;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -25,13 +31,20 @@ public class ClusteringUtil {
 		return clusterAtLevel0;
 	}
 
+	private static JsonNode cachedDefaultClusterJsonNode = null;
 	public static JsonNode getDefaultClusterJsonNode() {
-		MarkerCluster markerCluster = getDefaultCluster();		
-		return Json.toJson(new LightMarkerClusterVO(markerCluster));
+		if(cachedDefaultClusterJsonNode == null)
+		{
+			MarkerCluster markerCluster = getDefaultCluster();		
+			cachedDefaultClusterJsonNode = Json.toJson(new LightMarkerClusterVO(markerCluster));
+		}
+		
+		return cachedDefaultClusterJsonNode;
 	}
-
+	
+	
 	private static MarkerCluster getDefaultCluster() {
-		List<ILocation> locations = new ArrayList<ILocation>();
+		/*List<ILocation> locations = new ArrayList<ILocation>();
 		
 		locations.add(new Location(38.2924721, -122.4565503));
 		locations.add(new Location(45.473753, -122.6583744));
@@ -45,6 +58,31 @@ public class ClusteringUtil {
 		locations.add(new Location(38.915271, -77.021098));
 		locations.add(new Location(38.2924721, -122.4565503));
 		locations.add(new Location(45.473753, -122.6483744));*/
+		//return ClusteringUtil.cluster(locations);*/
+		
+		List<ILocation> locations = new ArrayList<ILocation>();		
+		
+		java.io.File f = new java.io.File("./test/resources/ClusterPoints32000.txt");		
+		try (BufferedReader br = new BufferedReader(new FileReader(f))) {
+		    String line;
+		    while ((line = br.readLine()) != null) {
+		    	if(line.isEmpty())
+		    	{
+		    		continue;
+		    	}
+		    	String[] splitted = line.split(",");
+		    	String lat = splitted[0];
+		    	String lng = splitted[1];
+		    	
+		    	locations.add(new Location(Double.parseDouble(lat), Double.parseDouble(lng)));
+		    }
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		
+		
 		return ClusteringUtil.cluster(locations);
 	}
 }

@@ -1,19 +1,23 @@
 package controllers;
 
+import logic.clustering.ClusteringUtil;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import play.libs.Json;
-
 import play.*;
 import play.mvc.*;
-
 import views.html.*;
 
 public class Application extends Controller {
 
 	public static Result index() {
 		return ok(index.render());
+	}
+	
+	public static Result clusteringtest() {
+		return ok(clusteringtest.render());
 	}
 
 	public static Result getEvents() {
@@ -35,5 +39,10 @@ public class Application extends Controller {
 			result.put("population", "5000");
 			return ok(result);
 		}
+	}
+	
+	public static Result getDefaultCluster()
+	{
+		return ok(ClusteringUtil.getDefaultClusterJsonNode());
 	}
 }

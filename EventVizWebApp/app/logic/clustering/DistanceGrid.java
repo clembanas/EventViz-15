@@ -44,8 +44,8 @@ public class DistanceGrid<T> {
 
 	// Returns true if the object was found
 	public boolean removeObject(T location, Point point) {
-		double x = this._getCoord(point.x);
-		double y = this._getCoord(point.y);
+		int x = this._getCoord(point.x);
+		int y = this._getCoord(point.y);
 
 		this._objectPoint.remove(location);
 

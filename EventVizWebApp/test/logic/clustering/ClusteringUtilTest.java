@@ -31,6 +31,11 @@ public class ClusteringUtilTest {
 		assertNull(clusterZoom0);
 	}
 	
+	@Test
+	public void testGetDefaultCluster() {		
+		ClusteringUtil.getDefaultClusterJsonNode();
+	}
+	
 
 	@Test
 	public void testCluster2Points() {

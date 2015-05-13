@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Leaflet debug page</title>
+    <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.7/leaflet.css" />
+    <script src="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.js"></script>
+    
+    <!--<script src="leaflet-src.js"></script>-->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/assets/stylesheets/screen.css" />
+    <link rel="stylesheet" href="/assets/stylesheets/MarkerCluster.css" />
+    <link rel="stylesheet" href="/assets/stylesheets/MarkerCluster.Default.css" />
+    <script src="/assets/javascripts/leaflet.markercluster-src.js"></script>
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js" type="text/javascript"></script>
+    <!--<script src="tree.js"></script>
+    <script src="eventsfucking.js"></script>
+    <script src="ser2.js"></script>-->
+</head>
+<body>
+    <div id="progress"><div id="progress-bar"></div></div>
+    <div id="map"></div>
+    <script type="text/javascript">
+        function save_content_to_file(content, filename) {
+            var dlg = false;
+            with (document) {
+                ir = createElement('iframe');
+                ir.id = 'ifr';
+                ir.location = 'about.blank';
+                ir.style.display = 'none';
+                body.appendChild(ir);
+                with (getElementById('ifr').contentWindow.document) {
+                    open("text/plain", "replace");
+                    charset = "utf-8";
+                    write(content);
+                    close();
+                    document.charset = "utf-8";
+                    dlg = execCommand('SaveAs', false, filename + '.txt');
+                }
+                body.removeChild(ir);
+            }
+            return dlg;
+        }
+
+
+        var tiles = L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
+            minZoom: 2
+			, maxZoom: 16
+        }),
+			latlng = L.latLng(0, 0);
+
+
+
+        console.log('start creating markers: ' + window.performance.now());
+
+        function onClick(e) { alert(this.getLatLng()); }
+
+
+        
+
+        var oldVersion = false;
+
+        if (oldVersion) {
+            // old
+            var markerList = [];
+            for (var i = 0; i < addressPoints.length; i++) {
+                var a = addressPoints[i];
+                var title = a[2];
+                var marker = L.marker(L.latLng(a[0], a[1]), { title: title });
+                marker.on('click', onClick);
+                markerList.push(marker);
+            }
+
+            var markers = L.markerClusterGroup();
+            markers.addLayers(markerList);
+            var map = L.map('map', { center: latlng, zoom: 2, layers: [tiles] });
+            map.addLayer(markers);
+        } else {
+            $.ajax({ // ajax call starts
+                url: 'defaultCluster', // JQuery loads serverside.php
+                dataType: 'json', // Choosing a JSON datatype
+            })
+                .done(function(data) { // Variable data contains the data we get from serverside
+                    var tree = data;
+                    //var tree = tmp;
+                    // new
+                    var markers = L.markerClusterGroup();
+                    markers.addTree(tree);
+                    var map = L.map('map', { center: latlng, zoom: 2, layers: [tiles] });
+                    map.addLayer(markers);
+                });
+
+            //var tree = tmp;
+            //var markers = L.markerClusterGroup();
+            //markers.addTree(tree);
+            //var map = L.map('map', { center: latlng, zoom: 2, layers: [tiles] });
+            //map.addLayer(markers);
+        }
+
+        console.log('end map.addLayer(markers);: ' + window.performance.now());
+    </script>
+</body>
+</html>
