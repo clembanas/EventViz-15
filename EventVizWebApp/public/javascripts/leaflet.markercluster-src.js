@@ -245,9 +245,8 @@
 
                 for (var i = 0; i < node._markers.length; i++) {
                     var child = node._markers[i];
-
                     var marker = L.marker(L.latLng(child._latlng.lat, child._latlng.lng), { title: child._leaflet_id });
-                    marker.on('click', onClick);
+                    marker.on('click', clickMarker);
 
                     parent._addChild(marker);
                     marker.__parent = parent;
@@ -574,7 +573,8 @@
                 c += 'large';
             }
 
-            return new L.DivIcon({ html: '<div><span>' + zoom + ': ' + childCount + '</span></div>', className: 'marker-cluster' + c, iconSize: new L.Point(40, 40) });
+            //return new L.DivIcon({ html: '<div><span>' + zoom + ': ' + childCount + '</span></div>', className: 'marker-cluster' + c, iconSize: new L.Point(40, 40) });
+            return new L.DivIcon({ html: '<div><span>' + childCount + '</span></div>', className: 'marker-cluster' + c, iconSize: new L.Point(40, 40) });
         },
 
         _bindEvents: function () {
