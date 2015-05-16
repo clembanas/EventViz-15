@@ -40,8 +40,13 @@ public abstract class DBQueryBasedCrawler extends JobBasedCrawler {
 		}
 	};
 	
+	
+	private int datasetCnt = 0;
+	private int datasetIdx = 0;
+	private int lastEnqueueInfo = 0;
 
 	protected abstract int getWorkerThdCount();
+	protected abstract int getDatasetCount() throws Exception;
 	protected abstract Utils.Pair<ResultSet, Object> getNextDataset(Object customData) 
 		throws Exception;
 	protected abstract void processDataRow(String[] dataRow, int dataRowIdx) throws Exception;
@@ -58,6 +63,8 @@ public abstract class DBQueryBasedCrawler extends JobBasedCrawler {
 			datasetMeta = ((Utils.Pair<Utils.Pair<ResultSet, Object>, ResultSetMetaData>)
 							  customData).second;
 		}
+		else
+			datasetCnt = getDatasetCount();
 		try {
 			if (nextDataset == null || !nextDataset.first.next()) {
 				if (nextDataset != null) {
@@ -72,6 +79,12 @@ public abstract class DBQueryBasedCrawler extends JobBasedCrawler {
 				if (nextDataset == null || nextDataset.first == null || !nextDataset.first.next())
 					return null;
 				datasetMeta = nextDataset.first.getMetaData();
+			}
+			datasetIdx++;
+			if (lastEnqueueInfo <= (100.0/ (float)datasetCnt) * (float)datasetIdx - 1.0) {
+				lastEnqueueInfo = (int)Math.ceil((100.0/ (float)datasetCnt) * (float)datasetIdx);
+				debug_print(lastEnqueueInfo + "% of " + datasetCnt + " datasets processed...");
+				dbConnection.logCrawlerProgress(getClass(), lastEnqueueInfo);
 			}
 			return Utils.createPair((WorkerJobBase)new DBWorkerJob(nextDataset.first, datasetMeta), 
 					   (Object)Utils.createPair(nextDataset, datasetMeta));

@@ -66,16 +66,6 @@ public abstract class CrawlerBase {
 			Thread.currentThread().getId() + ")]: " + info);
 	}
 	
-	protected void associateThdPool(ExecutorService thdPool)
-	{
-		this.thdPool = thdPool;
-	}
-	
-	protected void associateDBConnection(DBConnection dbConn)
-	{
-		this.dbConnection = dbConn;
-	}
-	
 	protected void startWorkerThd()
 	{
 		synchronized (pendingWorkerThds) {
@@ -106,17 +96,31 @@ public abstract class CrawlerBase {
 		}
 	}
 	
+	protected void started()
+	{
+		dbConnection.logCrawlerStarted(getClass());
+	}
+	
 	protected void finished()
 	{
 	}
 	
-	public void execute(ExecutorService thdPool, DBConnection dbConnection)
+	public void associateThdPool(ExecutorService thdPool)
+	{
+		this.thdPool = thdPool;
+	}
+	
+	public void associateDBConnection(DBConnection dbConn)
+	{
+		this.dbConnection = dbConn;
+	}
+	
+	public void execute()
 	{
 		final int workerThdCnt = getWorkerThdCount();
 
-		associateThdPool(thdPool);
-		associateDBConnection(dbConnection);
 		debug_print("Crawler started...", CrawlerBase.class);
+		started();
 		try {
 			for (int i = 0; i < workerThdCnt; ++i)
 				startWorkerThd();

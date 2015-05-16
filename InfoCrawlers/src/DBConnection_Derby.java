@@ -1,107 +1,72 @@
 /**
  * @author Bernhard Weber
  */
+import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
-import java.sql.Timestamp;
 import java.util.concurrent.locks.*;
 
 
 /**
- * Actual DBConnection implementation for Derby database
+ * Actual DBConnection implementation for working with Derby databases
  * 
- * @deprecated
+ * @deprecated (At the moment up-to-date but won't be updated in future)
  */
-public class DBConnection_Derby extends DBConnection {
+public class DBConnection_Derby extends DBConnection_SQLConform {
+	
+	/**
+	 * Actual primary key implementation for Derby databases (primary key is of type INTEGER)
+	 */
+	public static class DerbyPrimaryKey extends PrimaryKey {
+		
+		public DerbyPrimaryKey(Object obj) throws Exception
+		{
+			if (obj.getClass() != Integer.class)
+				throw new IllegalArgumentException("Derby primary keys must be of type INTEGER!");
+			this.data = obj;
+		}
+		
+		public DerbyPrimaryKey(PrimaryKey primKey) throws Exception
+		{
+			if (primKey.data.getClass() != Integer.class)
+				throw new IllegalArgumentException("Derby primary keys must be of type INTEGER!");
+			this.data = primKey.data;
+		}
+		
+		public DerbyPrimaryKey(String str) throws Exception
+		{
+			this.data = Integer.valueOf(str);
+		}
+		
+		public DerbyPrimaryKey(ResultSet resSet) throws Exception
+		{
+			this.data = resSet.getInt(1);
+		}
+		
+		public void addToStatement(PreparedStatement stmt, int idx) throws Exception
+		{
+			stmt.setInt(idx, (Integer)data);
+		}
+	}
+	
 	
 	public static final String DRIVER_NAME = "org.apache.derby.jdbc.EmbeddedDriver";
-	public static final String CONNECTION_STR = "jdbc:derby:C:/temp/derby/Events/db;create=true";
+	public static final String CONNECTION_STR = "jdbc:derby:temp/derby/Events/db;create=true";
 	
 	private Lock updateLock = new ReentrantLock();
 	
-	private int insertArtist(String name, String altName, String resID) throws Exception
+	protected DBConnection_Derby()	 //Singleton
 	{
-		PreparedStatement stmnt = dbConn.prepareStatement("INSERT INTO artists (name, " +
-									  "alternate_name, dbpedia_resource) VALUES(?, ?, ?)", 
-									  Statement.RETURN_GENERATED_KEYS);
-
-		stmnt.setString(1, name.trim());
-		if (altName == null)
-			stmnt.setNull(2, java.sql.Types.VARCHAR);
-		else
-			stmnt.setString(2, altName.trim());
-		if (resID == null)
-			stmnt.setNull(3, java.sql.Types.VARCHAR);
-		else
-			stmnt.setString(3, resID.trim());
-		stmnt.executeUpdate();
+		PrimaryKey.PrimaryKeyClass = DerbyPrimaryKey.class;
+	}
+	
+	protected boolean tableExists(Statement stmt, String tableName) throws Exception 
+	{
+		DatabaseMetaData dbMeta = dbConn.getMetaData();
 		
-		ResultSet resSet = stmnt.getGeneratedKeys();
-		resSet.next();
-		return resSet.getInt(1);
+		return dbMeta.getTables(null, null, tableName.toUpperCase(), null).next();
 	}
-	
-	private void updateArtist(int artistID, String name, String altName, String currResID, 
-		String newResID) throws Exception
-	{
-		if (newResID == null)
-			return;
-		if (currResID == null || !currResID.equalsIgnoreCase(newResID)) {
-			PreparedStatement stmnt = dbConn.prepareStatement("UPDATE artists " +
-										  "SET dbpedia_resource = ?, alternate_name = ? " +
-										  "WHERE id = ?");
-			
-			stmnt.setString(1, newResID.trim());
-			if (altName == null)
-				stmnt.setNull(2, java.sql.Types.VARCHAR);
-			else
-				stmnt.setString(2, altName.trim());
-			stmnt.setInt(3, artistID);
-			stmnt.executeUpdate();
-		}
-	}
-	
-	private void insertBandMember(int bandID, int artistID, char memberType) throws Exception
-	{
-		PreparedStatement stmnt = dbConn.prepareStatement("INSERT INTO bandmembers (band_id, " +
-									  "artist_id, member_type) VALUES(?, ?, ?)");
-									  
-		stmnt.setInt(1, bandID);
-		stmnt.setInt(2, artistID);
-		stmnt.setString(3, String.valueOf(memberType));
-		stmnt.executeUpdate();
-	}
-	
-	private void updateBandMember(int bandID, int artistID, char memberType) throws Exception
-	{
-		PreparedStatement stmnt = dbConn.prepareStatement("SELECT band_id FROM bandmembers " +
-				  					  " WHERE band_id = ? AND artist_id = ?");
-		
-		stmnt.setInt(1, bandID);
-		stmnt.setInt(2, artistID);
-		//Update band member
-		if (stmnt.executeQuery().next()) {
-			stmnt.close();
-			stmnt = dbConn.prepareStatement("UPDATE bandmembers SET member_type = ?" +
-						" WHERE band_id = ? AND artist_id = ?");
-			stmnt.setString(1, String.valueOf(memberType));
-			stmnt.setInt(2, bandID);
-			stmnt.setInt(3, artistID);
-		}
-		//Insert new band member
-		else {
-			stmnt.close();
-			stmnt = dbConn.prepareStatement("INSERT INTO bandmembers (band_id, artist_id, " +
-						"member_type) VALUES(?, ?, ?)");
-			stmnt.setInt(1, bandID);
-			stmnt.setInt(2, artistID);
-			stmnt.setString(3, String.valueOf(memberType));
-		}
-		stmnt.executeUpdate();
-	}
-	
-	protected DBConnection_Derby() {} 	//Singleton class
 	
 	protected String getDriverName()
 	{
@@ -126,108 +91,146 @@ public class DBConnection_Derby extends DBConnection {
 		updateLock.unlock();
 	}
 	
-	public ResultSet getIncompleteBands(int dbUpdateInterval) throws Exception
+	protected void cancelUpdate() throws Exception 
 	{
-		return executeQuery("SELECT id, name FROM bands WHERE " +
-					"(band_crawler_ts IS NULL OR " +
-				    "{fn TIMESTAMPDIFF(SQL_TSI_HOUR, band_crawler_ts, ?)} >= ?) " +
-					"AND id NOT IN (SELECT band_id AS id FROM bandmembers)", 
-					new Timestamp(System.currentTimeMillis()), dbUpdateInterval);
+		try {
+			try {
+				dbConn.rollback();
+			}
+			finally {
+				dbConn.setAutoCommit(true);
+			}
+		}
+		finally {
+			updateLock.unlock();
+		}
 	}
 	
-	public ResultSet getIncompleteCities(int dbUpdateInterval) throws Exception
+	protected String getStmtCreateTblCities()
 	{
-		return executeQuery("SELECT id, name, region, country FROM cities " +
+		return "CREATE TABLE Cities(" +
+				   "ID INTEGER NOT NULL GENERATED ALWAYS AS IDENTITY (START WITH 1, " +
+				   "INCREMENT BY 1), " +
+				   "NAME VARCHAR(" + MAX_LEN_CITY_NAME + ") NOT NULL, " +
+				   "REGION VARCHAR(" + MAX_LEN_CITY_REGION + "), " +
+				   "COUNTRY VARCHAR(" + MAX_LEN_CITY_COUNTRY + "), " +
+				   "LONGITUDE FLOAT, " +
+				   "LATITUDE FLOAT, " +
+				   "CITY_CRAWLER_TS TIMESTAMP, " +
+				   "DBPEDIA_RESOURCE VARCHAR(" + MAX_LEN_CITY_DBPEDIA_RES + "))";
+	}
+	
+	protected String getStmtCreateTblLocations()
+	{
+		return "CREATE TABLE Locations(" +
+				   "ID INTEGER NOT NULL GENERATED ALWAYS AS IDENTITY (START WITH 1, " +
+				   "INCREMENT BY 1)," +
+				   "NAME VARCHAR(" + MAX_LEN_LOCATION_NAME + ") NOT NULL," +
+				   "LONGITUDE FLOAT NOT NULL," +
+				   "LATITUDE FLOAT NOT NULL," +
+				   "CITY_ID INTEGER NOT NULL)";
+	}
+	
+	protected String getStmtCreateTblEvents()
+	{
+		return "CREATE TABLE Events(" +
+				   "ID INTEGER NOT NULL GENERATED ALWAYS AS IDENTITY (START WITH 1, " +
+				   "INCREMENT BY 1)," +
+				   "NAME VARCHAR(" + MAX_LEN_EVENT_NAME + ") NOT NULL," +
+				   "DESCRIPTION VARCHAR(" + MAX_LEN_EVENT_DESC + ")," +
+				   "EVENT_TYPE VARCHAR(" + MAX_LEN_EVENT_TYPE + ")," +
+				   "EVENTFUL_ID VARCHAR(" + MAX_LEN_EVENT_EVENTFUL_ID + ")," +
+				   "LOCATION_ID INTEGER NOT NULL)";
+	}
+
+	protected String getStmtCreateTblBands()
+	{
+		return "CREATE TABLE Bands(" +
+				   "ID INTEGER NOT NULL GENERATED ALWAYS AS IDENTITY (START WITH 1, " +
+				   "INCREMENT BY 1)," +
+				   "NAME VARCHAR(" + MAX_LEN_BAND_NAME + ") NOT NULL, " +
+				   "BAND_CRAWLER_TS TIMESTAMP, " +
+				   "DBPEDIA_RESOURCE VARCHAR(" + MAX_LEN_BAND_DBPEDIA_RES + "))";
+	}
+
+	protected String getStmtCreateTblArtists()
+	{
+		return "CREATE TABLE Artists(" +
+				   "ID INTEGER NOT NULL GENERATED ALWAYS AS IDENTITY (START WITH 1, " +
+				   "INCREMENT BY 1)," +
+				   "NAME VARCHAR(" + MAX_LEN_ARTIST_NAME + ") NOT NULL, " +
+				   "ALTERNATE_NAME VARCHAR(" + MAX_LEN_ARTIST_ALT_NAME + "), " +
+				   "DBPEDIA_RESOURCE VARCHAR(" + MAX_LEN_ARTIST_DBPEDIA_RES + "))";
+	}
+
+	protected String getStmtCreateTblEventPerformers()
+	{
+		return "CREATE TABLE EventPerformers(" +
+				   "EVENT_ID INTEGER NOT NULL," +
+				   "BAND_ID INTEGER NOT NULL)";
+	}
+
+	protected String getStmtCreateTblBandMembers()
+	{
+		return "CREATE TABLE BandMembers(" +
+				   "ARTIST_ID INTEGER NOT NULL," +
+				   "BAND_ID INTEGER NOT NULL, " +
+				   "MEMBER_TYPE CHAR)";
+	}
+	
+	protected Utils.Pair<String, PrimaryKey> getStmtInsertEvent() 
+	{
+		return Utils.createPair("INSERT INTO events (name, description, eventful_id, " +
+				   "location_id) VALUES(?, ?, ?, ?)", null);
+	}
+	
+	protected String getStmtIncompleteBandsCount()
+	{
+		return "SELECT COUNT(id) FROM bands WHERE " +
+				   "band_crawler_ts IS NULL OR " +
+				   "{fn TIMESTAMPDIFF(SQL_TSI_HOUR, band_crawler_ts, ?)} >= ?";
+	}
+
+	protected String getStmtIncompleteBands()
+	{
+		return "SELECT id, name FROM bands WHERE " +
+				   "band_crawler_ts IS NULL OR " +
+				   "{fn TIMESTAMPDIFF(SQL_TSI_HOUR, band_crawler_ts, ?)} >= ?";
+	}
+	
+	protected Utils.Pair<String, PrimaryKey> getStmtInsertBand() 
+	{
+		return Utils.createPair("INSERT INTO bands (name) VALUES(?)", null);
+	}
+
+	protected Utils.Pair<String, PrimaryKey> getStmtInsertArtist() 
+	{
+		return Utils.createPair("INSERT INTO artists (name, alternate_name, dbpedia_resource) " +
+			      "VALUES(?, ?, ?)", null);
+	}
+	
+	protected String getStmtIncompleteCitiesCount()
+	{
+		return "SELECT COUNT(id) FROM cities " +
 				   "WHERE city_crawler_ts IS NULL OR " +
-				   "{fn TIMESTAMPDIFF(SQL_TSI_HOUR, city_crawler_ts, ?)} >= ?",
-				   new Timestamp(System.currentTimeMillis()), dbUpdateInterval); 
+				   "{fn TIMESTAMPDIFF(SQL_TSI_HOUR, city_crawler_ts, ?)} >= ?";
 	}
 	
-	public synchronized void insertBandArtist(int bandID, String name, String altName, 
-		char memberType, String resID) throws Exception
+	protected String getStmtIncompleteCities()
 	{
-		int artistID;
-		
-		try {
-			beginUpdate();
-			
-			PreparedStatement stmnt = dbConn.prepareStatement("SELECT id, name, dbpedia_resource " +
-										  "FROM artists WHERE LCASE(name) = ?");
-			stmnt.setString(1, name.trim().toLowerCase());
-			ResultSet resSet = stmnt.executeQuery();
-	
-			if (resSet.next()) {
-				artistID = resSet.getInt(1);
-				updateArtist(artistID, name, altName, resSet.getString(3), resID);
-				updateBandMember(bandID, artistID, memberType);
-			}
-			else {
-				artistID = insertArtist(name, altName, resID);
-				insertBandMember(bandID, artistID, memberType);
-			}
-		}
-		finally {
-			endUpdate();
-		}
+		return "SELECT id, name, region, country FROM cities " +
+				   "WHERE city_crawler_ts IS NULL OR " +
+				   "{fn TIMESTAMPDIFF(SQL_TSI_HOUR, city_crawler_ts, ?)} >= ?";
 	}
 	
-	public synchronized void updateBand(int bandID, String bandResID) throws Exception
+	protected Utils.Pair<String, PrimaryKey> getStmtInsertCity() 
 	{
-		try {
-			beginUpdate();
+		return Utils.createPair("INSERT INTO cities (name, region, country) VALUES(?, ?, ?)", null);
+	}
 
-			PreparedStatement stmnt;
-		
-			if (bandResID == null) {
-				stmnt = dbConn.prepareStatement("UPDATE bands SET band_crawler_ts = ? " +
-							"WHERE id = ?");
-				stmnt.setTimestamp(1, new Timestamp(System.currentTimeMillis()));
-				stmnt.setInt(2, bandID);
-			}
-			else {
-				stmnt = dbConn.prepareStatement("UPDATE bands " +
-							"SET dbpedia_resource = ?, band_crawler_ts = ? WHERE id = ?");
-				stmnt.setString(1, bandResID);
-				stmnt.setTimestamp(2, new Timestamp(System.currentTimeMillis()));
-				stmnt.setInt(3, bandID);
-			}
-			stmnt.executeUpdate();
-		}
-		finally {
-			endUpdate();
-		}
-	}
-	
-	public synchronized void updateCity(int cityID, float latitude, float longitude, String regName,
-		String ctryName, String cityResID) throws Exception
+	protected Utils.Pair<String, PrimaryKey> getStmtInsertLocation() 
 	{
-		try {
-			beginUpdate();
-
-			PreparedStatement stmnt = dbConn.prepareStatement("UPDATE cities " +
-										  "SET region = ?, country = ?, latitude = ?," +
-										  "    longitude = ?, dbpedia_resource = ?, " +
-										  "    city_crawler_ts = ? WHERE id = ?");
-			if (regName == null || regName.isEmpty())
-				stmnt.setNull(1, java.sql.Types.VARCHAR);
-			else
-				stmnt.setString(1, regName);
-			if (ctryName == null || ctryName.isEmpty())
-				stmnt.setNull(2, java.sql.Types.VARCHAR);
-			else
-				stmnt.setString(2, ctryName);
-			stmnt.setFloat(3, latitude);
-			stmnt.setFloat(4, longitude);
-			if (cityResID == null || cityResID.isEmpty())
-				stmnt.setNull(5, java.sql.Types.VARCHAR);
-			else
-				stmnt.setString(5, cityResID);
-			stmnt.setTimestamp(6, new Timestamp(System.currentTimeMillis()));
-			stmnt.setInt(7, cityID);
-			stmnt.executeUpdate();
-		}
-		finally {
-			endUpdate();
-		}
+		return Utils.createPair("INSERT INTO locations (name, longitude, latitude, city_id) " +
+				   "VALUES(?, ?, ?, ?)", null);
 	}
 }

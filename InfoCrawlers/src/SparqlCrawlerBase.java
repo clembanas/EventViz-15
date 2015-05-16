@@ -116,11 +116,20 @@ public abstract class SparqlCrawlerBase extends DBQueryBasedCrawler {
 		
 		public String escapeStr(String str)
 		{
-			return str.replace("\"", "\\\"").replace("'", "\\'");
+			if (str.startsWith("\""))
+				str = str.substring(1);
+			if (str.endsWith("\""))
+				str = str.substring(0, str.length() - 1);
+			return str.replace("'", "\\'").replace("\"", "\" AND \"");
 		}
 		
 		public String escapeRegEx(String str)
 		{
+			if (str.startsWith("\""))
+				str = str.substring(1);
+			if (str.endsWith("\""))
+				str = str.substring(0, str.length() - 1);
+			
 			StringBuilder res = new StringBuilder(str.length());
 			char c;
 			
@@ -130,7 +139,7 @@ public abstract class SparqlCrawlerBase extends DBQueryBasedCrawler {
 				else
 					res.append(c);
 			}
-			return "\\\\Q" + res.toString() + "\\\\E";
+			return "\\\\Q" + res.toString().replace("\"", "\\\"") + "\\\\E";
 		}
 		
 		public String replaceWildcards(String fmtStr, String[] dataRow, boolean allRequired) 
@@ -520,6 +529,8 @@ public abstract class SparqlCrawlerBase extends DBQueryBasedCrawler {
 	
 	protected void finished()
 	{
+		if (resCache != null)
+			resCache.clear();
 		resCache = null;
 	}
 	

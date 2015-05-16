@@ -32,7 +32,8 @@ public class CrawlerManager {
 				if (dependencies != null) {
 					CrawlerCtrlr crawlerCtrlr; 
 
-					CrawlerManager.debug_print("Waiting for depending crawlers to finish ...");
+					CrawlerManager.debug_print("Waiting for depending crawlers of '" + 
+						crawlerClass.getName() + "' to finish ...");
 					for (Class<? extends CrawlerBase> dependsOnCrawlerClass: dependencies) {
 						crawlerCtrlr = getCrawlerCtrlr(dependsOnCrawlerClass);
 						if (crawlerCtrlr == null)
@@ -43,7 +44,8 @@ public class CrawlerManager {
 						crawlerCtrlr.start();
 						crawlerCtrlr.join();
 					}
-					CrawlerManager.debug_print("Waiting for depending crawlers to finish ... Done");
+					CrawlerManager.debug_print("Waiting for depending crawlers of '" + 
+						crawlerClass.getName() + "' to finish ... Done");
 				}
 			}
 			
@@ -60,7 +62,9 @@ public class CrawlerManager {
 									  ctorData);
 					CrawlerManager.debug_print("Executing crawler '" + crawlerClass.getName() + 
 						"' ... ");
-					crawler.execute(thdPool, dbConn);
+					crawler.associateThdPool(thdPool);
+					crawler.associateDBConnection(dbConn);
+					crawler.execute();
 					crawler = null;
 					CrawlerManager.debug_print("Executing crawler '" + crawlerClass.getName() + 
 						"' ... Done");

@@ -23,7 +23,7 @@ import com.hp.hpl.jena.rdf.model.RDFNode;
 public class SparqlQuery {
 	
 	public static final int LIMIT_NONE = 0;
-	public static final int MAX_QUERY_RETRIES = 15;
+	public static final int MAX_QUERY_RETRIES = 30;
 	public static final int QUERY_RETRY_DELAY = 2500;	//msec
 	
 	public static boolean DEBUG = true;

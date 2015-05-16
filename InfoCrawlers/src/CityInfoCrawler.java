@@ -13,7 +13,7 @@ import com.hp.hpl.jena.rdf.model.RDFNode;
 
 public class CityInfoCrawler extends SparqlCrawlerBase {
 	
-	public static final int WORKER_THD_CNT = 10;
+	public static final int WORKER_THD_CNT = 5;
 	public static final QueryExecutor[] QUERIES = new QueryExecutor[] {
 		new QueryExecutor(
 				"SELECT DISTINCT ?city ?geolat ?geolong ?country ?country2 ?region ?subDev " +
@@ -126,8 +126,8 @@ public class CityInfoCrawler extends SparqlCrawlerBase {
 			{
 				try {
 					queryContext.getDBConnection().updateCity(
-						Integer.valueOf(queryContext.getDataRow()[0]), latitude, longitude, 
-						regionName == null ? queryContext.getDataRow()[2] : regionName, 
+						DBConnection.PrimaryKey.create(queryContext.getDataRow()[0]), latitude, 
+						longitude, regionName == null ? queryContext.getDataRow()[2] : regionName, 
 						countryName == null ? queryContext.getDataRow()[3] : countryName, 
 						cityResID);
 					updatedCityCnt.incrementAndGet();
@@ -383,6 +383,11 @@ public class CityInfoCrawler extends SparqlCrawlerBase {
 	
 	private int dbUpdateInterval;
 	
+	protected int getDatasetCount() throws Exception
+	{
+		return dbConnection.getIncompleteCitiesCount(dbUpdateInterval);
+	}
+	
 	protected Utils.Pair<java.sql.ResultSet, Object> getNextDataset(Object customData) 
 		throws Exception 
 	{
@@ -403,9 +408,13 @@ public class CityInfoCrawler extends SparqlCrawlerBase {
 		int maxCacheLoad = resCache.getMaxLoadInBytes();
 		
 		super.finished();
-		debug_print(CityInfoQPP.getUpdatedCityCount() + " cities updated (" + cacheMisses + 
-			" cache misses/ " + cacheLookups + " cache lookups; max cache load: " + maxCacheLoad + 
-			" Bytes)");
+		dbConnection.updateCityCrawlerTS();
+		debug_print("\n   Summary:\n      Updated cities: " + CityInfoQPP.getUpdatedCityCount() + 
+			"\n      Cache misses: " + cacheMisses + "\n      Cache lookups: " + cacheLookups + 
+			"\n      Max cache load: " + maxCacheLoad + " Bytes\n");
+		dbConnection.logCrawlerFinished(CityInfoCrawler.class, "Updated cities: " + 
+			CityInfoQPP.getUpdatedCityCount() +	"; Cache misses: " + cacheMisses + 
+			"; Cache lookups: " + cacheLookups + "; Max cache load: " +	maxCacheLoad);
 	}
 
 	public CityInfoCrawler(Utils.Pair<String[], Integer> settings) 

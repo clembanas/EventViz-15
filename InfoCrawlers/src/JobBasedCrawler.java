@@ -54,16 +54,15 @@ public abstract class JobBasedCrawler extends CrawlerBase {
 		while (!job.done);
 	}
 	
-	public void execute(ExecutorService thdPool, DBConnection dbConnection)
+	public void execute()
 	{
 		final int workerThdCnt = getWorkerThdCount();
 		workerJobs = new  ArrayBlockingQueue<WorkerJobBase>(QUEUE_SIZE_MULTI * workerThdCnt);
 		int startedWorkerThds = 0;
 		Utils.Pair<WorkerJobBase, Object> nextJob;
 
-		associateThdPool(thdPool);
-		associateDBConnection(dbConnection);
 		debug_print("Crawler started...", JobBasedCrawler.class);
+		started();
 		try {
 			nextJob = getNextWorkerJob(null);
 			//Keep filling queue with worker jobs until no more jobs exist
@@ -80,6 +79,9 @@ public abstract class JobBasedCrawler extends CrawlerBase {
 		} 
 		catch (Exception e) {
 			handleException(e, "Error in crawler '" + getClass().getName() + "'!");
+			try {
+				workerJobs.put(new WorkerJobBase(true));
+			} catch (InterruptedException e1) {}
 		}
 		finally {
 			joinWorkerThds();

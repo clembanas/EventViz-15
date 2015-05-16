@@ -15,7 +15,7 @@ import com.hp.hpl.jena.rdf.model.RDFNode;
  */
 public class BandInfoCrawler extends SparqlCrawlerBase {
 	
-	public static final int WORKER_THD_CNT = 10;
+	public static final int WORKER_THD_CNT = 5;
 	public static final QueryExecutor[] QUERIES = new QueryExecutor[] {
 		//Find city by name, region and (optional) by country
 		new QueryExecutor(
@@ -198,14 +198,14 @@ public class BandInfoCrawler extends SparqlCrawlerBase {
 				try {
 					//Store band artists
 					for (Artist artist: artists.values()) {
-						dbConn.insertBandArtist(Integer.valueOf(bandID), artist.name, 
+						dbConn.insertBandArtist(DBConnection.PrimaryKey.create(bandID), artist.name, 
 							artist.altName,	artist.memberType.toChar(), 
 							(artist.memberType == BandMemberType.BAND_IS_ARTIST && 
 							artist.resID == null ? bandResID : artist.resID));
 						addedArtistCnt.incrementAndGet();
 					}
 					//Update band's DBpedia resource identifier
-					dbConn.updateBand(Integer.valueOf(bandID), bandResID);
+					dbConn.updateBand(DBConnection.PrimaryKey.create(bandID), bandResID);
 					updatedBandCnt.incrementAndGet();
 				}
 				catch (Exception e) {
@@ -262,6 +262,11 @@ public class BandInfoCrawler extends SparqlCrawlerBase {
 
 	private int dbUpdateInterval;
 	
+	protected int getDatasetCount() throws Exception
+	{
+		return dbConnection.getIncompleteBandsCount(dbUpdateInterval);
+	}
+	
 	protected Utils.Pair<java.sql.ResultSet, Object> getNextDataset(Object customData) 
 		throws Exception 
 	{
@@ -282,10 +287,15 @@ public class BandInfoCrawler extends SparqlCrawlerBase {
 		int maxCacheLoad = resCache.getMaxLoadInBytes();
 		
 		super.finished();
-		debug_print(BandInfoQPP.getUpdatedBandCount() + " bands updated and " + 
-			BandInfoQPP.getAddedArtistCount() + " artists added (" + cacheMisses + 
-			" cache misses/ " + cacheLookups + " cache lookups; max cache load: " + maxCacheLoad + 
-			" Bytes)");
+		dbConnection.updateBandCrawlerTS();
+		debug_print("\n   Summary:\n      Updated bands: " + BandInfoQPP.getUpdatedBandCount() + 
+			"\n      Added artists: " + BandInfoQPP.getAddedArtistCount() + "\n      " +
+			"Cache misses: " + cacheMisses + "\n      Cache lookups: " + cacheLookups + 
+			"\n      Max cache load: " + maxCacheLoad + " Bytes\n");
+		dbConnection.logCrawlerFinished(BandInfoCrawler.class, "Updated bands: " + 
+			BandInfoQPP.getUpdatedBandCount() +	"; Added artists: " + 
+			BandInfoQPP.getAddedArtistCount() + "; Cache misses: " + cacheMisses + 
+			"; Cache lookups: " + cacheLookups + "; Max cache load: " +	maxCacheLoad);
 	}
 
 	public BandInfoCrawler(Utils.Pair<String[], Integer> settings) 

@@ -1,7 +1,9 @@
 /**
  * @author Bernhard Weber
  */
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 
@@ -139,13 +141,16 @@ public class DebugUtils {
 		}
 	}
 	
+	
+	private static SimpleDateFormat dateFmt = new SimpleDateFormat("HH:mm:ss.SSS ");
+	
 	public static void debug_print(final String info)
 	{
-		System.out.println(info);
+		System.out.println(dateFmt.format(new Date()) + info);
 	}
 	
 	public static void debug_printf(final String fmt, Object ... infos)
 	{
-		System.out.printf(fmt, infos);
+		System.out.printf(dateFmt.format(new Date()) + fmt, infos);
 	}
 }
