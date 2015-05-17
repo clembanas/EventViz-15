@@ -1,7 +1,5 @@
-package data;
+package sentiment_analysis;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 public class SocialMentionData {
@@ -112,8 +110,7 @@ public class SocialMentionData {
 		this.sources = sources;
 	}
 
-	public String getJSON(){
-		String json = "";
+	public JsonObject getJSON(){
 		JsonObject jso = new JsonObject();
 		jso.addProperty("score_strength", score_strength);
 		jso.addProperty("score_sentiment", score_sentiment);
@@ -123,8 +120,7 @@ public class SocialMentionData {
 		jso.add("keywords", keywords.getSortedKeywordJSON());
 		jso.add("sentiment", sentiment.getJSON());
 		jso.add("hashtags", hashtags.getSortedHashtagsJSON());
-		System.out.println(jso.toString());
 		
-		return json;
+		return jso;
 	}
 }

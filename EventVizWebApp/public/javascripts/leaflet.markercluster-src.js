@@ -245,12 +245,12 @@
 
                 for (var i = 0; i < node._markers.length; i++) {
                     var child = node._markers[i];
-                    var marker = L.marker(L.latLng(child._latlng.lat, child._latlng.lng), { title: child._leaflet_id });
+                    var marker = L.marker(L.latLng(child._latlng.lat, child._latlng.lng), { title: child._leaflet_id, eventfulID: child._latlng.id });
                     marker.on('click', clickMarker);
+                    
 
                     parent._addChild(marker);
                     marker.__parent = parent;
-
                 }
             }
         }
@@ -448,11 +448,6 @@
 
                 return value;
             }
-
-            var test = JSON.stringify(this._gridClusters[0], replacer);
-
-            console.log(test);
-            //save_content_to_file(test, "C:\\fuck.txt");
         },
 
         getVisibleParent: function (marker) {

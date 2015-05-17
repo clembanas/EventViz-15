@@ -6,8 +6,11 @@
 GET     /                           controllers.Application.index()
 GET     /events                     controllers.Application.getEvents()
 GET     /city       				controllers.Application.getCity(city: java.lang.String ?= "", country: java.lang.String ?= "")
+GET		/getSentiment				controllers.Application.getSentiment(terms: java.lang.String ?= "", location: java.lang.String ?= "")
+GET		/getEventById				controllers.Application.getEventById(id: java.lang.String ?= "")
 GET     /clusteringtest             controllers.Application.clusteringtest()
 GET     /defaultCluster             controllers.Application.getDefaultCluster()
+
 
 # Map static resources from the /public folder to the /assets URL path
 GET     /assets/*file               controllers.Assets.at(path="/public", file)

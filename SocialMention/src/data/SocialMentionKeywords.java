@@ -10,6 +10,9 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.TreeMap;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+
 public class SocialMentionKeywords {
 	private Map<String, Integer> keywords;
 
@@ -44,6 +47,18 @@ public class SocialMentionKeywords {
 			sortedMap.put(entry.getKey(), entry.getValue());
 		}
 		return sortedMap;
+	}
+	
+	public JsonArray getSortedKeywordJSON(){
+		JsonArray jsa = new JsonArray();
+		Map<String, Integer> sortedMap = getSortedKeywords();
+		for(String s : sortedMap.keySet()){
+			JsonObject keyword = new JsonObject();
+			keyword.addProperty("keyword", s);
+			keyword.addProperty("occurance", sortedMap.get(s));
+			jsa.add(keyword);
+		}
+		return jsa;
 	}
 
 }

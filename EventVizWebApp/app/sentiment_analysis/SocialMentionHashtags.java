@@ -1,4 +1,4 @@
-package data;
+package sentiment_analysis;
 
 import java.util.Collections;
 import java.util.Comparator;

@@ -25,6 +25,7 @@ public class SocialMentionSentimentTest {
 		long start = System.currentTimeMillis();
 		try {
 			socialMentionData = SocialMentionSentimentComponent.getSocialMentionData(queryTerms, location);
+			socialMentionData.getJSON();
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();

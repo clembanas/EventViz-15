@@ -266,6 +266,7 @@
 		});
 		
 		var currentEvent = {
+			id: "id",
 			name: "Event",
 			description: "Description",
 			city: "city",
@@ -402,16 +403,15 @@
 		$.ajax({ // ajax call starts
             url: 'defaultCluster', // JQuery loads serverside.php
             dataType: 'json', // Choosing a JSON datatype
-        })
-            .done(function(data) { // Variable data contains the data we get from serverside
-                var tree = data;
-                //var tree = tmp;
-                // new
-                var markers = L.markerClusterGroup();
-                markers.addTree(tree);
-                //var map = L.map('map', { center: latlng, zoom: 2, layers: [tiles] });
-                map.addLayer(markers);
-            });
+        }).done(function(data) { // Variable data contains the data we get from serverside
+			var tree = data;
+			//var tree = tmp;
+			// new
+			var markers = L.markerClusterGroup();
+			markers.addTree(tree);
+			//var map = L.map('map', { center: latlng, zoom: 2, layers: [tiles] });
+			map.addLayer(markers);
+        });
 		
 		
 		
@@ -568,6 +568,7 @@
 		}
 		
 		function clickMarker(marker){
+			console.log(marker);
 			showInfo = true;
 			removeCountries();
 			var tmpLatLng = marker.latlng == undefined ?  $.extend( {}, marker._latlng  ): $.extend({}, marker.latlng  );
@@ -583,15 +584,27 @@
 			}
 			
 			$("#social").css("visibility", "visible");
-			currentEvent.name = options.name;
-			currentEvent.description = options.description;
-			currentEvent.city = options.city;
-			currentEvent.country = options.country;
-			infoboxEvent();
+			currentEvent.id = options.eventfulID;
+			$.get( "/getEventById", { id : currentEvent.id } ).done(function(result){
+				currentEvent.name = result.name;
+				currentEvent.description = result.description;
+				currentEvent.city = result.city;
+				currentEvent.country = result.country;
+				currentEvent.location = result.location;
+				currentEvent.startTime = result.startTime;
+				currentEvent.duration = result.duration;
+				infoboxEvent();
+				var terms = "['data1', 'data2', 'data3']";
+				$.getJSON( "/getSentiment", { terms: terms, location: currentEvent.city } ).done(function(result){
+					console.log(result);
+				});
+			})
+			
+			
 		}
 		
 		function makeCityRequests(city, country){
-			var result = $.getJSON( "/city", { city: city, country: country } ).done(function(result){
+			$.getJSON( "/city", { city: city, country: country } ).done(function(result){
 				currentCity.name = result.name;
 				currentCity.country = result.country;
 				currentCity.population = result.population;
@@ -619,9 +632,9 @@
 			$("#info").append($("<p id=eventDescription>").text("Description: " + currentEvent.description));
 			$("#info").append($("<p id=eventCity>").text("City: " + currentEvent.city));
 			$("#info").append($("<p id=eventCountry>").text("Country: " + currentEvent.country));
-			$("#info").append($("<p id=eventLocation>").text("Location: "));
-			$("#info").append($("<p id=eventTime>").text("Start time: "));
-			$("#info").append($("<p id=eventDuration>").text("Duration: "));
+			$("#info").append($("<p id=eventLocation>").text("Location: " + currentEvent.location));
+			$("#info").append($("<p id=eventTime>").text("Start time: " + currentEvent.startTime));
+			$("#info").append($("<p id=eventDuration>").text("Duration: " + currentEvent.duration));
 			
 			$("#eventCity").click(function(){
 				makeCityRequests(currentEvent.city, currentEvent.country);

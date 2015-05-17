@@ -1,4 +1,4 @@
-package data;
+package sentiment_analysis;
 
 import java.util.Collections;
 import java.util.Comparator;
@@ -7,33 +7,33 @@ import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
 import java.util.Map.Entry;
+import java.util.TreeMap;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
-public class SocialMentionHashtags {
-	private Map<String, Integer> hashtags;
+public class SocialMentionKeywords {
+	private Map<String, Integer> keywords;
 
-	public SocialMentionHashtags() {
-		this.hashtags = new TreeMap<String, Integer>();
+	public SocialMentionKeywords() {
+		this.keywords = new TreeMap<String, Integer>();
 	}
 
-	public Map<String, Integer> getHashtags() {
-		return hashtags;
+	public Map<String, Integer> getKeywords() {
+		return keywords;
 	}
 
-	public void setHashtags(final Map<String, Integer> hashtags) {
-		this.hashtags = hashtags;
+	public void setKeywords(final Map<String, Integer> keywords) {
+		this.keywords = keywords;
 	}
 
-	public void addHashtag(final String hashtag, final int occurence) {
-		this.hashtags.put(hashtag, occurence);
+	public void addKeyword(final String keyword, final int occurrence) {
+		this.keywords.put(keyword, occurrence);
 	}
 
-	public Map<String, Integer> getSortedHashtags() {
-		final List<Map.Entry<String, Integer>> list = new LinkedList<Map.Entry<String, Integer>>(this.getHashtags().entrySet());
+	public Map<String, Integer> getSortedKeywords() {
+		final List<Map.Entry<String, Integer>> list = new LinkedList<Map.Entry<String, Integer>>(this.getKeywords().entrySet());
 		Collections.sort(list, new Comparator<Map.Entry<String, Integer>>() {
 			@Override
 			public int compare(final Map.Entry<String, Integer> o1, final Map.Entry<String, Integer> o2) {
@@ -49,15 +49,16 @@ public class SocialMentionHashtags {
 		return sortedMap;
 	}
 	
-	public JsonArray getSortedHashtagsJSON(){
+	public JsonArray getSortedKeywordJSON(){
 		JsonArray jsa = new JsonArray();
-		Map<String, Integer> sortedMap = getSortedHashtags();
+		Map<String, Integer> sortedMap = getSortedKeywords();
 		for(String s : sortedMap.keySet()){
 			JsonObject keyword = new JsonObject();
-			keyword.addProperty("hashtag", s);
+			keyword.addProperty("keyword", s);
 			keyword.addProperty("occurance", sortedMap.get(s));
 			jsa.add(keyword);
 		}
 		return jsa;
 	}
+
 }
