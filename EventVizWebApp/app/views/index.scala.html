@@ -9,6 +9,8 @@
 <script src="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.js"></script>
 <script src="http://code.jquery.com/jquery-2.1.3.min.js"></script>
 <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/jquery-ui.min.js"></script>
+<script src="http://code.highcharts.com/highcharts.js"></script>
+<script src="http://code.highcharts.com/modules/exporting.js"></script>
 <script src="JavaScript/Borders.js"></script>
 <script src="JavaScript/Events.js"></script>
 <script src="JavaScript/CountryOperations.js"></script>
@@ -42,6 +44,7 @@
 	font-size: 16pt;
 	padding-left: 10px;
 	opacity: 0.8;
+	visibility: hidden;
 }
 
 #filterbox {
@@ -81,7 +84,8 @@
 	position: absolute;
 	background-color: white;
 	border: 3px solid blue;
-	font-size: 14pt;
+	color:#333333;
+	font-size: 16pt;
 	padding-left: 10px;
 	opacity: 0.8;
 	visibility: hidden;
@@ -173,6 +177,74 @@
 	opacity: 0.8;
 	visibility: hidden;
 }
+
+#socialInfo {
+	height: 50px;
+	width: 98%;
+	left: 1%;
+	top: 1%;
+	font-size: 20px;
+	color:#333333;
+	position: absolute;
+	visibility: hidden;
+}
+
+#socialResult {
+	height: calc(98% - 70px);
+	width: 48%;
+	left: 1%;
+	top: calc(2% + 50px);
+	position: absolute;
+    overflow: auto;
+	font-size: 16px;
+	color:#333333;
+	visibility: hidden;
+}
+
+#socialChart {
+	height: calc(98% - 70px);
+	width: 48%;
+	left: 51%;
+	top: calc(2% + 50px);
+	position: absolute;
+	visibility: hidden;
+}
+
+#socialLoading {
+	height: 100px;
+	width: 100px;
+	left: calc(50% - 50px);
+	top: calc(50% - 50px);
+	position: absolute;
+	visibility: hidden;
+}
+
+.socialDescBig {
+	float: left;
+	height: 25px;
+	padding-top: 5px;
+	width: 30%;
+}
+
+.socialEntryBig {
+	float: left;
+	height: 25px;
+	padding-top: 5px;
+	width: 60%;
+}
+
+.socialDesc {
+	float: left;
+	height: 25px;
+	width: 30%;
+}
+
+.socialEntry {
+	float: left;
+	height: 25px;
+	width: 60%;
+}
+
 </style>
 
 </head>
@@ -196,7 +268,12 @@
 			<div id="info2"></div>
 			<div id="image2">image</div>
 		</div>
-		<div id="social"> social mention information</div>
+		<div id="social">
+			<div id="socialInfo"><p id="socialInfoP"/></div>
+			<div id="socialResult"></div>
+			<div id="socialChart"></div>
+			<div id="socialLoading"></div>
+		</div>
 	</div>
 	<script>
 		$("#navEvent").click(function(){
@@ -584,6 +661,9 @@
 			}
 			
 			$("#social").css("visibility", "visible");
+			$("#socialInfo").css("visibility", "visible");
+			$("#socialLoading").css("visibility", "visible");
+			$("#socialInfoP").html("Sentiment data is processed");
 			currentEvent.id = options.eventfulID;
 			$.get( "/getEventById", { id : currentEvent.id } ).done(function(result){
 				currentEvent.name = result.name;
@@ -597,6 +677,80 @@
 				var terms = "['data1', 'data2', 'data3']";
 				$.getJSON( "/getSentiment", { terms: terms, location: currentEvent.city } ).done(function(result){
 					console.log(result);
+					$("#socialInfoP").html("Sentiment data");
+					$("#socialLoading").css("visibility", "visible");					
+					$("#socialChart").css("visibility", "visible");
+					$("#socialResult").css("visibility", "visible");
+					$("#socialResult").empty();
+
+					$("#socialResult").append($("<div class=socialDescBig>").append($("<p>").text("Passion:")));
+					$("#socialResult").append($("<div class=socialEntryBig>").append($("<p id=socialPassion>").text(result.score_passion)));
+
+					$("#socialResult").append($("<div class=socialDescBig>").append($("<p>").text("Reach:")));
+					$("#socialResult").append($("<div class=socialEntryBig>").append($("<p id=socialReach>").text(result.score_reach)));
+
+					$("#socialResult").append($("<div class=socialDescBig>").append($("<p>").text("Sentiment:")));
+					$("#socialResult").append($("<div class=socialEntryBig>").append($("<p id=socialSentiment>").text(result.score_sentiment)));
+
+					$("#socialResult").append($("<div class=socialDescBig>").append($("<p>").text("Strength:")));
+					$("#socialResult").append($("<div class=socialEntryBig>").append($("<p id=socialStrength>").text(result.score_strength)));
+
+					$("#socialResult").append($("<div class=socialDescBig>").append($("<p>").text("Keywords:")));
+					if(result.keywords.length != 0){
+						$("#socialResult").append($("<div class=socialEntryBig>").append($("<p>").text(result.keywords[0].keyword + "\t" + result.keywords[0].occurance)));
+						for(var i = 1; i < result.keywords.length; i++){
+							$("#socialResult").append($("<div class=socialDesc>"));
+							$("#socialResult").append($("<div class=socialEntry>").append($("<p>").text(result.keywords[i].keyword + "\t" + result.keywords[i].occurance)));
+						}
+					}else{
+						$("#socialResult").append($("<div class=socialEntryBig>").append($("<p>").text("No keywords found.")));
+					}
+					
+					$("#socialResult").append($("<div class=socialDescBig>").append($("<p>").text("Hashtags:")));
+					if(result.hashtags.length != 0){
+						$("#socialResult").append($("<div class=socialEntryBig>").append($("<p>").text(result.hashtags[0].hashtag + "\t" + result.hashtags[0].occurance)));
+						for(var i = 1; i < result.hashtags.length; i++){
+							$("#socialResult").append($("<div class=socialDesc>"));
+							$("#socialResult").append($("<div class=socialEntry>").append($("<p>").text(result.hashtags[i].hashtag + "\t" + result.hashtags[i].occurance)));
+						}
+					}else{
+						$("#socialResult").append($("<div class=socialEntryBig>").append($("<p>").text("No hashtags found.")));
+					}
+					
+					var totalSentiment = result.sentiment.positive + result.sentiment.negative + result.sentiment.neutral;
+					Highcharts.getOptions().colors = Highcharts.map(Highcharts.getOptions().colors, function (color) {
+				        return {
+				            radialGradient: { cx: 0.5, cy: 0.3, r: 0.7 },
+				            stops: [
+				                [0, color],
+				                [1, Highcharts.Color(color).brighten(-0.3).get('rgb')] // darken
+				            ]
+				        };
+				    });
+
+				    // Build the chart
+				    $('#socialChart').highcharts({
+				        chart: {
+				            plotBackgroundColor: null,
+				            plotBorderWidth: null,
+				            plotShadow: false
+				        },
+				        title: {
+				            text: 'Sentiment'
+				        },
+				        tooltip: {
+				            pointFormat: '{series.name}: <b>{point.percentage:.1f}%</b>'
+				        },
+				        series: [{
+				            type: 'pie',
+				            name: 'Sentiment',
+				            data: [
+				                ['positive',   result.sentiment.positive / totalSentiment * 100],
+				                ['neutral',       result.sentiment.neutral / totalSentiment * 100],
+				                ['negative',       result.sentiment.negative / totalSentiment * 100],
+				            ]
+				        }]
+				    });
 				});
 			})
 			
