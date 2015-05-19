@@ -16,6 +16,12 @@ public class LightMarkerClusterVO {
 
 	public LightMarkerClusterVO(MarkerCluster realMarkerCluster)
 	{
+		if(realMarkerCluster == null)
+		{
+			String test = "";
+			test+="";
+		}
+		
 		this.realMarkerCluster = realMarkerCluster;
 	}
 	
@@ -27,7 +33,7 @@ public class LightMarkerClusterVO {
 	
 	@JsonProperty(value="_latlng")
 	public LightLocationVO getLatLng()
-	{
+	{		
 		return new LightLocationVO(realMarkerCluster);
 	}
 	

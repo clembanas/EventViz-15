@@ -13,7 +13,7 @@ public class MapTest {
 
 	@Test
 	public void testProject() {
-		Location latLng = new Location(39.2428725, -94.6588208);
+		Location latLng = new Location("myID", 39.2428725, -94.6588208);
 		
 		List<Tuple2<Integer, Point>> zoomPointResults = new ArrayList<Tuple2<Integer, Point>>();
 		zoomPointResults.add(Tuple2.apply(16, new Point(3977187.2142586307, 6397313.034448437)));

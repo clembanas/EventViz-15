@@ -1,13 +1,12 @@
 package logic.clustering.serialization;
 
 import logic.clustering.ILocation;
-import logic.clustering.MarkerCluster;
 
 public class LightLocationVO {
 
 	private final ILocation realLocation;
 
-	public LightLocationVO(ILocation location) {
+	public LightLocationVO(ILocation location) {		
 		this.realLocation = location;
 	}
 	

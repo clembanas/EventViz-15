@@ -16,7 +16,8 @@ public class MarkerClusterGroup {
 	private final MarkerDistanceGrid[] _gridUnclustered = new MarkerDistanceGrid[MAXZOOM + 1];
 	private final MarkerCluster topClusterLevel;
 
-	public MarkerClusterGroup(Iterable<ILocation> locations) {
+	public MarkerClusterGroup() {
+		this.topClusterLevel = new MarkerCluster(-1);
 		
 		// *********************************************************************
 		// taken from javascript-function: _generateInitialClusters
@@ -26,9 +27,9 @@ public class MarkerClusterGroup {
             this._gridUnclustered[zoom] = new MarkerDistanceGrid(RADIUS, SQRADIUS);
         }
         
-        this.topClusterLevel = new MarkerCluster(this, -1);
-        
-
+	}
+	
+/*	public MarkerCluster calculateTopClusterLevel(Iterable<ILocation> locations) {
 		// *********************************************************************
         // taken from javascript-function: addLayers 
 		
@@ -52,11 +53,9 @@ public class MarkerClusterGroup {
 
 
         //this.topClusterLevel._recursivelyAddChildrenToMap(null, this.zoom, this._currentShownBounds);
-	}
-	
-	public MarkerCluster getTopClusterLevel() {
+		
 		return topClusterLevel;
-	}
+	}*/
 
 	private void addLayer(Marker layer, int zoom) {
 		for (; zoom >= 0; zoom--) {
@@ -80,7 +79,7 @@ public class MarkerClusterGroup {
 
                 //Create new cluster with these 2 in it
 
-                MarkerCluster newCluster = new MarkerCluster(this, zoom, closestMarker, layer);
+                MarkerCluster newCluster = new MarkerCluster(zoom, closestMarker, layer);
                 this._gridClusters[zoom].addObject(newCluster, Map.project(newCluster.getCLatLng(), zoom));
                 closestMarker.setParent(newCluster);
                 layer.setParent(newCluster);
@@ -88,7 +87,7 @@ public class MarkerClusterGroup {
                 //First create any new intermediate parent clusters that don't exist
                 MarkerCluster lastParent = newCluster;
                 for (int z = zoom - 1; z > parent.getZoom(); z--) {
-                    lastParent = new MarkerCluster(this, z, lastParent);
+                    lastParent = new MarkerCluster(z, lastParent);
                     _gridClusters[z].addObject(lastParent, Map.project(closestMarker, z));
                 }
                 parent.addChild(lastParent);
@@ -172,6 +171,15 @@ public class MarkerClusterGroup {
             }
 
             marker.setParent(null);
+	}
+
+	public void addLocation(ILocation location) {
+		Marker m = new Marker(location);
+        this.addLayer(m, MAXZOOM);
+	}
+
+	public MarkerCluster getTopLevelCluster() {
+		return this.topClusterLevel;
 	}
 
 }

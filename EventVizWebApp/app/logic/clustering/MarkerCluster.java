@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class MarkerCluster implements IMarker {
-	private final List<MarkerCluster> children = new ArrayList<MarkerCluster>();
+	private final List<MarkerCluster> childClusters = new ArrayList<MarkerCluster>();
 	private final List<Marker> markers = new ArrayList<Marker>();
 	public List<Marker> getMarkers() {
 		return markers;
@@ -17,21 +17,20 @@ public class MarkerCluster implements IMarker {
 	private Location _wLatLng;
 	private Location _latlng;
 	
-	public MarkerCluster(MarkerClusterGroup markerClusterGroup, int zoom) {
+	public MarkerCluster(int zoom) {
 		this._zoom = zoom;
 	}
 
-	public MarkerCluster(MarkerClusterGroup markerClusterGroup, int zoom,
+	public MarkerCluster(int zoom,
 			Marker closestMarker, Marker layer) {
-		this(markerClusterGroup, zoom);
+		this(zoom);
 		
 		this.addChild(closestMarker);
 		this.addChild(layer);
 	}
 
-	public MarkerCluster(MarkerClusterGroup markerClusterGroup, int zoom,
-			MarkerCluster lastParent){
-		this(markerClusterGroup, zoom);
+	public MarkerCluster(int zoom, MarkerCluster lastParent){
+		this(zoom);
 		this.addChild(lastParent);
 	}
 	
@@ -60,7 +59,7 @@ public class MarkerCluster implements IMarker {
 		this._expandBounds(child);
 		
 		if (!isNotificationFromChild) {
-			children.add(child);
+			childClusters.add(child);
             child.setParent(this);
         }
         this._childCount += child._childCount;
@@ -125,7 +124,7 @@ public class MarkerCluster implements IMarker {
 	}
 
 	@Override
-	public double getLatitude() {
+	public double getLatitude() {		
 		return this._latlng.getLatitude();
 	}
 
@@ -139,12 +138,19 @@ public class MarkerCluster implements IMarker {
 	}
 
 	public List<MarkerCluster> getChildClusters() {
-		return this.children;
+		return this.childClusters;
 	}
 
 	@Override
 	public String getId() {
 		return null;
+	}
+
+	public void merge(MarkerCluster topCluster) {
+		this._latlng = topCluster._latlng; 		// just assign anything in order to reduce problems while serializing
+		this.childClusters.addAll(topCluster.childClusters);
+		this.markers.addAll(topCluster.markers);
+		this._childCount += topCluster._childCount;
 	}
 
 }

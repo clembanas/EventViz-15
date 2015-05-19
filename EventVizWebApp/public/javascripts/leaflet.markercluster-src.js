@@ -167,8 +167,15 @@
                     if (this._tree != undefined)
                     {
                         var tree = this._tree;
-
-                        this._addRecursiveMarius(this._topClusterLevel, tree);
+                        
+                        // server responds with topclusterlevel - just add markers of it and take childclusters of it (so we do not create a L.MarkerCluster(..)-object for it
+                        this._addMarkersMarius(this._topClusterLevel, tree);
+                        
+                        if (tree._childClusters.length > 0) {
+                        	for (var i = 0; i < tree._childClusters.length; i++) {
+                        		this._addRecursiveMarius(this._topClusterLevel, tree._childClusters[i]);
+                        	}
+                        }
 
                         this._topClusterLevel._recursivelyAddChildrenToMap(null, this._zoom, this._currentShownBounds);
                     }
@@ -240,8 +247,13 @@
                 //newCluster._wLatLang = node._wLatLang == undefined ? undefined : new L.LatLng(node._wLatLang.lat, node._wLatLang.lng);
                 newCluster._zoom = node._zoom;
             }
-
-            if (node._markers.length > 0) {
+            
+            this._addMarkersMarius(parent, node);
+        }
+        ,
+        
+        _addMarkersMarius: function (parent, node) {
+        	if (node._markers.length > 0) {
 
                 for (var i = 0; i < node._markers.length; i++) {
                     var child = node._markers[i];
@@ -253,8 +265,7 @@
                     marker.__parent = parent;
                 }
             }
-        }
-        ,
+        },
 
         //Override FeatureGroup.getBounds as it doesn't work
         getBounds: function () {

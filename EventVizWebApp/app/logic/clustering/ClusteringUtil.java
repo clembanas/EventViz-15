@@ -1,41 +1,82 @@
 package logic.clustering;
 
 import java.io.BufferedReader;
-import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 
-import logic.clustering.serialization.LightMarkerClusterVO;
-import play.Play;
 import play.libs.Json;
+import logic.clustering.serialization.LightMarkerClusterVO;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
 
 public class ClusteringUtil {
+	private static final int WORKER_COUNT = 4;
+	private static final int STRIPE_SIZE = 360 / WORKER_COUNT;
+	
+	
+	private static ClusteringWorker[] createClusteringWorker()
+	{
+		ClusteringWorker[] workers = new ClusteringWorker[WORKER_COUNT];
+		for(int i = 0; i < WORKER_COUNT; i++)
+		{
+			workers[i] = new LocalClusteringWorker();
+		}
+		
+		return workers;
+	}
+	
+	
 	public static MarkerCluster cluster(Iterable<ILocation> locations)
 	{
-		MarkerClusterGroup group = new MarkerClusterGroup(locations);
-		MarkerCluster topCluster = group.getTopClusterLevel();
-		// take the first childCluster at zoomlevel 0 (topCluster was used just for calculation)
+		ClusteringWorker[] workers = createClusteringWorker();
 		
-		if(topCluster.getChildCount() < 1)
+		for(ILocation location : locations)
+		{
+			int workerId = ((int)(location.getLongitude() + 180) / STRIPE_SIZE) % WORKER_COUNT;
+			workers[workerId].addLocation(location);
+		}
+		
+		MarkerCluster resultTop = new MarkerCluster(-1);
+		
+		for(ClusteringWorker worker : workers)
+		{
+			MarkerCluster topCluster;
+			try {
+				topCluster = worker.waitForResult();
+			} catch (Exception e) {
+				e.printStackTrace();
+				throw new RuntimeException(e);
+			}
+			
+			resultTop.merge(topCluster);
+		}
+		
+		return resultTop;
+		
+		//MarkerClusterGroup group = new MarkerClusterGroup();
+		// MarkerCluster topCluster = group.calculateTopClusterLevel(locations);
+		
+		//// take the first childCluster at zoomlevel 0 (topCluster was used just for calculation)
+		
+		//return topCluster;
+		
+		/*if(topCluster.getChildClusters().size() < 1)
 		{
 			return null;
 		}
 		
 		MarkerCluster clusterAtLevel0 = topCluster.getChildClusters().get(0);
-		return clusterAtLevel0;
+		return clusterAtLevel0;*/
 	}
 
 	private static JsonNode cachedDefaultClusterJsonNode = null;
 	public static JsonNode getDefaultClusterJsonNode() {
 		if(cachedDefaultClusterJsonNode == null)
 		{
-			MarkerCluster markerCluster = getDefaultCluster();		
+			MarkerCluster markerCluster = getDefaultCluster();
 			cachedDefaultClusterJsonNode = Json.toJson(new LightMarkerClusterVO(markerCluster));
 		}
 		
