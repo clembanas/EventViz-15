@@ -48,17 +48,5 @@ public class SocialMentionKeywords {
 		}
 		return sortedMap;
 	}
-	
-	public JsonArray getSortedKeywordJSON(){
-		JsonArray jsa = new JsonArray();
-		Map<String, Integer> sortedMap = getSortedKeywords();
-		for(String s : sortedMap.keySet()){
-			JsonObject keyword = new JsonObject();
-			keyword.addProperty("keyword", s);
-			keyword.addProperty("occurance", sortedMap.get(s));
-			jsa.add(keyword);
-		}
-		return jsa;
-	}
 
 }

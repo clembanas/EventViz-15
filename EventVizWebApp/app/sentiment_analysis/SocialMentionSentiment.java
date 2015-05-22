@@ -1,8 +1,5 @@
 package sentiment_analysis;
 
-import java.util.Map;
-
-import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
 public class SocialMentionSentiment {
@@ -40,12 +37,4 @@ public class SocialMentionSentiment {
 		this.negative = negative;
 	}
 
-	public JsonObject getJSON(){
-		JsonObject jso = new JsonObject();
-		jso.addProperty("positive", positive);
-		jso.addProperty("neutral", neutral);
-		jso.addProperty("negative", negative);
-		return jso;
-	}
-	
 }

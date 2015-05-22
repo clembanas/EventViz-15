@@ -4,6 +4,7 @@ package controllers;
 import java.io.IOException;
 import java.util.LinkedList;
 
+import jsonGeneration.JsonResultGenerator;
 import logic.clustering.ClusteringUtil;
 
 import com.google.gson.JsonArray;
@@ -14,6 +15,8 @@ import com.avaje.ebean.text.json.JsonElementArray;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
+import containers.EventVizCity;
+import containers.EventVizEvent;
 import play.libs.Json;
 import play.*;
 import play.mvc.*;
@@ -31,38 +34,27 @@ public class Application extends Controller {
 		return ok(clusteringtest.render());
 	}
 
+	//dummy without database connection
 	public static Result getEvents() {
-		ObjectNode result = Json.newObject();
-		result.put("name", "hello");
-		return ok(result);
+		return ok(JsonResultGenerator.getEvents_JSON("hello").toString());
 	}
 
 	//dummy without database connection
-	public static Result getCity(String city, String country) {
-		if(city.equals("")) {
+	public static Result getCity(String cityname, String country) {
+		if(cityname.equals("")) {
 			return badRequest("Missing parameter [city]");
 		}else if(country.equals("")){
 			return badRequest("Missing parameter [country]");
 		}else {
-			ObjectNode result = Json.newObject();
-			result.put("name", city);
-			result.put("country", country);
-			result.put("population", "5000");
-			return ok(result);
+			EventVizCity city = new EventVizCity(cityname, country, 5000);
+			return ok(JsonResultGenerator.getCity_JSON(city).toString());
 		}
 	}
 	
 	//dummy without database connection
 	public static Result getEventById(String id){
-		ObjectNode result = Json.newObject();
-		result.put("name", "name");
-		result.put("description", "description");
-		result.put("city", "city");
-		result.put("country", "country");
-		result.put("location", "location");
-		result.put("startTime", "09.00");
-		result.put("duration", "2");
-		return ok(result);
+		EventVizEvent event = new EventVizEvent("name", "description", "city", "country", "location", "09.00", 2)
+		return ok(JsonResultGenerator.getSpecificEvent_JSON(event).toString());
 	}
 	
 	public static Result getSentiment(String terms, String location){
@@ -79,11 +71,12 @@ public class Application extends Controller {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		return ok(data.getJSON().toString());
+		return ok(JsonResultGenerator.getSocialMentionSentiment_JSON(data).toString());
 	}
 	
 	public static Result getDefaultCluster()
 	{
 		return ok(ClusteringUtil.getDefaultClusterJsonNode());
 	}
+	
 }
