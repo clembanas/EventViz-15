@@ -1,10 +1,13 @@
 /**
  * @author Bernhard Weber
  */
+import java.io.BufferedInputStream;
+import java.io.FileInputStream;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.util.Properties;
 import java.util.concurrent.locks.*;
 
 
@@ -48,19 +51,25 @@ public class DBConnection_MySQL extends DBConnection_SQLConform {
 		}
 	}
 	
-	public static final String DB_NAME = "EventViz15";
+	public static String DB_NAME;
 	public static final String DRIVER_NAME = "com.mysql.jdbc.Driver";
-	public static final String CONNECTION_STR = "jdbc:mysql://127.0.0.1/" + DB_NAME + "?" + 
-			"user=EventVizUser&password=e1V2i3Z";
-	//FIXME
-//	public static final String CONNECTION_STR = "jdbc:mysql://138.232.65.248/EventViz15?" + 
-//													"user=EventVizUser&password=e1V2i3Z";
+	public static String CONNECTION_STR;
 	
 	private Lock updateLock = new ReentrantLock();
 	
-	protected DBConnection_MySQL()	 //Singleton
+	protected DBConnection_MySQL() throws Exception	 //Singleton
 	{
 		PrimaryKey.PrimaryKeyClass = MySQLPrimaryKey.class;
+		Properties properties = new Properties();
+		BufferedInputStream stream = new BufferedInputStream(new FileInputStream(
+											 "db_config.properties"));
+		
+		properties.load(stream);
+		stream.close();
+		DB_NAME = properties.getProperty("db_name");
+		CONNECTION_STR = String.format("jdbc:mysql://%s/%s?user=%s&password=%s", 
+						 	 properties.getProperty("db_host"), properties.getProperty("db_name"),
+							 properties.getProperty("db_user"), properties.getProperty("db_pword"));
 	}
 	
 	protected boolean tableExists(Statement stmt, String tableName) throws Exception 
