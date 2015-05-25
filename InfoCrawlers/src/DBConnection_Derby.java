@@ -1,10 +1,8 @@
 /**
  * @author Bernhard Weber
  */
-import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.Statement;
 import java.util.concurrent.locks.*;
 
 
@@ -61,13 +59,6 @@ public class DBConnection_Derby extends DBConnection_SQLConform {
 		PrimaryKey.PrimaryKeyClass = DerbyPrimaryKey.class;
 	}
 	
-	protected boolean tableExists(Statement stmt, String tableName) throws Exception 
-	{
-		DatabaseMetaData dbMeta = dbConn.getMetaData();
-		
-		return dbMeta.getTables(null, null, tableName.toUpperCase(), null).next();
-	}
-	
 	protected String getDriverName()
 	{
 		return DRIVER_NAME;
@@ -76,6 +67,11 @@ public class DBConnection_Derby extends DBConnection_SQLConform {
 	protected String getConnectionStr()
 	{
 		return CONNECTION_STR;
+	}
+	
+	protected boolean queryPagingSupported()
+	{
+		return false;
 	}
 	
 	protected void beginUpdate() throws Exception 
@@ -178,59 +174,31 @@ public class DBConnection_Derby extends DBConnection_SQLConform {
 				   "MEMBER_TYPE CHAR)";
 	}
 	
-	protected Utils.Pair<String, PrimaryKey> getStmtInsertEvent() 
-	{
-		return Utils.createPair("INSERT INTO events (name, description, eventful_id, " +
-				   "location_id) VALUES(?, ?, ?, ?)", null);
-	}
-	
 	protected String getStmtIncompleteBandsCount()
 	{
-		return "SELECT COUNT(id) FROM bands WHERE " +
+		return "SELECT COUNT(id) FROM Bands WHERE " +
 				   "band_crawler_ts IS NULL OR " +
 				   "{fn TIMESTAMPDIFF(SQL_TSI_HOUR, band_crawler_ts, ?)} >= ?";
 	}
 
 	protected String getStmtIncompleteBands()
 	{
-		return "SELECT id, name FROM bands WHERE " +
+		return "SELECT id, name FROM Bands WHERE " +
 				   "band_crawler_ts IS NULL OR " +
 				   "{fn TIMESTAMPDIFF(SQL_TSI_HOUR, band_crawler_ts, ?)} >= ?";
 	}
 	
-	protected Utils.Pair<String, PrimaryKey> getStmtInsertBand() 
-	{
-		return Utils.createPair("INSERT INTO bands (name) VALUES(?)", null);
-	}
-
-	protected Utils.Pair<String, PrimaryKey> getStmtInsertArtist() 
-	{
-		return Utils.createPair("INSERT INTO artists (name, alternate_name, dbpedia_resource) " +
-			      "VALUES(?, ?, ?)", null);
-	}
-	
 	protected String getStmtIncompleteCitiesCount()
 	{
-		return "SELECT COUNT(id) FROM cities " +
+		return "SELECT COUNT(id) FROM Cities " +
 				   "WHERE city_crawler_ts IS NULL OR " +
 				   "{fn TIMESTAMPDIFF(SQL_TSI_HOUR, city_crawler_ts, ?)} >= ?";
 	}
 	
 	protected String getStmtIncompleteCities()
 	{
-		return "SELECT id, name, region, country FROM cities " +
+		return "SELECT id, name, region, country FROM Cities " +
 				   "WHERE city_crawler_ts IS NULL OR " +
 				   "{fn TIMESTAMPDIFF(SQL_TSI_HOUR, city_crawler_ts, ?)} >= ?";
-	}
-	
-	protected Utils.Pair<String, PrimaryKey> getStmtInsertCity() 
-	{
-		return Utils.createPair("INSERT INTO cities (name, region, country) VALUES(?, ?, ?)", null);
-	}
-
-	protected Utils.Pair<String, PrimaryKey> getStmtInsertLocation() 
-	{
-		return Utils.createPair("INSERT INTO locations (name, longitude, latitude, city_id) " +
-				   "VALUES(?, ?, ?, ?)", null);
 	}
 }

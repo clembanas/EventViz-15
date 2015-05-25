@@ -15,7 +15,7 @@ public class Main_InfoCrawlers {
 	public static final boolean DEBUG_CRAWLER_MGR = true;
 	//Database settings
 	public static final Class<? extends DBConnection> DB_CONNECTION_CLASS = 
-		DBConnection_Impala.class;
+		DBConnection_MySQL.class;
 	//Event Crawler settings
 	public static final int EVENT_CRAWLER_MAX_DAYS = 30;	 //Max days to be crawled from today
 	public static final int EVENT_CRAWLER_PAGE_SIZE = 100;	 //Each worker thread processes one page

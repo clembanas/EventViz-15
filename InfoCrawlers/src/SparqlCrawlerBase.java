@@ -522,7 +522,7 @@ public abstract class SparqlCrawlerBase extends DBQueryBasedCrawler {
 			for (int j = 0, queryLen = queryExecutors.length; j < queryLen; ++j) {
 				if (queryExecutors[j].execute(new QueryContext(queryExecutors[j], endpoint, dataRow, 
 					dataRowIdx,	j + 1)))
-					break;
+					return;
 			}
 		}
 	}

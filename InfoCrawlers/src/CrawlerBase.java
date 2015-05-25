@@ -101,7 +101,7 @@ public abstract class CrawlerBase {
 		dbConnection.logCrawlerStarted(getClass());
 	}
 	
-	protected void finished()
+	protected void finished(boolean exceptionThrown)
 	{
 	}
 	
@@ -118,6 +118,7 @@ public abstract class CrawlerBase {
 	public void execute()
 	{
 		final int workerThdCnt = getWorkerThdCount();
+		boolean exceptionThrown = false;
 
 		debug_print("Crawler started...", CrawlerBase.class);
 		started();
@@ -127,10 +128,11 @@ public abstract class CrawlerBase {
 		} 
 		catch (Exception e) {
 			handleException(e, "Error in crawler '" + getClass().getName() + "'!");
+			exceptionThrown = true;
 		}
 		finally {
 			joinWorkerThds();
-			finished();
+			finished(exceptionThrown);
 		}
 	}
 	

@@ -13,6 +13,7 @@ import com.hp.hpl.jena.rdf.model.RDFNode;
 
 public class CityInfoCrawler extends SparqlCrawlerBase {
 	
+	public static final int INCOMPLETE_CITIES_PAGE_SIZE = 100;
 	public static final int WORKER_THD_CNT = 5;
 	public static final QueryExecutor[] QUERIES = new QueryExecutor[] {
 		new QueryExecutor(
@@ -391,9 +392,16 @@ public class CityInfoCrawler extends SparqlCrawlerBase {
 	protected Utils.Pair<java.sql.ResultSet, Object> getNextDataset(Object customData) 
 		throws Exception 
 	{
-		if (customData != null)
+		Integer pageIdx = (Integer)customData;
+		
+		if (pageIdx == null) 
+			pageIdx = new Integer(0);
+		else if (!dbConnection.supportsQueryPaging()) 
 			return null;
-		return Utils.createPair(dbConnection.getIncompleteCities(dbUpdateInterval), new Object());
+		else
+			pageIdx++;
+		return Utils.createPair(dbConnection.getIncompleteCities(dbUpdateInterval, pageIdx, 
+				   INCOMPLETE_CITIES_PAGE_SIZE), (Object)pageIdx);
 	}
 
 	protected int getWorkerThdCount() 
@@ -401,14 +409,15 @@ public class CityInfoCrawler extends SparqlCrawlerBase {
 		return WORKER_THD_CNT;
 	}
 	
-	protected void finished()
+	protected void finished(boolean exceptionThrown)
 	{
 		long cacheLookups = resCache.getLookupCount();
 		long cacheMisses = resCache.getLookupMissCount();
 		int maxCacheLoad = resCache.getMaxLoadInBytes();
 		
-		super.finished();
-		dbConnection.updateCityCrawlerTS();
+		super.finished(exceptionThrown);
+		if (!exceptionThrown)
+			dbConnection.updateCityCrawlerTS();
 		debug_print("\n   Summary:\n      Updated cities: " + CityInfoQPP.getUpdatedCityCount() + 
 			"\n      Cache misses: " + cacheMisses + "\n      Cache lookups: " + cacheLookups + 
 			"\n      Max cache load: " + maxCacheLoad + " Bytes\n");

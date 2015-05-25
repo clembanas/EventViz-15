@@ -101,6 +101,7 @@ public abstract class DBConnection {
 	
 	protected abstract String getDriverName();
 	protected abstract String getConnectionStr();
+	protected abstract boolean queryPagingSupported();
 	protected abstract void beginUpdate() throws Exception;
 	protected abstract void endUpdate() throws Exception;
 	protected abstract void cancelUpdate() throws Exception;
@@ -188,7 +189,7 @@ public abstract class DBConnection {
 	
 	protected String trimAndTrunc(String s, int maxLen)
 	{
-		if (DEBUG) { 
+		if (DEBUG && s != null) { 
 			int len = s.length();
 			
 			s = Utils.trimAndTrunc(s, maxLen);
@@ -208,8 +209,13 @@ public abstract class DBConnection {
 	protected boolean tableExists(Statement stmt, String tableName) throws Exception 
 	{
 		DatabaseMetaData dbMeta = dbConn.getMetaData();
+		ResultSet resSet = dbMeta.getTables(null, null, null, null);
 		
-		return dbMeta.getTables(null, null, tableName.toLowerCase(), null).next();
+		while (resSet.next()) {
+			if (resSet.getString(3).equalsIgnoreCase(tableName))
+				return true;
+		}
+		return false;
 	}
 	
 	protected void createTable(Statement stmt, String tableName, String query,
@@ -372,7 +378,7 @@ public abstract class DBConnection {
 			createTable(stmt, "Locations", getStmtCreateTblLocations(), dropExisting);
 			createTable(stmt, "Events", getStmtCreateTblEvents(), dropExisting);
 			createTable(stmt, "Bands", getStmtCreateTblBands(), dropExisting);
-			createTable(stmt, "artists", getStmtCreateTblArtists(),	dropExisting);
+			createTable(stmt, "Artists", getStmtCreateTblArtists(),	dropExisting);
 			createTable(stmt, "EventPerformers", getStmtCreateTblEventPerformers(), dropExisting);
 			createTable(stmt, "BandMembers", getStmtCreateTblBandMembers(),	dropExisting);
 		}
@@ -397,6 +403,11 @@ public abstract class DBConnection {
 			dbConn = null;
 			debug_print("Disconnected from DB...");
 		}
+	}
+	
+	public boolean supportsQueryPaging()
+	{
+		return queryPagingSupported();
 	}
 	
 	public synchronized void logException(final Exception e, final String info, 
@@ -452,8 +463,8 @@ public abstract class DBConnection {
 		}
 	}
 	
-	public Utils.Pair<PrimaryKey, Boolean> insertEvent(String name, String desc, String eventfulID,
-		PrimaryKey locationID) throws Exception
+	public Utils.Pair<PrimaryKey, Boolean> insertEvent(String name, String desc, String type, 
+		String eventfulID,	PrimaryKey locationID) throws Exception
 	{
 		try {
 			beginUpdate();
@@ -469,6 +480,7 @@ public abstract class DBConnection {
 			PrimaryKey primKey = PrimaryKey.create(executeUpdate(insertEventStmt.first,
 									 trimAndTrunc(name, MAX_LEN_EVENT_NAME),
 									 trimAndTrunc(desc, MAX_LEN_EVENT_DESC),
+									 trimAndTrunc(type, MAX_LEN_EVENT_TYPE),
 									 trimAndTrunc(eventfulID, MAX_LEN_EVENT_EVENTFUL_ID),
 									 locationID), insertEventStmt.second);
 			endUpdate();
@@ -503,8 +515,12 @@ public abstract class DBConnection {
 		return resSet.next() ? resSet.getInt(1) : 0; 
 	}
 	
-	public ResultSet getIncompleteBands(int dbUpdateInterval) throws Exception
+	public ResultSet getIncompleteBands(int dbUpdateInterval, int pageIdx, int pageSize) 
+		throws Exception
 	{
+		if (queryPagingSupported())
+			return executeQuery(getStmtIncompleteBands(), new Timestamp(System.currentTimeMillis()),
+					   dbUpdateInterval, pageIdx * pageSize, pageSize);
 		return executeQuery(getStmtIncompleteBands(), new Timestamp(System.currentTimeMillis()),
 				   dbUpdateInterval);
 	}
@@ -594,8 +610,13 @@ public abstract class DBConnection {
 		return resSet.next() ? resSet.getInt(1) : 0; 
 	}
 	
-	public ResultSet getIncompleteCities(int dbUpdateInterval) throws Exception
+	public ResultSet getIncompleteCities(int dbUpdateInterval, int pageIdx, int pageSize) 
+		throws Exception
 	{
+		if (queryPagingSupported())
+			return executeQuery(getStmtIncompleteCities(),  
+					   new Timestamp(System.currentTimeMillis()), dbUpdateInterval, 
+					   pageIdx * pageSize, pageSize);
 		return executeQuery(getStmtIncompleteCities(), new Timestamp(System.currentTimeMillis()), 
 				   dbUpdateInterval);
 	}

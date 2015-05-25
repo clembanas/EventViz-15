@@ -60,6 +60,7 @@ public abstract class JobBasedCrawler extends CrawlerBase {
 		workerJobs = new  ArrayBlockingQueue<WorkerJobBase>(QUEUE_SIZE_MULTI * workerThdCnt);
 		int startedWorkerThds = 0;
 		Utils.Pair<WorkerJobBase, Object> nextJob;
+		boolean exceptionThrown = false;
 
 		debug_print("Crawler started...", JobBasedCrawler.class);
 		started();
@@ -74,18 +75,17 @@ public abstract class JobBasedCrawler extends CrawlerBase {
 				workerJobs.put(nextJob.first);
 				nextJob = getNextWorkerJob(nextJob.second);
 			}
-			//Notify all threads that no further dataset entries exist
-			workerJobs.put(new WorkerJobBase(true));
 		} 
 		catch (Exception e) {
 			handleException(e, "Error in crawler '" + getClass().getName() + "'!");
+			exceptionThrown = true;
+		}
+		finally {
 			try {
 				workerJobs.put(new WorkerJobBase(true));
 			} catch (InterruptedException e1) {}
-		}
-		finally {
 			joinWorkerThds();
-			finished();
+			finished(exceptionThrown);
 		}
 	}
 }

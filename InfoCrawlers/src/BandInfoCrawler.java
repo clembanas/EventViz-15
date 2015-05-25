@@ -15,6 +15,7 @@ import com.hp.hpl.jena.rdf.model.RDFNode;
  */
 public class BandInfoCrawler extends SparqlCrawlerBase {
 	
+	public static final int INCOMPLETE_BANDS_PAGE_SIZE = 100;
 	public static final int WORKER_THD_CNT = 5;
 	public static final QueryExecutor[] QUERIES = new QueryExecutor[] {
 		//Find city by name, region and (optional) by country
@@ -270,9 +271,16 @@ public class BandInfoCrawler extends SparqlCrawlerBase {
 	protected Utils.Pair<java.sql.ResultSet, Object> getNextDataset(Object customData) 
 		throws Exception 
 	{
-		if (customData != null)
+		Integer pageIdx = (Integer)customData;
+		
+		if (pageIdx == null) 
+			pageIdx = new Integer(0);
+		else if (!dbConnection.supportsQueryPaging()) 
 			return null;
-		return Utils.createPair(dbConnection.getIncompleteBands(dbUpdateInterval), new Object());
+		else
+			pageIdx++;
+		return Utils.createPair(dbConnection.getIncompleteBands(dbUpdateInterval, pageIdx, 
+				   INCOMPLETE_BANDS_PAGE_SIZE), (Object)pageIdx);
 	}
 
 	protected int getWorkerThdCount() 
@@ -280,14 +288,15 @@ public class BandInfoCrawler extends SparqlCrawlerBase {
 		return WORKER_THD_CNT;
 	}
 	
-	protected void finished()
+	protected void finished(boolean exceptionThrown)
 	{
 		long cacheLookups = resCache.getLookupCount();
 		long cacheMisses = resCache.getLookupMissCount();
 		int maxCacheLoad = resCache.getMaxLoadInBytes();
 		
-		super.finished();
-		dbConnection.updateBandCrawlerTS();
+		super.finished(exceptionThrown);
+		if (!exceptionThrown)
+			dbConnection.updateBandCrawlerTS();
 		debug_print("\n   Summary:\n      Updated bands: " + BandInfoQPP.getUpdatedBandCount() + 
 			"\n      Added artists: " + BandInfoQPP.getAddedArtistCount() + "\n      " +
 			"Cache misses: " + cacheMisses + "\n      Cache lookups: " + cacheLookups + 

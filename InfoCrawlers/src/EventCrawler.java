@@ -57,7 +57,7 @@ public class EventCrawler extends JobBasedCrawler {
 			locationID = dbConnection.insertLocation(event.getVenueName(), 
 							 event.getVenueLongitude(), event.getVenueLatitude(), cityID.first);
 			eventID = dbConnection.insertEvent(event.getTitle(), event.getDescription(), 
-						  event.getSeid(), locationID.first);
+						  event.getVenueType(), event.getSeid(), locationID.first);
 			if (eventID.second)
 				statistics[0].incrementAndGet();
 			if (locationID.second)
@@ -127,6 +127,8 @@ public class EventCrawler extends JobBasedCrawler {
 	
 	protected void started()
 	{
+		super.started();
+		
 		SimpleDateFormat dateFmt = new SimpleDateFormat("yyyyMMdd00");
 		Date now = new Date();
 		Calendar calendar = Calendar.getInstance();
@@ -140,8 +142,9 @@ public class EventCrawler extends JobBasedCrawler {
 		debug_print("Processing events for the next " + maxDays + " days (" + dateRange + ")...");
 	}
 	
-	protected void finished()
+	protected void finished(boolean exceptionThrown)
 	{
+		super.finished(exceptionThrown);
 		debug_print("\nSummary of added data:\n   Events: " + statistics[0].get() + 
 			"\n   Cities: " + statistics[1].get() + "\n   Locations: " +	statistics[2].get() + 
 			"\n   Bands: " + statistics[3].get() + "\n");

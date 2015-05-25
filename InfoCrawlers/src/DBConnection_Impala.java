@@ -88,6 +88,11 @@ public class DBConnection_Impala extends DBConnection_SQLConform {
 		return CONNECTION_STR;
 	}
 	
+	protected boolean queryPagingSupported()
+	{
+		return false;
+	}
+	
 	protected void beginUpdate() throws Exception 
 	{
 		updateLock.lock();
@@ -174,27 +179,27 @@ public class DBConnection_Impala extends DBConnection_SQLConform {
 	{
 		PrimaryKey primKey = ImpalaPrimaryKey.generate();
 		
-		return Utils.createPair("INSERT INTO events (id, name, description, eventful_id, " +
-				  "location_id) VALUES(" + primKey + ", ?, ?, ?, ?)", primKey);
+		return Utils.createPair("INSERT INTO Events (id, name, description, event_type, " +
+				  "eventful_id, location_id) VALUES(" + primKey + ", ?, ?, ?, ?)", primKey);
 	}
 	
 	protected String getStmtIncompleteBandsCount()
 	{
-		return "SELECT COUNT(id) FROM bands WHERE " +
+		return "SELECT COUNT(id) FROM Bands WHERE " +
 				   "band_crawler_ts IS NULL OR " +
 				   "unix_timestamp(?) - unix_timestamp(band_crawler_ts) >= ? * 3600";
 	}
 	
 	protected String getStmtIncompleteBands()
 	{
-		return "SELECT id, name FROM bands WHERE " +
+		return "SELECT id, name FROM Bands WHERE " +
 				   "band_crawler_ts IS NULL OR " +
 				   "unix_timestamp(?) - unix_timestamp(band_crawler_ts) >= ? * 3600";
 	}
 	
 	protected String getStmtUpdateBandTS() 
 	{
-		return "UPDATE bands SET band_crawler_ts = ? WHERE " +
+		return "UPDATE Bands SET band_crawler_ts = ? WHERE " +
 				   "band_crawler_ts IS NULL OR " +
 				   "unix_timestamp(?) - unix_timestamp(band_crawler_ts) >= ? * 3600";
 	}
@@ -203,34 +208,27 @@ public class DBConnection_Impala extends DBConnection_SQLConform {
 	{
 		PrimaryKey primKey = ImpalaPrimaryKey.generate();
 		
-		return Utils.createPair("INSERT INTO bands (id, name) VALUES(" + primKey + ", ?)", primKey);
+		return Utils.createPair("INSERT INTO Bands (id, name) VALUES(" + primKey + ", ?)", primKey);
 	}
 	
 	protected Utils.Pair<String, PrimaryKey> getStmtInsertArtist() 
 	{
 		PrimaryKey primKey = ImpalaPrimaryKey.generate();
 		
-		return Utils.createPair("INSERT INTO artists (id, name, alternate_name, dbpedia_resource)" +
+		return Utils.createPair("INSERT INTO Artists (id, name, alternate_name, dbpedia_resource)" +
 				  " VALUES(" + primKey + ", ?, ?, ?)", primKey);
 	}
 	
 	protected String getStmtIncompleteCitiesCount()
 	{
-		return "SELECT COUNT(id) FROM cities " +
+		return "SELECT COUNT(id) FROM Cities " +
 				   "WHERE city_crawler_ts IS NULL OR " +
 				   "unix_timestamp(?) - unix_timestamp(city_crawler_ts) >= ? * 3600";
 	}
 	
 	protected String getStmtIncompleteCities()
 	{
-		return "SELECT id, name, region, country FROM cities " +
-				   "WHERE city_crawler_ts IS NULL OR " +
-				   "unix_timestamp(?) - unix_timestamp(city_crawler_ts) >= ? * 3600";
-	}
-	
-	protected String getStmtUpdateCityTS() 
-	{
-		return "UPDATE cities SET city_crawler_ts = ? " +
+		return "SELECT id, name, region, country FROM Cities " +
 				   "WHERE city_crawler_ts IS NULL OR " +
 				   "unix_timestamp(?) - unix_timestamp(city_crawler_ts) >= ? * 3600";
 	}
@@ -239,7 +237,7 @@ public class DBConnection_Impala extends DBConnection_SQLConform {
 	{
 		PrimaryKey primKey = ImpalaPrimaryKey.generate();
 		
-		return Utils.createPair("INSERT INTO cities (id, name, region, country) " +
+		return Utils.createPair("INSERT INTO Cities (id, name, region, country) " +
 				  "VALUES(" + primKey + ", ?, ?, ?)", primKey);
 	}
 
@@ -247,7 +245,7 @@ public class DBConnection_Impala extends DBConnection_SQLConform {
 	{
 		PrimaryKey primKey = ImpalaPrimaryKey.generate();
 		
-		return Utils.createPair("INSERT INTO locations (id, name, longitude, latitude, city_id) " +
+		return Utils.createPair("INSERT INTO Locations (id, name, longitude, latitude, city_id) " +
 				  "VALUES(" + primKey + ", ?, ?, ?, ?)", primKey);
 	}
 }

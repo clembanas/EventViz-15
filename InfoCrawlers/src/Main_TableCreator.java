@@ -10,7 +10,7 @@ public class Main_TableCreator {
 	//Database settings
 	public static final boolean DROP_EXISTING_RESOURCE = true;
 	public static final Class<? extends DBConnection> DB_CONNECTION_CLASS = 
-		DBConnection_Impala.class;
+		DBConnection_MySQL.class;
 	
 	
 	public static void main(String[] args) 
