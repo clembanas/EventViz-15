@@ -53,7 +53,7 @@ public class Application extends Controller {
 	
 	//dummy without database connection
 	public static Result getEventById(String id){
-		EventVizEvent event = new EventVizEvent("name", "description", "city", "country", "location", "09.00", 2)
+		EventVizEvent event = new EventVizEvent("name", "description", "city", "country", "location", "09.00", 2);
 		return ok(JsonResultGenerator.getSpecificEvent_JSON(event).toString());
 	}
 	

@@ -312,6 +312,8 @@
 				$(this).animate({"top": "0%"}, 200);
 			});
 		};
+		
+		var updateChartOnly = false;
 	
 		var map = L.map('map', {
 			attributionControl : false,
@@ -451,6 +453,10 @@
 					$("#pullButton").css("visibility", "hidden");
 				});
 				$("#social").css("visibility", "hidden");
+				$("#socialInfo").css("visibility", "hidden");
+				$("#socialResult").css("visibility", "hidden");
+				$("#socialLoading").css("visibility", "hidden");	
+				$("#socialChart").css("visibility", "hidden");
 				$("#floatingInfo").css("visibility", "visible");
 				$("#floatingInfo").animate({"width": "+=20%"}, 200);
 				updateFloatingInfobox();
@@ -476,7 +482,7 @@
 			return isInCoordinates(coordinates, marker._latlng.lng, marker._latlng.lat);
 		}
 		var latlng = L.latLng(0, 0);
-		addCountries();
+		//addCountries();
 		$.ajax({ // ajax call starts
             url: 'defaultCluster', // JQuery loads serverside.php
             dataType: 'json', // Choosing a JSON datatype
@@ -678,8 +684,9 @@
 				$.getJSON( "/getSentiment", { terms: terms, location: currentEvent.city } ).done(function(result){
 					console.log(result);
 					$("#socialInfoP").html("Sentiment data");
-					$("#socialLoading").css("visibility", "visible");					
-					$("#socialChart").css("visibility", "visible");
+					$("#socialLoading").css("visibility", "hidden");					
+					$("#socialChart").css("visibility", "visible");					
+					//$("#socialChart").empty();
 					$("#socialResult").css("visibility", "visible");
 					$("#socialResult").empty();
 
@@ -718,22 +725,14 @@
 					}
 					
 					var totalSentiment = result.sentiment.positive + result.sentiment.negative + result.sentiment.neutral;
-					Highcharts.getOptions().colors = Highcharts.map(Highcharts.getOptions().colors, function (color) {
-				        return {
-				            radialGradient: { cx: 0.5, cy: 0.3, r: 0.7 },
-				            stops: [
-				                [0, color],
-				                [1, Highcharts.Color(color).brighten(-0.3).get('rgb')] // darken
-				            ]
-				        };
-				    });
-
-				    // Build the chart
-				    $('#socialChart').highcharts({
-				        chart: {
+					
+					
+					var chart = new Highcharts.Chart({
+						chart: {
 				            plotBackgroundColor: null,
 				            plotBorderWidth: null,
-				            plotShadow: false
+				            plotShadow: false,
+				            renderTo: 'socialChart'
 				        },
 				        title: {
 				            text: 'Sentiment'
@@ -745,12 +744,13 @@
 				            type: 'pie',
 				            name: 'Sentiment',
 				            data: [
-				                ['positive',   result.sentiment.positive / totalSentiment * 100],
-				                ['neutral',       result.sentiment.neutral / totalSentiment * 100],
-				                ['negative',       result.sentiment.negative / totalSentiment * 100],
-				            ]
+					                ['positive',   result.sentiment.positive / totalSentiment * 100],
+					                ['neutral',       result.sentiment.neutral / totalSentiment * 100],
+					                ['negative',       result.sentiment.negative / totalSentiment * 100],
+					            ]
 				        }]
-				    });
+					});
+
 				});
 			})
 			
