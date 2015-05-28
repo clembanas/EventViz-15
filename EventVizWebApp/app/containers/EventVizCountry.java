@@ -1,13 +1,11 @@
 package containers;
 
-public class EventVizCity {
+public class EventVizCountry {
 	private String name;
-	private String county;
 	private String dbpediaURI;
 	
-	public EventVizCity(String name, String county, String dbpediaURI) {
+	public EventVizCountry(String name, String dbpediaURI) {
 		this.name = name;
-		this.county = county;
 		this.dbpediaURI = dbpediaURI;
 	}
 
@@ -17,14 +15,6 @@ public class EventVizCity {
 
 	public void setName(String name) {
 		this.name = name;
-	}
-
-	public String getCounty() {
-		return county;
-	}
-
-	public void setCounty(String county) {
-		this.county = county;
 	}
 
 	public String getDbpediaURI() {

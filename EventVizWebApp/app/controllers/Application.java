@@ -16,6 +16,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import containers.EventVizCity;
+import containers.EventVizCountry;
 import containers.EventVizEvent;
 import play.libs.Json;
 import play.*;
@@ -46,10 +47,20 @@ public class Application extends Controller {
 		}else if(country.equals("")){
 			return badRequest("Missing parameter [country]");
 		}else {
-			EventVizCity city = new EventVizCity(cityname, country, 5000);
+			EventVizCity city = new EventVizCity(cityname, country, "http://dbpedia.org/resource/Los_Angeles");
 			return ok(JsonResultGenerator.getCity_JSON(city).toString());
 		}
 	}
+	
+	//dummy without database connection
+		public static Result getCountry(String name) {
+			if(name.equals("")){
+				return badRequest("Missing parameter [country]");
+			}else {
+				EventVizCountry country = new EventVizCountry(name, "http://dbpedia.org/resource/United_States");
+				return ok(JsonResultGenerator.getCountry_JSON(country).toString());
+			}
+		}
 	
 	//dummy without database connection
 	public static Result getEventById(String id){

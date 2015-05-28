@@ -9,6 +9,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
 import containers.EventVizCity;
+import containers.EventVizCountry;
 import containers.EventVizEvent;
 
 
@@ -36,7 +37,14 @@ public class JsonResultGenerator {
 		JsonObject jsonResult = new JsonObject();
 		jsonResult.addProperty("name", city.getName());
 		jsonResult.addProperty("country", city.getCounty());
-		jsonResult.addProperty("population", city.getPopulation());
+		jsonResult.addProperty("dbpediaURI", city.getDbpediaURI());
+		return jsonResult;
+	}
+	
+	public static JsonObject getCountry_JSON(EventVizCountry country) {
+		JsonObject jsonResult = new JsonObject();
+		jsonResult.addProperty("name", country.getName());
+		jsonResult.addProperty("dbpediaURI", country.getDbpediaURI());
 		return jsonResult;
 	}
 	
