@@ -2,7 +2,9 @@ package controllers;
 
 
 import java.io.IOException;
+import java.sql.SQLException;
 import java.util.LinkedList;
+import java.util.List;
 
 import jsonGeneration.JsonResultGenerator;
 import logic.clustering.ClusteringUtil;
@@ -15,8 +17,8 @@ import com.avaje.ebean.text.json.JsonElementArray;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
-import containers.EventVizCity;
-import containers.EventVizEvent;
+import containers.*;
+import database.EventViz15_DB_MySQLAccess;
 import play.libs.Json;
 import play.*;
 import play.mvc.*;
@@ -25,6 +27,10 @@ import sentiment_analysis.SocialMentionData;
 import sentiment_analysis.SocialMentionSentimentComponent;
 
 public class Application extends Controller {
+	
+	static {
+		EventViz15_DB_MySQLAccess.initializeDBAccess();
+	}
 
 	public static Result index() {
 		return ok(index.render());
@@ -34,27 +40,65 @@ public class Application extends Controller {
 		return ok(clusteringtest.render());
 	}
 
-	//dummy without database connection
 	public static Result getEvents() {
-		return ok(JsonResultGenerator.getEvents_JSON("hello").toString());
+		List<EventVizEventBasics> events = null;
+		try {
+		events = EventViz15_DB_MySQLAccess.getEvents();
+		} catch (SQLException e) {
+			return ok(null);
+		}
+		JsonArray events_JSON = JsonResultGenerator.getEvents_JSON(events);
+		return ok(events_JSON.toString());
 	}
 
-	//dummy without database connection
 	public static Result getCity(String cityname, String country) {
 		if(cityname.equals("")) {
 			return badRequest("Missing parameter [city]");
-		}else if(country.equals("")){
+		} else if(country.equals("")){
 			return badRequest("Missing parameter [country]");
-		}else {
-			EventVizCity city = new EventVizCity(cityname, country, 5000);
-			return ok(JsonResultGenerator.getCity_JSON(city).toString());
+		} else {
+			List<EventVizCity> cities = null;
+			try {
+				cities = EventViz15_DB_MySQLAccess.getCity(cityname, country);
+			} catch (SQLException e) {
+				return ok(null);
+			}
+			JsonArray cities_JSON = JsonResultGenerator.getCity_JSON(cities);
+			return ok(cities_JSON.toString());
 		}
 	}
 	
-	//dummy without database connection
-	public static Result getEventById(String id){
-		EventVizEvent event = new EventVizEvent("name", "description", "city", "country", "location", "09.00", 2);
-		return ok(JsonResultGenerator.getSpecificEvent_JSON(event).toString());
+	public static Result getEventById(String eventful_id) {
+		EventVizEvent event = null;
+		try {
+			event = EventViz15_DB_MySQLAccess.getEventById(eventful_id);
+		} catch (SQLException e) {
+			return ok(null);
+		}
+		JsonObject event_JSON = JsonResultGenerator.getEventById_JSON(event);
+		return ok(event.toString());
+	}
+	
+	public static Result getArtist(String artistName) {
+		EventVizArtist artist = null;
+		try {
+			artist = EventViz15_DB_MySQLAccess.getArtist(artistName);
+		} catch (SQLException e) {
+			return ok(null);
+		}
+		JsonObject artist_JSON = JsonResultGenerator.getArtist_JSON(artist);
+		return ok(artist_JSON.toString());
+	}
+	
+	public static Result getBand(String bandName) {
+		EventVizBand band = null;
+		try {
+			band = EventViz15_DB_MySQLAccess.getBand(bandName);
+		} catch (SQLException e) {
+			return ok(null);
+		}
+		JsonObject band_JSON = JsonResultGenerator.getBand_JSON(band);
+		return ok(band.toString());
 	}
 	
 	public static Result getSentiment(String terms, String location){

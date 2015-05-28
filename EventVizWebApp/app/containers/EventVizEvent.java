@@ -1,23 +1,29 @@
 package containers;
 
 public class EventVizEvent {
+	private int id;
 	private String name;
 	private String description;
-	private String city;
-	private String country;
-	private String location;
-	private String startTime;
-	private int duration;
+	private String event_type;
+	private int location_id;
+	private String eventful_id;
 	
-	public EventVizEvent(String name, String description, String city,
-			String country, String location, String startTime, int duration) {
+	public EventVizEvent(int id, String name, String description,
+			String event_type, int location_id, String eventful_id) {
+		this.id = id;
 		this.name = name;
 		this.description = description;
-		this.city = city;
-		this.country = country;
-		this.location = location;
-		this.startTime = startTime;
-		this.duration = duration;
+		this.event_type = event_type;
+		this.location_id = location_id;
+		this.eventful_id = eventful_id;
+	}
+
+	public int getId() {
+		return id;
+	}
+
+	public void setId(int id) {
+		this.id = id;
 	}
 
 	public String getName() {
@@ -36,44 +42,28 @@ public class EventVizEvent {
 		this.description = description;
 	}
 
-	public String getCity() {
-		return city;
+	public String getEvent_type() {
+		return event_type;
 	}
 
-	public void setCity(String city) {
-		this.city = city;
+	public void setEvent_type(String event_type) {
+		this.event_type = event_type;
 	}
 
-	public String getCountry() {
-		return country;
+	public int getLocation_id() {
+		return location_id;
 	}
 
-	public void setCountry(String country) {
-		this.country = country;
+	public void setLocation_id(int location_id) {
+		this.location_id = location_id;
 	}
 
-	public String getLocation() {
-		return location;
+	public String getEventful_id() {
+		return eventful_id;
 	}
 
-	public void setLocation(String location) {
-		this.location = location;
-	}
-
-	public String getStartTime() {
-		return startTime;
-	}
-
-	public void setStartTime(String startTime) {
-		this.startTime = startTime;
-	}
-
-	public int getDuration() {
-		return duration;
-	}
-
-	public void setDuration(int duration) {
-		this.duration = duration;
+	public void setEventful_id(String eventful_id) {
+		this.eventful_id = eventful_id;
 	}
 	
 }
