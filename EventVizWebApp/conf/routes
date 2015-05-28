@@ -6,6 +6,7 @@
 GET     /                           controllers.Application.index()
 GET     /events                     controllers.Application.getEvents()
 GET     /city       				controllers.Application.getCity(city: java.lang.String ?= "", country: java.lang.String ?= "")
+GET     /country       				controllers.Application.getCountry(name: java.lang.String ?= "")
 GET		/getSentiment				controllers.Application.getSentiment(terms: java.lang.String ?= "", location: java.lang.String ?= "")
 GET		/getEventById				controllers.Application.getEventById(id: java.lang.String ?= "")
 GET     /clusteringtest             controllers.Application.clusteringtest()

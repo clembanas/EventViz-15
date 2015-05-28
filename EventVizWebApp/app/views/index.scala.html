@@ -2,15 +2,16 @@
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
-<link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.css" />
+<link rel="stylesheet" href="/assets/stylesheets/leaflet.css" />
 <link rel="stylesheet" href="/assets/stylesheets/screen.css" />
 <link rel="stylesheet" href="/assets/stylesheets/MarkerCluster.css" />
 <link rel="stylesheet" href="/assets/stylesheets/MarkerCluster.Default.css" />
-<script src="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.js"></script>
+<script src="JavaScript/leaflet.js"></script>
 <script src="http://code.jquery.com/jquery-2.1.3.min.js"></script>
 <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/jquery-ui.min.js"></script>
 <script src="http://code.highcharts.com/highcharts.js"></script>
 <script src="http://code.highcharts.com/modules/exporting.js"></script>
+<script src="http://fgnass.github.io/spin.js/spin.min.js"></script>
 <script src="JavaScript/Borders.js"></script>
 <script src="JavaScript/Events.js"></script>
 <script src="JavaScript/CountryOperations.js"></script>
@@ -18,6 +19,23 @@
 <title>EventViz</title>
 
 <style>
+::-webkit-scrollbar
+{
+  width: 12px;  /* for vertical scrollbars */
+  height: 12px; /* for horizontal scrollbars */
+}
+
+::-webkit-scrollbar-track
+{
+  background: rgba(0, 0, 0, 0.1);
+}
+
+::-webkit-scrollbar-thumb
+{
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 5px;
+}
+
 #container {
 	height: 800px;
 	width: 100%;
@@ -107,10 +125,12 @@
 #info {
 	top: 25px;
 	left: 10px;
-	width: 50%;
+	margin-top: 25px;
+	width: 60%;
 	font-size: 16pt;
-	height: 100%;
+	height: calc(95% - 25px);
 	position: absolute;
+	overflow-y: scroll;
 }
 #image {
 	top: 35px;
@@ -351,6 +371,7 @@
 			city: "city",
 			country: "country",
 			location: "location",
+			artist: "artist",
 			startTime: "time",
 			duration: "duration"
 		}
@@ -358,14 +379,21 @@
 		var currentCity = {
 			name: "City",
 			country: "Country",
-			population: "Population"
+			description: "Description",
+			population: "Population",
+			area: "Area"
 		}
 		
 		var currentCountry = {
 			name: "Country",
 			capital: "Capital",
-			population: "Population",
+			description: "Description",
+			populationDensity: "PopulationDensity",
 			area: "Area"
+		}
+		
+		var currentArtist = {
+			name: "Country"
 		}
 		
 		var currentMarkers = [];
@@ -668,10 +696,33 @@
 			
 			$("#social").css("visibility", "visible");
 			$("#socialInfo").css("visibility", "visible");
+			$("#socialLoading").empty();
 			$("#socialLoading").css("visibility", "visible");
+			var opts = {
+			  lines: 13, // The number of lines to draw
+			  length: 20, // The length of each line
+			  width: 10, // The line thickness
+			  radius: 20, // The radius of the inner circle
+			  scale: 1, // Scales overall size of the spinner
+			  corners: 1, // Corner roundness (0..1)
+			  rotate: 0, // The rotation offset
+			  direction: 1, // 1: clockwise, -1: counterclockwise
+			  color: '#000', // #rgb or #rrggbb or array of colors
+			  speed: 1, // Rounds per second
+			  trail: 60, // Afterglow percentage
+			  shadow: false, // Whether to render a shadow
+			  hwaccel: false, // Whether to use hardware acceleration
+			  className: 'spinner', // The CSS class to assign to the spinner
+			  zIndex: 2e9, // The z-index (defaults to 2000000000)
+			  top: '50%', // Top position relative to parent
+			  left: '50%' // Left position relative to parent
+			};
+			var loadingDiv = document.getElementById("socialLoading");
+			var spinner = new Spinner(opts).spin(loadingDiv);
+			
 			$("#socialInfoP").html("Sentiment data is processed");
 			currentEvent.id = options.eventfulID;
-			$.get( "/getEventById", { id : currentEvent.id } ).done(function(result){
+			$.getJSON( "/getEventById", { id : currentEvent.id }).done(function(result){
 				currentEvent.name = result.name;
 				currentEvent.description = result.description;
 				currentEvent.city = result.city;
@@ -682,11 +733,9 @@
 				infoboxEvent();
 				var terms = "['data1', 'data2', 'data3']";
 				$.getJSON( "/getSentiment", { terms: terms, location: currentEvent.city } ).done(function(result){
-					console.log(result);
 					$("#socialInfoP").html("Sentiment data");
 					$("#socialLoading").css("visibility", "hidden");					
-					$("#socialChart").css("visibility", "visible");					
-					//$("#socialChart").empty();
+					$("#socialChart").css("visibility", "visible");			
 					$("#socialResult").css("visibility", "visible");
 					$("#socialResult").empty();
 
@@ -759,25 +808,100 @@
 		
 		function makeCityRequests(city, country){
 			$.getJSON( "/city", { city: city, country: country } ).done(function(result){
-				currentCity.name = result.name;
-				currentCity.country = result.country;
-				currentCity.population = result.population;
-				infoboxCity();
+				var uri = result.dbpediaURI;
+				currentCity.name = city;
+				currentCity.country = country;
+				sparqlRequest(uri, "http://dbpedia.org/ontology/abstract", true).done(function(result) {
+					currentCity.description = result.results.bindings[0].res.value;
+					infoboxCity();
+				}).fail(function() {
+				    // an error occurred
+				});
+								
+				sparqlRequest(uri, "http://dbpedia.org/ontology/populationTotal", false).done(function(result) {
+					currentCity.population = result.results.bindings[0].res.value;
+					infoboxCity();
+				}).fail(function() {
+				    // an error occurred
+				});
+				
+				sparqlRequest(uri, "http://dbpedia.org/ontology/areaTotal", false).done(function(result) {
+					currentCity.area = result.results.bindings[0].res.value;
+					infoboxCity();
+				}).fail(function() {
+				    // an error occurred
+				});
+				
 			});
 		}
 		
 		function makeCountryRequests(country){
-			var result = $.get( "index.html", { country: country } );
-			result = {
-				name: "Country",
-				capital: "Capital",
-				population: "5000",
-				area: "3000"
+			$.getJSON( "/country", { name: country } ).done(function(result){
+				var uri = result.dbpediaURI;
+				currentCountry.name = country;
+				sparqlRequest(uri, "http://dbpedia.org/ontology/abstract", true).done(function(result) {
+					currentCountry.description = result.results.bindings[0].res.value;
+					infoboxCountry();
+				});
+				
+				sparqlRequestWithHTML(uri, "http://dbpedia.org/ontology/capital").done(function(result) {
+					sparqlRequest(result.results.bindings[0].res.value, "http://dbpedia.org/property/name", true).done(function(result){
+						currentCountry.capital = result.results.bindings[0].res.value;
+						infoboxCountry();
+					});
+				});
+				
+				sparqlRequest(uri, "http://dbpedia.org/ontology/PopulatedPlace/areaTotal", false).done(function(result) {
+					console.log(result);
+					currentCountry.populationDensity = result.results.bindings[0].res.value;
+					infoboxCountry();
+				});
+				
+				sparqlRequest(uri, "http://dbpedia.org/ontology/areaTotal", false).done(function(result) {
+					currentCountry.area = result.results.bindings[0].res.value;
+					infoboxCountry();
+				});
+			});
+		}
+		
+		function sparqlRequest(uri, predicate, string){
+			var url = "http://dbpedia.org/sparql";
+			var query = "";
+			if(string){				
+				var query = [
+					"select (str(?o) AS ?res) where{ ",
+					"<" + uri + "> <" + predicate +"> ?o",
+					"FILTER (langMatches(lang(?o),'en'))",
+					"}"
+				].join(" ");
+			}else{
+				var query = [
+					"select (?o AS ?res) where{ ",
+					"<" + uri + "> <" + predicate +"> ?o",
+					"}"
+				].join(" ");
 			}
-			currentCountry.name = result.name;
-			currentCountry.capital = result.capital;
-			currentCountry.population = result.population;
-			currentCountry.area = result.area;
+			var queryUrl = url+"?query="+ encodeURIComponent(query) +"&format=json";
+			return $.ajax({
+				dataType: "jsonp",  
+				url: queryUrl
+			});
+		}
+		
+		function sparqlRequestWithHTML(uri, predicate){
+			var url = "http://dbpedia.org/sparql";
+			var query = "";		
+			var query = [
+				"select (?o AS ?res) where{ ",
+				"<" + uri + "> <" + predicate +"> ?o",
+				"}"
+			].join(" ");
+			
+			var queryUrl = url+"?query="+ encodeURIComponent(query) +"&format=json";
+			return $.ajax({
+				dataType: "jsonp",  
+				url: queryUrl
+			});
 		}
 		
 		function infoboxEvent(){
@@ -787,14 +911,19 @@
 			$("#info").append($("<p id=eventCity>").text("City: " + currentEvent.city));
 			$("#info").append($("<p id=eventCountry>").text("Country: " + currentEvent.country));
 			$("#info").append($("<p id=eventLocation>").text("Location: " + currentEvent.location));
+			$("#info").append($("<p id=eventArtist>").text("Artist: " + currentEvent.artist));
 			$("#info").append($("<p id=eventTime>").text("Start time: " + currentEvent.startTime));
 			$("#info").append($("<p id=eventDuration>").text("Duration: " + currentEvent.duration));
 			
 			$("#eventCity").click(function(){
 				makeCityRequests(currentEvent.city, currentEvent.country);
-				/*$("#info2").empty();
-				$("#info2").append($("<p>").text("City Information"));
-				pullOutInfobox2();*/
+				$("#navigation").append($("<p class=navElement id=navCity>").text("City >"));
+				$("#navCity").click(function(){
+					jQuery.each($(this).nextAll(), function(){
+						$(this).remove();
+						infoboxCity();
+					});
+				});
 			})
 			$("#eventCity").mouseover(function(){
 				$(this).css("background-Color", "#F4FA58");
@@ -805,17 +934,13 @@
 			
 			$("#eventCountry").click(function(){
 				makeCountryRequests(currentEvent.country);
-				infoboxCountry();
 				$("#navigation").append($("<p class=navElement id=navCountry>").text("Country >"));
 				$("#navCountry").click(function(){
 					jQuery.each($(this).nextAll(), function(){
 						$(this).remove();
+						infoboxCountry();
 					});
-					infoboxCountry();
 				});
-				/*$("#info2").empty();
-				$("#info2").append($("<p>").text("Country Information"));
-				pullOutInfobox2();*/
 			})
 			$("#eventCountry").mouseover(function(){
 				$(this).css("background-Color", "#F4FA58");
@@ -825,9 +950,7 @@
 			});
 			
 			$("#eventLocation").click(function(){
-				/*$("#info2").empty();
-				$("#info2").append($("<p>").text("Location Information"));
-				pullOutInfobox2();*/
+				//to-do
 			})
 			$("#eventLocation").mouseover(function(){
 				$(this).css("background-Color", "#F4FA58");
@@ -835,17 +958,28 @@
 			$("#eventLocation").mouseout(function(){
 				$(this).css("background-Color", "#FFFFFF");
 			});
+			
+			$("#eventArtist").click(function(){
+				//to-do
+			})
+			$("#eventArtist").mouseover(function(){
+				$(this).css("background-Color", "#F4FA58");
+			});
+			$("#eventArtist").mouseout(function(){
+				$(this).css("background-Color", "#FFFFFF");
+			});
 		}
 		
 		function infoboxCity(){
 			$("#info").empty();
 			$("#info").append($("<p id=cityName>").text("Name: " + currentCity.name));
+			$("#info").append($("<p id=cityDescription>").text("Description: " + currentCity.description));
 			$("#info").append($("<p id=cityCountry>").text("Country: " + currentCity.country));
 			$("#info").append($("<p id=cityPopulation>").text("Population: " + currentCity.population));
+			$("#info").append($("<p id=cityArea>").text("Area: " + currentCity.area));
 			
 			$("#cityCountry").click(function(){
 				makeCountryRequests(currentCity.country);
-				infoboxCountry();
 				$("#navigation").append($("<p class=navElement id=navCountry>").text("Country >"));
 				$("#navCountry").click(function(){
 					jQuery.each($(this).nextAll(), function(){
@@ -860,22 +994,20 @@
 			$("#cityCountry").mouseout(function(){
 				$(this).css("background-Color", "#FFFFFF");
 			});
-			
-			$("#navigation").append($("<p class=navElement id=navCity>").text("City >"));
-			$("#navCity").click(function(){
-				jQuery.each($(this).nextAll(), function(){
-					$(this).remove();
-				});
-				infoboxCity();
-			});
 		}
 		
 		function infoboxCountry(){
 			$("#info").empty();
 			$("#info").append($("<p id=countryName>").text("Name: " + currentCountry.name));
-			$("#info").append($("<p id=countryCountry>").text("Capital: " + currentCountry.capital));
-			$("#info").append($("<p id=countryPopulation>").text("Population: " + currentCountry.population));
+			$("#info").append($("<p id=countryDescription>").text("Description: " + currentCountry.description));
+			$("#info").append($("<p id=countryCapital>").text("Capital: " + currentCountry.capital));
+			$("#info").append($("<p id=countryPopulationDensity>").text("Population Density: " + currentCountry.populationDensity));
 			$("#info").append($("<p id=countryArea>").text("Area: " + currentCountry.area));
+		}
+		
+		function infoboxArtist(){
+			$("#info").empty();
+			$("#info").append($("<p id=artistName>").text("Name: " + currentArtist.name));
 		}
 		
 		L.Mask = L.Polygon.extend({
