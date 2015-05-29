@@ -29,7 +29,12 @@ import sentiment_analysis.SocialMentionSentimentComponent;
 public class Application extends Controller {
 	
 	static {
-		EventViz15_DB_MySQLAccess.initializeDBAccess();
+		try {
+			EventViz15_DB_MySQLAccess.initializeDBAccess();
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 
 	public static Result index() {
@@ -45,10 +50,11 @@ public class Application extends Controller {
 		try {
 		events = EventViz15_DB_MySQLAccess.getEvents();
 		} catch (SQLException e) {
-			return ok(null);
+			return ok("");
 		}
 		JsonArray events_JSON = JsonResultGenerator.getEvents_JSON(events);
-		return ok(events_JSON.toString());
+		
+		return ok(ClusteringUtil.getEventJsonNode(events_JSON));
 	}
 
 	public static Result getCity(String cityname, String country) {
@@ -61,7 +67,7 @@ public class Application extends Controller {
 			try {
 				cities = EventViz15_DB_MySQLAccess.getCity(cityname, country);
 			} catch (SQLException e) {
-				return ok(null);
+				return ok("");
 			}
 			JsonArray cities_JSON = JsonResultGenerator.getCity_JSON(cities);
 			return ok(cities_JSON.toString());
@@ -73,10 +79,10 @@ public class Application extends Controller {
 		try {
 			event = EventViz15_DB_MySQLAccess.getEventById(eventful_id);
 		} catch (SQLException e) {
-			return ok(null);
+			return ok("");
 		}
 		JsonObject event_JSON = JsonResultGenerator.getEventById_JSON(event);
-		return ok(event.toString());
+		return ok(event_JSON.toString());
 	}
 	
 	public static Result getArtist(String artistName) {
@@ -84,7 +90,7 @@ public class Application extends Controller {
 		try {
 			artist = EventViz15_DB_MySQLAccess.getArtist(artistName);
 		} catch (SQLException e) {
-			return ok(null);
+			return ok("");
 		}
 		JsonObject artist_JSON = JsonResultGenerator.getArtist_JSON(artist);
 		return ok(artist_JSON.toString());
@@ -95,10 +101,10 @@ public class Application extends Controller {
 		try {
 			band = EventViz15_DB_MySQLAccess.getBand(bandName);
 		} catch (SQLException e) {
-			return ok(null);
+			return ok("");
 		}
 		JsonObject band_JSON = JsonResultGenerator.getBand_JSON(band);
-		return ok(band.toString());
+		return ok(band_JSON.toString());
 	}
 	
 	public static Result getSentiment(String terms, String location){

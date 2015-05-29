@@ -10,6 +10,8 @@ import play.libs.Json;
 import logic.clustering.serialization.LightMarkerClusterVO;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 
 
 public class ClusteringUtil {
@@ -83,6 +85,22 @@ public class ClusteringUtil {
 		return cachedDefaultClusterJsonNode;
 	}
 	
+	private static JsonNode cachedEventJsonNode = null;
+	public static JsonNode getEventJsonNode(JsonArray events_JSON) {
+		if(cachedEventJsonNode == null)
+		{
+			List<ILocation> locations = new ArrayList<ILocation>();		
+			
+			for(int i = 0; i < events_JSON.size(); i++){
+				JsonObject event = (JsonObject) events_JSON.get(i);
+				locations.add(new Location(event.get("eventful_id").toString().replaceAll("\"", ""), Double.parseDouble(event.get("latitude").toString()), Double.parseDouble(event.get("longitude").toString())));
+			}
+			MarkerCluster markerCluster = ClusteringUtil.cluster(locations);
+			cachedEventJsonNode = Json.toJson(new LightMarkerClusterVO(markerCluster));
+		}
+		
+		return cachedEventJsonNode;
+	}
 	
 	private static MarkerCluster getDefaultCluster() {
 		/*List<ILocation> locations = new ArrayList<ILocation>();

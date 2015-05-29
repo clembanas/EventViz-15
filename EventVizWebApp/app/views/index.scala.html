@@ -512,9 +512,10 @@
 		var latlng = L.latLng(0, 0);
 		//addCountries();
 		$.ajax({ // ajax call starts
-            url: 'defaultCluster', // JQuery loads serverside.php
+            url: 'events', // JQuery loads serverside.php
             dataType: 'json', // Choosing a JSON datatype
         }).done(function(data) { // Variable data contains the data we get from serverside
+        	console.log(data);
 			var tree = data;
 			//var tree = tmp;
 			// new
@@ -808,7 +809,7 @@
 		
 		function makeCityRequests(city, country){
 			$.getJSON( "/city", { city: city, country: country } ).done(function(result){
-				var uri = result.dbpediaURI;
+				var uri = result.dbpedia_resource;
 				currentCity.name = city;
 				currentCity.country = country;
 				sparqlRequest(uri, "http://dbpedia.org/ontology/abstract", true).done(function(result) {
