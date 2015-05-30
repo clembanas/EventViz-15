@@ -724,6 +724,7 @@
 			$("#socialInfoP").html("Sentiment data is processed");
 			currentEvent.id = options.eventfulID;
 			$.getJSON( "/getEventById", { id : currentEvent.id }).done(function(result){
+				console.log(result);
 				currentEvent.name = result.name;
 				currentEvent.description = result.description;
 				currentEvent.city = result.city;
