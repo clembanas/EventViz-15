@@ -15,6 +15,8 @@ import containers.EventVizBandMember;
 import containers.EventVizCity;
 import containers.EventVizEvent;
 import containers.EventVizEventBasics;
+import containers.EventVizLocation;
+import containers.EventVizModelPopulationObject;
 
 
 public class JsonResultGenerator {
@@ -31,14 +33,37 @@ public class JsonResultGenerator {
 		return jsonResult;
 	}
 	
-	public static JsonObject getEventById_JSON(EventVizEvent event) {
+	public static JsonObject getEventById_JSON(EventVizModelPopulationObject model) {
 		JsonObject jsonResult = new JsonObject();
-		jsonResult.addProperty("id", event.getId());
-		jsonResult.addProperty("name", event.getName());
-		jsonResult.addProperty("description", event.getDescription());
-		jsonResult.addProperty("event_type", event.getEvent_type());
-		jsonResult.addProperty("location_id", event.getLocation_id());
-		jsonResult.addProperty("eventful_id", event.getEventful_id());
+		
+		EventVizEvent event = model.getEvent();
+		JsonObject eventJSON = new JsonObject();
+		eventJSON.addProperty("id", event.getId());
+		eventJSON.addProperty("name", event.getName());
+		eventJSON.addProperty("description", event.getDescription());
+		eventJSON.addProperty("event_type", event.getEvent_type());
+		eventJSON.addProperty("location_id", event.getLocation_id());
+		eventJSON.addProperty("eventful_id", event.getEventful_id());
+		jsonResult.add("event", eventJSON);
+		
+		EventVizLocation location = model.getLocation();
+		EventVizCity city = location.getCity();
+		JsonObject locationJSON = new JsonObject();
+		locationJSON.addProperty("locationName", location.getName());
+		locationJSON.addProperty("cityName", city.getName());
+		locationJSON.addProperty("region", city.getRegion());
+		locationJSON.addProperty("country", city.getCountry());
+		locationJSON.addProperty("latitude", city.getLatitude());
+		locationJSON.addProperty("longitude", city.getLongitude());
+		locationJSON.addProperty("dbpedia_resource", city.getDbpedia_resource());
+		jsonResult.add("location", locationJSON);
+		
+		List<EventVizBand> bands = model.getBands();
+		JsonArray bandsJSON = new JsonArray();
+		for(EventVizBand band : bands) {
+			bandsJSON.add(JsonResultGenerator.getBand_JSON(band));
+		}
+		jsonResult.add("bands", bandsJSON);
 		return jsonResult;
 	}
 	
@@ -49,7 +74,7 @@ public class JsonResultGenerator {
 			jsonCity.addProperty("id", city.getId());
 			jsonCity.addProperty("name", city.getName());
 			jsonCity.addProperty("region", city.getRegion());
-			jsonCity.addProperty("country", city.getCounty());
+			jsonCity.addProperty("country", city.getCountry());
 			jsonCity.addProperty("latitude", city.getLatitude());
 			jsonCity.addProperty("longitude", city.getLongitude());
 			jsonCity.addProperty("dbpedia_resource", city.getDbpedia_resource());

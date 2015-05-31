@@ -75,6 +75,15 @@ public class Application extends Controller {
 	}
 	
 	public static Result getEventById(String eventful_id) {
+		EventVizModelPopulationObject model = null;
+		try {
+			model = EventViz15_DB_MySQLAccess.getEventById(eventful_id);
+		} catch (SQLException e) {
+			return ok("");
+		}
+		JsonObject model_JSON = JsonResultGenerator.getEventById_JSON(model);
+		return ok(model_JSON.toString());
+		
 		/*
 		EventVizEvent event = null;
 		try {
@@ -87,54 +96,54 @@ public class Application extends Controller {
 		return ok(event_JSON.toString());
 		 */
 		
-		
+		//TODO: remove
 		//dummy until the database connection is established
 		//JSON document with this shape will be expected by the client
-		JsonObject whole = new JsonObject();
-		JsonObject eventJson = new JsonObject();
-		eventJson.addProperty("name", "Name");
-		eventJson.addProperty("description", "Description");
-		eventJson.addProperty("event_Type", "Type");
-		eventJson.addProperty("date", "Date");
-		whole.add("event", eventJson);
-		
-		JsonObject location = new JsonObject();
-		location.addProperty("locationName", "Location");
-		location.addProperty("cityName", "Los_Angeles");
-		location.addProperty("region", "California");
-		location.addProperty("country", "United States");
-		location.addProperty("dbpedia_resource", "http://dbpedia.org/resource/Los_Angeles");
-		whole.add("location", location);
-		
-		JsonArray bands1 = new JsonArray();
-		JsonObject band1 = new JsonObject();
-		band1.addProperty("name", "Metallica");
-		band1.addProperty("dbpedia_resource", "http://dbpedia.org/resource/Metallica");
-		
-		JsonArray members1 = new JsonArray();
-		JsonObject member11 = new JsonObject();
-		member11.addProperty("name", "Kirk_Hammett");
-		member11.addProperty("dbpedia_resource", "http://dbpedia.org/resource/Kirk_Hammett");
-		members1.add(member11);
-		
-		JsonObject member12 = new JsonObject();
-		member12.addProperty("name", "Robert Trujillo");
-		member12.addProperty("dbpedia_resource", "http://dbpedia.org/resource/Robert_Trujillo");
-		members1.add(member12);
-		
-		JsonObject member13 = new JsonObject();
-		member13.addProperty("name", "James Hetfield");
-		member13.addProperty("dbpedia_resource", "http://dbpedia.org/resource/James_Hetfield");
-		members1.add(member13);
-		
-		JsonObject member14 = new JsonObject();
-		member14.addProperty("name", "Lars Ulrich");
-		member14.addProperty("dbpedia_resource", "http://dbpedia.org/resource/Lars_Ulrich");
-		members1.add(member14);
-		band1.add("members", members1);
-		bands1.add(band1);
-		whole.add("bands", bands1);
-		return ok(whole.toString());
+		//		JsonObject whole = new JsonObject();
+		//		JsonObject eventJson = new JsonObject();
+		//		eventJson.addProperty("name", "Name");
+		//		eventJson.addProperty("description", "Description");
+		//		eventJson.addProperty("event_Type", "Type");
+		//		eventJson.addProperty("date", "Date");
+		//		whole.add("event", eventJson);
+		//		
+		//		JsonObject location = new JsonObject();
+		//		location.addProperty("locationName", "Location");
+		//		location.addProperty("cityName", "Los_Angeles");
+		//		location.addProperty("region", "California");
+		//		location.addProperty("country", "United States");
+		//		location.addProperty("dbpedia_resource", "http://dbpedia.org/resource/Los_Angeles");
+		//		whole.add("location", location);
+		//		
+		//		JsonArray bands1 = new JsonArray();
+		//		JsonObject band1 = new JsonObject();
+		//		band1.addProperty("name", "Metallica");
+		//		band1.addProperty("dbpedia_resource", "http://dbpedia.org/resource/Metallica");
+		//		
+		//		JsonArray members1 = new JsonArray();
+		//		JsonObject member11 = new JsonObject();
+		//		member11.addProperty("name", "Kirk_Hammett");
+		//		member11.addProperty("dbpedia_resource", "http://dbpedia.org/resource/Kirk_Hammett");
+		//		members1.add(member11);
+		//		
+		//		JsonObject member12 = new JsonObject();
+		//		member12.addProperty("name", "Robert Trujillo");
+		//		member12.addProperty("dbpedia_resource", "http://dbpedia.org/resource/Robert_Trujillo");
+		//		members1.add(member12);
+		//		
+		//		JsonObject member13 = new JsonObject();
+		//		member13.addProperty("name", "James Hetfield");
+		//		member13.addProperty("dbpedia_resource", "http://dbpedia.org/resource/James_Hetfield");
+		//		members1.add(member13);
+		//		
+		//		JsonObject member14 = new JsonObject();
+		//		member14.addProperty("name", "Lars Ulrich");
+		//		member14.addProperty("dbpedia_resource", "http://dbpedia.org/resource/Lars_Ulrich");
+		//		members1.add(member14);
+		//		band1.add("members", members1);
+		//		bands1.add(band1);
+		//		whole.add("bands", bands1);
+		//		return ok(whole.toString());
 	}
 	
 	public static Result getArtist(String artistName) {

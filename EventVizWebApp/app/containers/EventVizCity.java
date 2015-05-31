@@ -4,17 +4,17 @@ public class EventVizCity {
 	private int id;
 	private String name;
 	private String region;
-	private String county;
+	private String country;
 	private float latitude;
 	private float longitude;
 	private String dbpedia_resource;
 	
-	public EventVizCity(int id, String name, String region, String county,
+	public EventVizCity(int id, String name, String region, String country,
 			float latitude, float longitude, String dbpedia_resource) {
 		this.id = id;
 		this.name = name;
 		this.region = region;
-		this.county = county;
+		this.country = country;
 		this.latitude = latitude;
 		this.longitude = longitude;
 		this.dbpedia_resource = dbpedia_resource;
@@ -44,12 +44,12 @@ public class EventVizCity {
 		this.region = region;
 	}
 
-	public String getCounty() {
-		return county;
+	public String getCountry() {
+		return country;
 	}
 
-	public void setCounty(String county) {
-		this.county = county;
+	public void setCountry(String country) {
+		this.country = country;
 	}
 
 	public float getLatitude() {

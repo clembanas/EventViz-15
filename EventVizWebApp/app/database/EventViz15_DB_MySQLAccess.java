@@ -15,6 +15,8 @@ import containers.EventVizBandMember;
 import containers.EventVizCity;
 import containers.EventVizEvent;
 import containers.EventVizEventBasics;
+import containers.EventVizLocation;
+import containers.EventVizModelPopulationObject;
 
 public class EventViz15_DB_MySQLAccess {
 	private static MysqlDataSource dataSource = new MysqlDataSource();
@@ -45,23 +47,47 @@ public class EventViz15_DB_MySQLAccess {
 		return events;
 	}
 	
-	public static EventVizEvent getEventById(String eventful_id) throws SQLException {
-		String sqlQuery = "SELECT * FROM Events WHERE eventful_id=?";
+	public static EventVizModelPopulationObject getEventById(String eventful_id) throws SQLException {
+		String sqlQuery = "SELECT e.id AS eventId, e.name AS eventName, e.description AS eventDescription, e.event_type, e.location_id, l.name AS locationName, c.id AS cityId, c.name AS cityName, c.region, c.country, c.latitude, c.longitude, c.dbpedia_resource FROM Events AS e JOIN Locations AS l ON e.location_id=l.id JOIN Cities AS c ON l.city_id=c.id WHERE eventful_id=?";
 		PreparedStatement stmt = conn.prepareStatement(sqlQuery);
 		stmt.setString(1, eventful_id);
 		ResultSet rs = stmt.executeQuery();
 		
 		rs.next();
-		int id = rs.getInt("id");
-		String name = rs.getString("name");
-		String description = rs.getString("description");
+		int eventId = rs.getInt("eventId");
+		String eventName = rs.getString("eventName");
+		String eventDescription = rs.getString("eventDescription");
 		String event_type = rs.getString("event_type");
 		int location_id = rs.getInt("location_id");
-		EventVizEvent event = new EventVizEvent(id, name, description, event_type, location_id, eventful_id);
+		EventVizEvent event = new EventVizEvent(eventId, eventName, eventDescription, event_type, location_id, eventful_id);
+	
+		String locationName = rs.getString("locationName");
+		int cityId = rs.getInt("cityId");
+		String cityName = rs.getString("cityName");
+		String region = rs.getString("region");
+		String country = rs.getString("country");
+		float latitude = rs.getFloat("latitude");
+		float longitude = rs.getFloat("longitude");
+		String dbpedia_resource = rs.getString("dbpedia_resource");
+		EventVizLocation location = new EventVizLocation(locationName, new EventVizCity(cityId, cityName, region, country, latitude, longitude, dbpedia_resource));
 		
 		rs.close();
 		stmt.close();
-		return event;
+		
+		sqlQuery = "SELECT b.name FROM Events AS e JOIN EventPerformers AS p ON e.id=p.event_id JOIN Bands AS b ON p.band_id=b.id WHERE eventful_id=?";
+		stmt = conn.prepareStatement(sqlQuery);
+		stmt.setString(1, eventful_id);
+		rs = stmt.executeQuery();
+		
+		List<EventVizBand> bands = new ArrayList<EventVizBand>();
+		while(rs.next()) {
+			EventVizBand band = EventViz15_DB_MySQLAccess.getBand(rs.getString("name"));
+			bands.add(band);
+		}
+		rs.close();
+		stmt.close();
+		
+		return new EventVizModelPopulationObject(event, location, bands);
 	}
 	
 	public static List<EventVizCity> getCity(String name, String country) throws SQLException {
