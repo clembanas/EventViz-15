@@ -132,6 +132,11 @@
 	position: absolute;
 	overflow-y: scroll;
 }
+
+.infoMarginLeft {
+	margin-left: 10px;
+}
+
 #image {
 	top: 35px;
 	right: 20px;
@@ -364,37 +369,12 @@
 			iconAnchor : [ 6, 6 ]
 		});
 		
-		var currentEvent = {
-			id: "id",
-			name: "Event",
-			description: "Description",
-			city: "city",
-			country: "country",
-			location: "location",
-			artist: "artist",
-			startTime: "time",
-			duration: "duration"
-		}
+		var currentEvent = {};
 		
-		var currentCity = {
-			name: "City",
-			country: "Country",
-			description: "Description",
-			population: "Population",
-			area: "Area"
-		}
-		
-		var currentCountry = {
-			name: "Country",
-			capital: "Capital",
-			description: "Description",
-			populationDensity: "PopulationDensity",
-			area: "Area"
-		}
-		
-		var currentArtist = {
-			name: "Country"
-		}
+		var currentCity = null;
+		var currentCountry = null;
+		var currentBand = {};
+		var currentMember = {};
 		
 		var currentMarkers = [];
 
@@ -518,7 +498,7 @@
         	console.log(data);
 			var tree = data;
 			//var tree = tmp;
-			// new
+			// new 
 			var markers = L.markerClusterGroup();
 			markers.addTree(tree);
 			//var map = L.map('map', { center: latlng, zoom: 2, layers: [tiles] });
@@ -680,7 +660,6 @@
 		}
 		
 		function clickMarker(marker){
-			console.log(marker);
 			showInfo = true;
 			removeCountries();
 			var tmpLatLng = marker.latlng == undefined ?  $.extend( {}, marker._latlng  ): $.extend({}, marker.latlng  );
@@ -725,13 +704,9 @@
 			currentEvent.id = options.eventfulID;
 			$.getJSON( "/getEventById", { id : currentEvent.id }).done(function(result){
 				console.log(result);
-				currentEvent.name = result.name;
-				currentEvent.description = result.description;
-				currentEvent.city = result.city;
-				currentEvent.country = result.country;
-				currentEvent.location = result.location;
-				currentEvent.startTime = result.startTime;
-				currentEvent.duration = result.duration;
+				currentEvent = result;
+				currentCity = null;
+				currentCountry = null;
 				infoboxEvent();
 				var terms = "['data1', 'data2', 'data3']";
 				$.getJSON( "/getSentiment", { terms: terms, location: currentEvent.city } ).done(function(result){
@@ -804,65 +779,69 @@
 
 				});
 			})
-			
-			
 		}
 		
-		function makeCityRequests(city, country){
-			$.getJSON( "/city", { city: city, country: country } ).done(function(result){
-				var uri = result.dbpedia_resource;
-				currentCity.name = city;
-				currentCity.country = country;
-				sparqlRequest(uri, "http://dbpedia.org/ontology/abstract", true).done(function(result) {
-					currentCity.description = result.results.bindings[0].res.value;
-					infoboxCity();
-				}).fail(function() {
-				    // an error occurred
-				});
-								
-				sparqlRequest(uri, "http://dbpedia.org/ontology/populationTotal", false).done(function(result) {
-					currentCity.population = result.results.bindings[0].res.value;
-					infoboxCity();
-				}).fail(function() {
-				    // an error occurred
-				});
-				
-				sparqlRequest(uri, "http://dbpedia.org/ontology/areaTotal", false).done(function(result) {
-					currentCity.area = result.results.bindings[0].res.value;
-					infoboxCity();
-				}).fail(function() {
-				    // an error occurred
-				});
-				
+		function makeCityRequests(){
+			var uri = currentEvent.location.dbpedia_resource;
+			currentCity = {};
+			sparqlRequest(uri, "http://dbpedia.org/ontology/abstract", true).done(function(result) {
+				currentCity.description = result.results.bindings[0].res.value;
+				infoboxCity();
+			});
+							
+			sparqlRequest(uri, "http://dbpedia.org/ontology/populationTotal", false).done(function(result) {
+				currentCity.population = result.results.bindings[0].res.value;
+				infoboxCity();
+			});
+			
+			sparqlRequest(uri, "http://dbpedia.org/ontology/areaTotal", false).done(function(result) {
+				currentCity.area = result.results.bindings[0].res.value;
+				infoboxCity();
 			});
 		}
 		
-		function makeCountryRequests(country){
-			$.getJSON( "/country", { name: country } ).done(function(result){
-				var uri = result.dbpediaURI;
-				currentCountry.name = country;
-				sparqlRequest(uri, "http://dbpedia.org/ontology/abstract", true).done(function(result) {
-					currentCountry.description = result.results.bindings[0].res.value;
+		function makeCountryRequests(){
+			var uri = "http://dbpedia.org/resource/" + currentEvent.location.country.split(' ').join('_');
+			currentCountry = {};
+			sparqlRequest(uri, "http://dbpedia.org/ontology/abstract", true).done(function(result) {
+				currentCountry.description = result.results.bindings[0].res.value;
+				infoboxCountry();
+			});
+			
+			sparqlRequestWithHTML(uri, "http://dbpedia.org/ontology/capital").done(function(result) {
+				sparqlRequest(result.results.bindings[0].res.value, "http://dbpedia.org/property/name", true).done(function(result){
+					currentCountry.capital = result.results.bindings[0].res.value;
 					infoboxCountry();
 				});
-				
-				sparqlRequestWithHTML(uri, "http://dbpedia.org/ontology/capital").done(function(result) {
-					sparqlRequest(result.results.bindings[0].res.value, "http://dbpedia.org/property/name", true).done(function(result){
-						currentCountry.capital = result.results.bindings[0].res.value;
-						infoboxCountry();
-					});
-				});
-				
-				sparqlRequest(uri, "http://dbpedia.org/ontology/PopulatedPlace/areaTotal", false).done(function(result) {
-					console.log(result);
-					currentCountry.populationDensity = result.results.bindings[0].res.value;
-					infoboxCountry();
-				});
-				
-				sparqlRequest(uri, "http://dbpedia.org/ontology/areaTotal", false).done(function(result) {
-					currentCountry.area = result.results.bindings[0].res.value;
-					infoboxCountry();
-				});
+			});
+			
+			sparqlRequest(uri, "http://dbpedia.org/ontology/PopulatedPlace/areaTotal", false).done(function(result) {
+				console.log(result);
+				currentCountry.populationDensity = result.results.bindings[0].res.value;
+				infoboxCountry();
+			});
+			
+			sparqlRequest(uri, "http://dbpedia.org/ontology/areaTotal", false).done(function(result) {
+				currentCountry.area = result.results.bindings[0].res.value;
+				infoboxCountry();
+			});
+		}
+		
+		function makeBandRequests(band){
+			var uri = band.dbpedia_resource;
+			currentBand = { "name" : band.name,
+							"members" : band.members };
+			sparqlRequest(uri, "http://dbpedia.org/ontology/abstract", true).done(function(result) {
+				currentBand.description = result.results.bindings[0].res.value;
+				infoboxBand();
+			});
+		}
+		function makeMemberRequests(member){
+			var uri = member.dbpedia_resource;
+			currentMember = { "name" : member.name };
+			sparqlRequest(uri, "http://dbpedia.org/ontology/abstract", true).done(function(result) {
+				currentMember.description = result.results.bindings[0].res.value;
+				infoboxMember();
 			});
 		}
 		
@@ -908,17 +887,51 @@
 		
 		function infoboxEvent(){
 			$("#info").empty();
-			$("#info").append($("<p id=eventName>").text("Name: " + currentEvent.name));
-			$("#info").append($("<p id=eventDescription>").text("Description: " + currentEvent.description));
-			$("#info").append($("<p id=eventCity>").text("City: " + currentEvent.city));
-			$("#info").append($("<p id=eventCountry>").text("Country: " + currentEvent.country));
-			$("#info").append($("<p id=eventLocation>").text("Location: " + currentEvent.location));
-			$("#info").append($("<p id=eventArtist>").text("Artist: " + currentEvent.artist));
-			$("#info").append($("<p id=eventTime>").text("Start time: " + currentEvent.startTime));
+			$("#info").append($("<p id=eventName>").text("Name: " + currentEvent.event.name));
+			$("#info").append($("<p id=eventDescription>").text("Description: " + (currentEvent.event.description == "" ? "Not specified" : currentEvent.event.description)));
+			$("#info").append($("<p id=eventCity>").text("City: " + currentEvent.location.cityName));
+			$("#info").append($("<p id=eventRegion>").text("Region: " + currentEvent.location.region));
+			$("#info").append($("<p id=eventCountry>").text("Country: " + currentEvent.location.country));
+			$("#info").append($("<p id=eventLocation>").text("Location: " + currentEvent.location.locationName));
+			var bands = currentEvent.bands;
+			if(bands.length != 0){
+				$("#info").append($("<p>").text("Performer:"));
+				for(var i = 0; i < bands.length; i++){
+					var idName = "band" + bands[i].name.replace(/[^a-z0-9]/gmi, "").replace(/\s+/g, "");;
+					$("#info").append($("<p id=" + idName + " class=infoMarginLeft>").text(bands[i].name));
+					$("#" + idName).mouseover(function(){
+						$(this).css("background-Color", "#F4FA58");
+					});
+					$("#" + idName).mouseout(function(){
+						$(this).css("background-Color", "#FFFFFF");
+					});
+					
+					$("#" + idName).click({band: bands[i]}, function(data){
+						makeBandRequests(data.data.band);
+						$("#navigation").append($("<p class=navElement id=navBand>").text("Band >"));
+						$("#navBand").click(function(){
+							jQuery.each($(this).nextAll(), function(){
+								$(this).remove();
+								infoboxBand();
+							});
+						});
+					})
+					
+				}			
+			}else{
+				$("#info").append($("<p>").text("No Performer specified."));
+			}
+			
+			$("#info").append($("<p id=eventType>").text("Type: " + (currentEvent.event.event_type == null ? "Not specified" : currentEvent.event.event_type)));
+			$("#info").append($("<p id=eventTime>").text("Start time: " + currentEvent.event.date));
 			$("#info").append($("<p id=eventDuration>").text("Duration: " + currentEvent.duration));
 			
 			$("#eventCity").click(function(){
-				makeCityRequests(currentEvent.city, currentEvent.country);
+				if(currentCity == null){					
+					makeCityRequests();
+				}else{
+					infoboxCity();	
+				}
 				$("#navigation").append($("<p class=navElement id=navCity>").text("City >"));
 				$("#navCity").click(function(){
 					jQuery.each($(this).nextAll(), function(){
@@ -935,7 +948,11 @@
 			});
 			
 			$("#eventCountry").click(function(){
-				makeCountryRequests(currentEvent.country);
+				if(currentCountry == null){
+					makeCountryRequests();
+				}else{
+					infoboxCountry();
+				}
 				$("#navigation").append($("<p class=navElement id=navCountry>").text("Country >"));
 				$("#navCountry").click(function(){
 					jQuery.each($(this).nextAll(), function(){
@@ -961,22 +978,14 @@
 				$(this).css("background-Color", "#FFFFFF");
 			});
 			
-			$("#eventArtist").click(function(){
-				//to-do
-			})
-			$("#eventArtist").mouseover(function(){
-				$(this).css("background-Color", "#F4FA58");
-			});
-			$("#eventArtist").mouseout(function(){
-				$(this).css("background-Color", "#FFFFFF");
-			});
 		}
 		
 		function infoboxCity(){
 			$("#info").empty();
-			$("#info").append($("<p id=cityName>").text("Name: " + currentCity.name));
+			$("#info").append($("<p id=cityName>").text("Name: " + currentEvent.location.cityName));
 			$("#info").append($("<p id=cityDescription>").text("Description: " + currentCity.description));
-			$("#info").append($("<p id=cityCountry>").text("Country: " + currentCity.country));
+			$("#info").append($("<p id=cityRegion>").text("Region: " + currentEvent.location.region));
+			$("#info").append($("<p id=cityCountry>").text("Country: " + currentEvent.location.country));
 			$("#info").append($("<p id=cityPopulation>").text("Population: " + currentCity.population));
 			$("#info").append($("<p id=cityArea>").text("Area: " + currentCity.area));
 			
@@ -1000,16 +1009,51 @@
 		
 		function infoboxCountry(){
 			$("#info").empty();
-			$("#info").append($("<p id=countryName>").text("Name: " + currentCountry.name));
+			$("#info").append($("<p id=countryName>").text("Name: " + currentEvent.location.country));
 			$("#info").append($("<p id=countryDescription>").text("Description: " + currentCountry.description));
 			$("#info").append($("<p id=countryCapital>").text("Capital: " + currentCountry.capital));
 			$("#info").append($("<p id=countryPopulationDensity>").text("Population Density: " + currentCountry.populationDensity));
 			$("#info").append($("<p id=countryArea>").text("Area: " + currentCountry.area));
 		}
 		
-		function infoboxArtist(){
+		function infoboxBand(){
 			$("#info").empty();
-			$("#info").append($("<p id=artistName>").text("Name: " + currentArtist.name));
+			$("#info").append($("<p id=bandName>").text("Name: " + currentBand.name));
+			$("#info").append($("<p id=bandDescription>").text("Description: " + currentBand.description));
+			var members = currentBand.members;
+			if(members.length != 0){
+				$("#info").append($("<p>").text("Member:"));
+				for(var i = 0; i < members.length; i++){
+					var idName = "band" + members[i].name.replace(/[^a-z0-9]/gmi, "").replace(/\s+/g, "");;
+					$("#info").append($("<p id=" + idName + " class=infoMarginLeft>").text(members[i].name));
+					$("#" + idName).mouseover(function(){
+						$(this).css("background-Color", "#F4FA58");
+					});
+					$("#" + idName).mouseout(function(){
+						$(this).css("background-Color", "#FFFFFF");
+					});
+					
+					$("#" + idName).click({member : members[i]}, function(data){
+						makeMemberRequests(data.data.member);
+						$("#navigation").append($("<p class=navElement id=navMember>").text("Member >"));
+						$("#navMember").click(function(){
+							jQuery.each($(this).nextAll(), function(){
+								$(this).remove();
+								infoboxMember();
+							});
+						});
+					})
+					
+				}			
+			}else{
+				$("#info").append($("<p>").text("No Performer specified."));
+			}
+		}
+		
+		function infoboxMember(){
+			$("#info").empty();
+			$("#info").append($("<p id=memberName>").text("Name: " + currentMember.name));
+			$("#info").append($("<p id=memberDescription>").text("Description: " + currentMember.description));
 		}
 		
 		L.Mask = L.Polygon.extend({
