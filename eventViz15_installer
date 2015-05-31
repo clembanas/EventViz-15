@@ -1,0 +1,800 @@
+#!/usr/bin/env python
+
+####################################################################################################
+#                                                                                                  #
+#                                       EventViz-15 installer                                      #
+#                                     Written by Bernhard Weber                                    #
+#                                                                                                  #
+####################################################################################################
+
+import sys
+import os
+import subprocess
+import time
+import shutil
+import stat
+import getopt
+import urllib
+import math
+
+
+# --------------------------------------- Installer classes ---------------------------------------
+# Installer task dependency
+class InstTaskDependencyBase:
+    def __init__(self, depend=None, name=None):
+        self.depend = depend
+        self.name = name
+
+    def getName(self):
+        if self.depend:
+            return "'" + replaceWildcards(self.name) + "' and " + self.depend.getName()
+        return "'" + replaceWildcards(self.name) + "'"
+
+    def isFulfilled(self):
+        if self.depend:
+            return self.checkDepFulfilled() and self.depend.isFulfilled()
+        return self.checkDepFulfilled()
+        
+    def checkDepFulfilled(self):
+        raise Exception("Not implemented")
+
+
+# Installer task dependency: User confirmation
+class InstTaskDep_Confirm(InstTaskDependencyBase):
+    def __init__(self, quest, hint=None, title="", depend=None, name=None, abort=False):
+        InstTaskDependencyBase.__init__(self, depend, name if name else "User confirmation")
+        self.quest = quest
+        self.hint = hint
+        self.title = title
+        self.abort = abort
+
+    def checkDepFulfilled(self):
+        while True:
+            if self.hint:
+                choice = raw_input("%sDo you want to %s?\nNote: %s [Y/n]: " %
+                                   (replaceWildcards(self.title), replaceWildcards(self.quest),
+                                    replaceWildcards(self.hint)))
+            else:
+                choice = raw_input("%sDo you want to %s? [Y/n]: " %
+                                   (replaceWildcards(self.title), replaceWildcards(self.quest)))
+            if choice == "" or choice.lower() == "y":
+                print ""
+                return True
+            if choice.lower() == "n":
+                print ""
+                if self.abort:
+                    print "\n\nInstallation aborted by user!\n"
+                return False
+            print "Invalid input '%s'!\n" % choice
+
+
+# Installer task dependency: Directory exists
+class InstTaskDep_DirExists(InstTaskDependencyBase):
+    def __init__(self, dir, depend=None, name=None):
+        InstTaskDependencyBase.__init__(self, depend, name if name else
+                                        "Directory '%s' exists" % dir)
+        self.dir = dir
+
+    def isFulfilled(self):
+        return os.path.isdir(replaceWildcards(self.dir))
+
+
+# Installer task classes
+class InstTaskBase:
+    def __init__(self, name, desc, depend=None):
+        self.name = name
+        self.desc = desc
+        self.depend = depend
+
+    def getName(self):
+        return replaceWildcards(self.name)
+
+    def getDesc(self):
+        return replaceWildcards(self.desc)
+
+    def execute(self, taskIdx, taskCnt):
+        if self.depend and not self.depend.isFulfilled():
+            return
+        print "Task %d/ %d: %s ..." % (taskIdx + 1, taskCnt, self.getDesc())
+        self.runInstallTask()
+        print "Task %d/ %d: %s ... DONE\n" % (taskIdx + 1, taskCnt, self.getDesc())
+
+    def runInstallTask(self):
+        raise Exception("Not implemented!")
+
+
+# Installer task: Copy the content of a directory to another directory
+class InstTask_Copy(InstTaskBase):
+    def __init__(self, name, desc, srcDir, destDir, overwrite=True, exceptEntries=[], depend=None):
+        InstTaskBase.__init__(self, name, desc, depend)
+        self.srcDir = srcDir
+        self.destDir = destDir
+        self.overwrite = overwrite
+        self.exceptEntries = exceptEntries
+
+    def runInstallTask(self):
+        def copyDir(srcDir, destDir):
+            dirEntries = os.listdir(srcDir)
+            for entry in dirEntries:
+                if entry in self.exceptEntries:
+                    continue
+                if os.path.isdir("%s/%s" % (srcDir, entry)):
+                    if not os.path.isdir("%s/%s" % (destDir, entry)):
+                        os.makedirs("%s/%s" % (destDir, entry))
+                    copyDir("%s/%s" % (srcDir, entry), "%s/%s" % (destDir, entry))
+                elif os.path.isfile("%s/%s" % (srcDir, entry)):
+                    if not os.path.isfile("%s/%s" % (destDir, entry)) or self.overwrite:
+                        if not os.path.exists(destDir):
+                            os.makedirs(destDir)
+                        shutil.copy2("%s/%s" % (srcDir, entry), "%s/%s" % (destDir, entry))
+                else:
+                    raise Exception("'%s' is of unsupported type!" % entry)
+
+        copyDir(replaceWildcards(self.srcDir), replaceWildcards(self.destDir))
+
+
+# Installer task: Create a symbolic link
+class InstTask_CreateLink(InstTaskBase):
+    def __init__(self, name, desc, src, dest, overwrite=True, depend=None):
+        InstTaskBase.__init__(self, name, desc, depend)
+        self.src = src
+        self.dest = dest
+        self.overwrite = overwrite
+
+    def runInstallTask(self):
+        self.dest = replaceWildcards(self.dest)
+        if os.path.exists(self.dest) and self.overwrite:
+            os.unlink(self.dest)
+        os.symlink(replaceWildcards(self.src), self.dest)
+
+
+# Installer task: Create a new file and optionally set its content
+class InstTask_CreateFile(InstTaskBase):
+    def __init__(self, name, desc, file, content=None, depend=None):
+        InstTaskBase.__init__(self, name, desc, depend)
+        self.file = file
+        self.content = content
+
+    def runInstallTask(self):
+        f = open(replaceWildcards(self.file), "w")
+        if self.content:
+            f.write(replaceWildcards(self.content))
+        f.close()
+
+
+# Installer task: Remove a directory
+class InstTask_RemDir(InstTaskBase):
+    def __init__(self, name, desc, dir, depend=None):
+        InstTaskBase.__init__(self, name, desc, depend)
+        self.dir = dir
+
+    def runInstallTask(self):
+        shutil.rmtree(replaceWildcards(self.dir))
+
+
+# Installer task: Execute an application
+class InstTask_Exec(InstTaskBase):
+    def __init__(self, name, desc, cmd, workDir=None, ignExit=False, hideOut=False,
+                 hideErr=False, detach=False, depend=None):
+        InstTaskBase.__init__(self, name, desc, depend)
+        self.cmd = cmd
+        self.workDir = workDir
+        self.ignExit = ignExit
+        self.hideOut = hideOut
+        self.hideErr = hideErr
+        self.detach = detach
+
+    def runInstallTask(self):
+        print "--------------------------------------------------------------------------------"
+        lastDir = os.getcwd()
+        cmd = replaceWildcards(self.cmd)
+        if self.workDir:
+            os.chdir(replaceWildcards(self.workDir))
+        if self.hideOut and self.hideErr:
+            cmd = cmd + " 2&>1>/dev/null"
+        elif self.hideOut:
+            cmd = cmd + " 1>/dev/null"
+        elif self.hideErr:
+            cmd = cmd + " 2>/dev/null"
+        if self.detach:
+            cmd = cmd + " & disown"
+        if self.ignExit:
+            subprocess.call(cmd, shell=True)
+        else:
+            subprocess.check_call(cmd, shell=True)
+        os.chdir(lastDir)
+        print "--------------------------------------------------------------------------------"
+
+
+# Installer task: Kill process by name
+class InstTask_KillProc(InstTaskBase):
+    def __init__(self, name, desc, procName, depend=None):
+        InstTaskBase.__init__(self, name, desc, depend)
+        self.procName = procName
+
+    def runInstallTask(self):
+        print "--------------------------------------------------------------------------------"
+        subprocess.call("killall %s" % replaceWildcards(self.procName), shell=True)
+        print "--------------------------------------------------------------------------------"
+
+
+# Installer task: Kill Java application
+class InstTask_KillJavaProc(InstTaskBase):
+    def __init__(self, name, desc, appFile, depend=None):
+        InstTaskBase.__init__(self, name, desc, depend)
+        self.appFile = appFile
+
+    def runInstallTask(self):
+        print "--------------------------------------------------------------------------------"
+        out = subprocess.Popen(["jps -l"], stdout=subprocess.PIPE, shell=True).communicate()[0]
+        out = out.split("\n")
+        pid = None
+        for line in out:
+            if self.appFile in line:
+                pid = line.split(" ")[0]
+                sys.stdout.write("Killing Java application '%s' with process id '%s' ... " %
+                                 (os.path.basename(self.appFile), pid))
+                sys.stdout.flush()
+                subprocess.call("kill -kill %s" % pid, shell=True)
+                print "DONE"
+        if not pid:
+            print "Java application '%s' not running" % os.path.basename(self.appFile)
+        print "--------------------------------------------------------------------------------"
+
+
+# Installer task: Download file from web and store it using the specified name
+class InstTask_DownloadFile(InstTaskBase):
+    def __init__(self, name, desc, url, destFile, depend=None):
+        InstTaskBase.__init__(self, name, desc, depend)
+        self.url = url
+        self.destFile = destFile
+
+    def runInstallTask(self):
+
+        def downloadReportHook(rcvdBlocks, blockSize, totalSize):
+            global download_infos
+
+            now = time.time()
+            rcvdSize = rcvdBlocks * blockSize
+            bytesPerSec = 0
+            if now - download_infos[0] >= 1:
+                bytesPerSec = rcvdSize - download_infos[1] * (now - download_infos[0])
+                download_infos[0] = now
+                download_infos[1] = rcvdSize
+                download_infos[2] = bytesPerSec
+            if bytesPerSec == 0:
+                bytesPerSec = download_infos[2]
+            if totalSize <= 0:
+                sys.stdout.write("\rDownloading [     active    ] -%%    %12.12s/ "
+                                 "? Bytes   %-12.12s" % (formatSize(rcvdSize),
+                                                         formatSize(bytesPerSec, 1) + "/s"))
+            elif rcvdSize < totalSize:
+                percentDone = 100 * (float(rcvdSize) / float(totalSize))
+                sys.stdout.write("\rDownloading [%-10.10s] %3d%% %12.12s/ %-12.12s %-12.12s" %
+                                 ("=" * int(0.15 * percentDone), int(percentDone),
+                                  formatSize(rcvdSize), formatSize(totalSize),
+                                  formatSize(bytesPerSec, 1) + "/s"))
+            else:
+                sys.stdout.write("\rDownloading [      done     ] 100%% %12.12s/ "
+                                 "%-12.12s %-12.12s" %
+                                 (formatSize(rcvdSize), formatSize(totalSize),
+                                  formatSize(bytesPerSec, 1) + "/s"))
+            sys.stdout.flush()
+
+        global download_infos
+
+        print "--------------------------------------------------------------------------------"
+        self.destFile = replaceWildcards(self.destFile)
+        destDir = os.path.dirname(self.destFile)
+        if not os.path.exists(destDir):
+            os.makedirs(destDir)
+        sys.stdout.write("Downloading [    pending    ] -/ - Bytes   0 Bytes/s")
+        sys.stdout.flush()
+        download_infos = [time.time(), 0, 0]
+        urllib.urlretrieve(replaceWildcards(self.url), self.destFile, downloadReportHook)
+        print "\n--------------------------------------------------------------------------------"
+
+
+# Installer task: Clone a git repository to the specified directory
+class InstTask_CloneGitRepo(InstTaskBase):
+    def __init__(self, name, desc, repoName, destDir="$TEMP_DIR$", depend=None):
+        InstTaskBase.__init__(self, name, desc, depend)
+        self.repoName = repoName
+        self.destDir = destDir
+
+    def runInstallTask(self):
+        print "--------------------------------------------------------------------------------"
+        self.destDir = replaceWildcards(self.destDir)
+        if not os.path.exists(self.destDir):
+            os.makedirs(self.destDir)
+        lastDir = os.getcwd()
+        os.chdir(self.destDir)
+        subprocess.check_call("git clone %s" % replaceWildcards(self.repoName), shell=True)
+        os.chdir(lastDir)
+        print "--------------------------------------------------------------------------------"
+
+
+# Installer task: Install package via yum
+class InstTask_InstallPckg(InstTaskBase):
+    def __init__(self, name, desc, pckgName, depend=None):
+        InstTaskBase.__init__(self, name, desc, depend)
+        self.pckgName = pckgName
+
+    def runInstallTask(self):
+        print "--------------------------------------------------------------------------------"
+        pckgInstalled = subprocess.call("yum list installed %s" % self.pckgName, shell=True)
+        if pckgInstalled == 0:
+            print "Package '%s' already installed - skipping installation!" % self.pckgName
+        else:
+            print "Installing package '%s'...\n" % self.pckgName
+            subprocess.check_call("su -c 'yum install %s'" % self.pckgName, shell=True)
+        print "--------------------------------------------------------------------------------"
+
+
+# Installer task: Compile and install a Java Application and optionally create a starter script
+class InstTask_InstallJavaApp(InstTaskBase):
+    def __init__(self, name, desc, srcAppFile, destAppDir, libDir=None,
+                 destStarterFile=None, depend=None):
+        InstTaskBase.__init__(self, name, desc, depend)
+        self.srcAppFile = srcAppFile
+        self.destAppDir = destAppDir
+        self.libDir = libDir
+        self.destStarterFile = destStarterFile
+
+    def runInstallTask(self):
+        self.srcAppFile = replaceWildcards(self.srcAppFile)
+        self.destAppDir = replaceWildcards(self.destAppDir)
+        self.libDir = replaceWildcards(self.libDir)
+        self.destStarterFile = replaceWildcards(self.destStarterFile)
+        print "--------------------------------------------------------------------------------"
+        if not os.path.exists(self.destAppDir):
+            os.makedirs(self.destAppDir)
+        lastDir = os.getcwd()
+        os.chdir(os.path.dirname(self.srcAppFile))
+        libs = ""
+        if self.libDir:
+            libFiles = os.listdir(self.libDir)
+            for libFile in libFiles:
+                if libs:
+                    libs += ":"
+                libs += "%s/%s" % (self.libDir, libFile)
+            libs = "-cp '" + libs + ":.' "
+        subprocess.check_call("javac %s-d %s %s" % (libs, self.destAppDir, self.srcAppFile),
+                              shell=True)
+        if self.destStarterFile:
+            if not os.path.exists(os.path.dirname(self.destStarterFile)):
+                os.makedirs(os.path.dirname(self.destStarterFile))
+            f = open(self.destStarterFile, "w")
+            f.write("#!/usr/bin/env bash\ncd %s\njava %s%s" %
+                    (self.destAppDir, libs, os.path.splitext(os.path.basename(self.srcAppFile))[0]))
+            f.flush()
+            f.close()
+            os.chmod(self.destStarterFile, os.stat(self.destStarterFile).st_mode | stat.S_IXUSR)
+        os.chdir(lastDir)
+        print "--------------------------------------------------------------------------------"
+
+
+# ------------------------------------------- Settings --------------------------------------------
+# Command line options
+CMD_LINE_OPTS = "m:t:r:h:u:p:d:r:w:i:"                          # Short command line options
+CMD_LINE_LONG_OPTS = ["show-config", "show-modes",              # Long command line options
+                      "show-task-selection", "mode=",
+                      "tasks=", "repo=", "host=", "user=",
+                      "password=", "db-name=", "root-dir=",
+                      "temp-dir=", "install-dir=",
+                      "no-cleanup", "help"]
+# Accepted command line options
+CMD_LINE_OPTS_ACCEPTED = ("   --show-config ........... Show default configuration\n"
+                          "   --show-modes ............ Show installation modes\n"
+                          "   --show-task-selection ... Show installer/ uninstaller task "
+                          "selection\n"
+                          "   -m (--mode) ............. Set installation mode\n"
+                          "   -t (--tasks) ............ Set installer/ uninstaller tasks\n"
+                          '                             (e.g. "u1, u2, i4 - i8")\n'
+                          "   -r (--repo=) ............ Set Git repository name\n"
+                          "   -h (--host=) ............ Set database host name (IP address)\n"
+                          "   -u (--user=) ............ Set database user name\n"
+                          "   -p (--password=) ........ Set database user password\n"
+                          "   -d (--db-name=) ......... Set database name\n"
+                          "   -r (--root-dir=) ........ Set root directory path of installation\n"
+                          "   -w (--temp-dir=) ........ Set root-relative temporary directory "
+                          "path\n"
+                          "   -i (--install-dir=) ..... Set root-relative installation directory "
+                          "path\n"
+                          "   --no-cleanup ............ Skip removing temporary directory\n"
+                          "   --help .................. Show this help")
+
+# General configuration
+INSTALLER_INFO = "EventViz-15 installer 1.0"
+GIT_REPO = "https://github.com/clembanas/EventViz-15.git"
+DB_HOST = "138.232.65.248"
+DB_USER = "EventVizUser"
+DB_PWORD = "e1V2i3Z"
+DB_NAME = "EventViz15"
+ROOT_DIR = "~"
+TEMP_DIR = "eventviz15_installer_temp_%d" % int(time.time())
+DO_CLEANUP = True
+INSTALL_DIR = "EventViz15"
+UNINST_TASKS = []
+INST_TASKS = []
+
+
+# ------------------------------ Installation mode specific code ----------------------------------
+INST_MODES = {}
+INST_MODE_DEF = ""
+INST_MODE_CURR = "None loaded"
+
+
+class InstModeData:
+
+    def __init__(self, name, uninstTasks, instTasks, gitRepo, dbHost, dbUser, dbPword,
+                 dbName, rootDir, tempDir, installDir, installerInfo):
+        self.name = name
+        self.uninstTasks = uninstTasks
+        self.instTasks = instTasks
+        self.installerInfo = installerInfo
+        self.gitRepo = gitRepo
+        self.dbHost = dbHost
+        self.dbUser = dbUser
+        self.dbPword = dbPword
+        self.dbName = dbName
+        self.rootDir = rootDir
+        self.tempDir = tempDir
+        self.installDir = installDir
+
+
+def registerInstallMode(name, uninstTasks=[], instTasks=[], gitRepo=GIT_REPO, dbHost=DB_HOST,
+                        dbUser=DB_USER, dbPword=DB_PWORD, dbName=DB_NAME, rootDir=ROOT_DIR,
+                        tempDir=TEMP_DIR, installDir=INSTALL_DIR, installerInfo=INSTALLER_INFO,
+                        isDefaultMode=False):
+    global INST_MODE_DEF, INST_MODES
+
+    INST_MODES[name] = InstModeData(name, uninstTasks, instTasks, gitRepo, dbHost, dbUser, dbPword,
+                                    dbName, rootDir, tempDir, installDir, installerInfo)
+    if isDefaultMode:
+        INST_MODE_DEF = name
+
+
+def loadInstallMode(name):
+    global UNINST_TASKS, INST_TASKS, INSTALLER_INFO, GIT_REPO, DB_HOST, DB_USER, DB_PWORD, DB_NAME
+    global ROOT_DIR, TEMP_DIR, INSTALL_DIR, INST_MODE_CURR
+
+    if name not in INST_MODES:
+        raise Exception("Unknown installation mode '%s'" % name)
+    instMode = INST_MODES[name]
+    UNINST_TASKS = instMode.uninstTasks
+    INST_TASKS = instMode.instTasks
+    INSTALLER_INFO = instMode.installerInfo
+    GIT_REPO = instMode.gitRepo
+    DB_HOST = instMode.dbHost
+    DB_USER = instMode.dbUser
+    DB_PWORD = instMode.dbPword
+    DB_NAME = instMode.dbName
+    ROOT_DIR = instMode.rootDir
+    TEMP_DIR = instMode.tempDir
+    INSTALL_DIR = instMode.installDir
+    INST_MODE_CURR = name
+
+
+def showInstallModes():
+    idx = 1
+    print "\nInstallation modes (%d modes):   " % len(INST_MODES)
+    for name in INST_MODES:
+        print "       %3d: '%s'" % (idx, name)
+        idx += 1
+    print "   Default: '%s'\n" % INST_MODE_DEF
+
+
+# -------------------------------- Installation mode "Server"--------------------------------------
+# Uninstaller tasks
+UNINST_TASKS_SERVER = \
+    [InstTask_Exec("Load version information",
+                   "Loading version information",
+                   "cat $INSTALL_DIR$/eventviz15_version.txt", ignExit=True,
+                   depend=InstTaskDep_DirExists("$INSTALL_DIR$")),
+     InstTask_KillJavaProc("Stop 'EventViz15 play web-server'",
+                           "Stopping 'EventViz15 play web-server'", "eventvizwebapp",
+                           InstTaskDep_DirExists("$INSTALL_DIR$",
+                                                 InstTaskDep_Confirm("uninstall",
+                                                                     title="Previous 'EventViz-15' "
+                                                                     "installation found!\n",
+                                                                     abort=True))),
+     InstTask_KillJavaProc("Stop 'play server'", "Stopping 'play server'",
+                           "play.core.server.NettyServer", InstTaskDep_DirExists("$INSTALL_DIR$")),
+     InstTask_KillJavaProc("Stop info-crawlers", "Stopping info-crawlers",
+                           "Main_InfoCrawlers", InstTaskDep_DirExists("$INSTALL_DIR$")),
+     InstTask_RemDir("Remove previous installation's directory",
+                     "Removing previous installation's directory", "$INSTALL_DIR$",
+                     InstTaskDep_DirExists("$INSTALL_DIR$"))]
+
+# Installer tasks
+INST_TASKS_SERVER = \
+    [InstTask_InstallPckg("Install 'git'", "Installing 'git'", "git"),
+     InstTask_InstallPckg("Install 'Java'", "Installing Java",
+                          "java-1.8.0-openjdk.x86_64"),
+     InstTask_InstallPckg("Install 'Java-Development'", "Installing 'Java-Development'",
+                          "java-1.8.0-openjdk-devel.x86_64"),
+     InstTask_CloneGitRepo("Clone git repository '$GIT_REPO$'",
+                           "Cloning git repository '$GIT_REPO$'", "$GIT_REPO$"),
+     InstTask_Copy("Install 'EventViz15 play web-server'",
+                   "Installing 'EventViz15 play web-server'",
+                   "$TEMP_DIR$/EventViz-15/EventVizWebApp", "$INSTALL_DIR$"),
+     InstTask_Exec("Store version information",
+                   "Storing version information",
+                   "git show HEAD | sed -n '/diff/ !p;//q' > $INSTALL_DIR$/eventviz15_version.txt; "
+                   "cat $INSTALL_DIR$/eventviz15_version.txt", "$TEMP_DIR$/EventViz-15"),
+     InstTask_Exec("Compile 'EventViz15 play web-server'",
+                   "Compiling 'EventViz15 play web-server'",
+                   "$INSTALL_DIR$/activator clean stage", "$INSTALL_DIR$", True),
+     InstTask_Copy("Install info-crawler libraries", "Installing info-crawler "
+                   "libraries", "$TEMP_DIR$/EventViz-15/InfoCrawlers/lib",
+                   "$INSTALL_DIR$/lib", exceptEntries=["log4j-1.2.17.jar"]),
+     InstTask_CreateFile("Create info-crawler database config-file",
+                         "Creating info-crawler database config-file",
+                         "$INSTALL_DIR$/conf/crawler_db_config.properties",
+                         "db_host=$DB_HOST$\ndb_user=$DB_USER$\ndb_pword=$DB_PWORD$"
+                         "\ndb_name=$DB_NAME$"),
+     InstTask_InstallJavaApp("Install info-crawlers", "Installing info-crawlers",
+                             "$TEMP_DIR$/EventViz-15/InfoCrawlers/src/Main_InfoCrawlers.java",
+                             "$INSTALL_DIR$/bin/info_crawlers_files", "$INSTALL_DIR$/lib",
+                             "$INSTALL_DIR$/bin/info_crawlers"),
+     InstTask_CreateLink("Configure info-crawlers", "Configuring info-crawlers",
+                         "$INSTALL_DIR$/conf/crawler_db_config.properties",
+                         "$INSTALL_DIR$/bin/info_crawlers_files/db_config.properties"),
+     InstTask_InstallJavaApp("Install table-creator", "Installing table-creator",
+                             "$TEMP_DIR$/EventViz-15/InfoCrawlers/src/Main_TableCreator.java",
+                             "$INSTALL_DIR$/bin/table_creator_files", "$INSTALL_DIR$/lib",
+                             "$INSTALL_DIR$/bin/table_creator"),
+     InstTask_CreateLink("Configure table-creator", "Configuring table-creator",
+                         "$INSTALL_DIR$/conf/crawler_db_config.properties",
+                         "$INSTALL_DIR$/bin/table_creator_files/db_config.properties"),
+     InstTask_Exec("Create database '$DB_NAME$'", "Creating database '$DB_NAME$'",
+                   'mysql --host=$DB_HOST$ --user=$DB_USER$ --password=$DB_PWORD$ -e '
+                   '"create database if not exists $DB_NAME$"'),
+     InstTask_Exec("Create tables in database '$DB_NAME$'",
+                   "Creating tables in database '$DB_NAME$'", "$INSTALL_DIR$/bin/table_creator",
+                   depend=InstTaskDep_Confirm("create the EventViz-15 specific database tables",
+                                              "Any existing table will be dropped!")),
+     InstTask_Exec("Start 'EventViz15 play web-server'",
+                   "Starting 'EventViz15 play web-server'",
+                   "$INSTALL_DIR$/target/universal/stage/bin/eventvizwebapp",
+                   "$INSTALL_DIR$", hideOut=True, detach=True,
+                   depend=InstTaskDep_Confirm("start the 'EventViz15 play web-server' now")),
+     InstTask_Exec("Start info-crawlers", "Starting info-crawlers",
+                   "$INSTALL_DIR$/bin/info_crawlers", hideOut=True, detach=True,
+                   depend=InstTaskDep_Confirm("execute info-crawlers now"))]
+
+registerInstallMode("Server", UNINST_TASKS_SERVER, INST_TASKS_SERVER, isDefaultMode=True)
+
+
+# -------------------------------------- Actual installer -----------------------------------------
+def replaceWildcards(s):
+
+    return s.replace("$GIT_REPO$", GIT_REPO).replace("$DB_HOST$", DB_HOST). \
+        replace("$DB_USER$", DB_USER).replace("$DB_PWORD$", DB_PWORD). \
+        replace("$DB_NAME$", DB_NAME).replace("$ROOT_DIR$", ROOT_DIR). \
+        replace("$TEMP_DIR$", TEMP_DIR).replace("$INSTALL_DIR$", INSTALL_DIR)
+
+
+def formatSize(size, width=2):
+    if size == 0:
+        return "0 Bytes"
+    unit = ("Bytes", "KB", "MB", "GB")
+    idx = int(math.floor(math.log(size, 1024)))
+    sizeInUnits = round(size / math.pow(1024, idx), 2)
+    return "%.*f %s" % (width, sizeInUnits, unit[idx])
+
+
+def processCmdLineOpts(argv):
+
+    def printTasks(selUninstTasks, selInstTasks):
+        print "   Uninstaller tasks (%d tasks):" % len(selUninstTasks)
+        for i in xrange(len(selUninstTasks)):
+            print "      %3d: %s%s" % \
+                  (i + 1, selUninstTasks[i].getName(), "\n           (Dependency: %s)" %
+                   selUninstTasks[i].depend.getName() if selUninstTasks[i].depend else "")
+        print "\n   Installer tasks (%d tasks):" % len(selInstTasks)
+        for i in xrange(len(selInstTasks)):
+            print "      %3d: %s%s" % \
+                  (i + 1, selInstTasks[i].getName(), "\n           (Dependency: %s)" %
+                   selInstTasks[i].depend.getName() if selInstTasks[i].depend else "")
+
+    def selectTasks(selTasks):
+        global UNINST_TASKS, INST_TASKS
+
+        while (True):
+            print "\nTask selection (Installation mode '%s'):" % INST_MODE_CURR
+            printTasks(UNINST_TASKS, INST_TASKS)
+            selUninstTasks = [None] * len(UNINST_TASKS)
+            selInstTasks = [None] * len(INST_TASKS)
+            try:
+                if not selTasks:
+                    selTasks = raw_input("\n    Use 'uNum' for uninstaller and 'iNum' for "
+                                         "installer task (e.g. 'u1, i1 - i4, i5'): ").split(",")
+                for i in range(len(selTasks)):
+                    selTasks[i] = selTasks[i].strip()
+                    if "-" in selTasks[i]:
+                        rangeSelTasks = selTasks[i].split("-")
+                        if len(rangeSelTasks) != 2:
+                            raise Exception("Invalid range selection '%s'" % selTasks[i])
+                        rangeSelTasks[0] = rangeSelTasks[0].strip()
+                        rangeSelTasks[1] = rangeSelTasks[1].strip()
+                        if rangeSelTasks[0][0] != rangeSelTasks[1][0]:
+                            raise Exception("Invalid range selection '%s'" % selTasks[i])
+                        for i in xrange(int(rangeSelTasks[0][1:]) - 1,
+                                        int(rangeSelTasks[1][1:])):
+                            if rangeSelTasks[0][0] == 'u':
+                                selUninstTasks[i] = UNINST_TASKS[i]
+                            elif rangeSelTasks[0][0] == 'i':
+                                selInstTasks[i] = INST_TASKS[i]
+                            else:
+                                raise Exception("Unexpected argument '%s'" % rangeSelTasks[0])
+                    else:
+                        if selTasks[i] == "":
+                            continue
+                        selTaskIdx = int(selTasks[i][1:]) - 1
+                        if selTasks[i][0] == 'u':
+                            selUninstTasks[selTaskIdx] = UNINST_TASKS[selTaskIdx]
+                        elif selTasks[i][0] == 'i':
+                            selInstTasks[selTaskIdx] = INST_TASKS[selTaskIdx]
+                        else:
+                            raise Exception("Unexpected argument '%s'" % selTasks[i])
+                selUninstTasks = [task for task in selUninstTasks if task is not None]
+                selInstTasks = [task for task in selInstTasks if task is not None]
+                print "\nSelected tasks:"
+                printTasks(selUninstTasks, selInstTasks)
+                choice = raw_input("\n   Task selection correct [Y/n]?: ")
+                if choice.lower() in ("", "y"):
+                    print ""
+                    UNINST_TASKS = selUninstTasks
+                    INST_TASKS = selInstTasks
+                    return
+            except KeyboardInterrupt:
+                print "\n\nInstallation aborted by user!\n"
+                sys.exit(0)
+            except Exception, e:
+                print "\n    Invalid input (%s)!" % e
+                pass
+            selTasks = []
+        sys.exit(0)
+
+    def showConfig():
+        print "\nConfiguration (Installation mode '%s'):\n   Git repository:      '%s'\n   " \
+              "Database host:       '%s'\n   Databse user:        '%s'\n   " \
+              "Database password:   '%s'\n   Database name:       '%s'\n   " \
+              "Root directory:      '%s'\n   Temporary directory: '%s'\n   " \
+              "Install directory:   '%s'\n   Def. install mode:   '%s'\n   " \
+              "Perform clean-up:    %s\n" % \
+              (INST_MODE_CURR, GIT_REPO, DB_HOST, DB_USER, DB_PWORD, DB_NAME, ROOT_DIR, TEMP_DIR,
+               INSTALL_DIR, INST_MODE_DEF, DO_CLEANUP)
+
+    global GIT_REPO, DB_HOST, DB_USER, DB_PWORD, DB_NAME, ROOT_DIR, TEMP_DIR, INSTALL_DIR
+    global DO_CLEANUP
+
+    showConf = False
+    showInstModes = False
+    showSelectTasks = False
+    installMode = INST_MODE_DEF
+    selTasks = []
+    try:
+        opts, args = getopt.getopt(argv, CMD_LINE_OPTS, CMD_LINE_LONG_OPTS)
+        for opt, arg in opts:
+            if opt in ("-m", "--mode"):
+                installMode = arg
+        loadInstallMode(installMode)
+        for opt, arg in opts:
+            if opt == "--help":
+                print "\nAccepted arguments:\n%s\n" % CMD_LINE_OPTS_ACCEPTED
+                sys.exit()
+            elif opt == "--show-config":
+                showConf = True
+            elif opt == "--show-modes":
+                showInstModes = True
+            elif opt == "--show-task-selection":
+                showSelectTasks = True
+            elif opt in ("-m", "--mode"):
+                continue
+            elif opt in ("-t", "--tasks"):
+                showSelectTasks = True
+                selTasks = arg.split(",")
+            elif opt in ("-r", "--repo"):
+                GIT_REPO = arg
+            elif opt in ("-h", "--host"):
+                DB_HOST = arg
+            elif opt in ("-u", "--user"):
+                DB_USER = arg
+            elif opt in ("-p", "--password"):
+                DB_PWORD = arg
+            elif opt in ("-d", "--db-name"):
+                DB_NAME = arg
+            elif opt in ("-r", "--root-dir"):
+                ROOT_DIR = arg
+            elif opt in ("-w", "--temp-dir"):
+                TEMP_DIR = arg
+            elif opt in ("-i", "--install-dir"):
+                INSTALL_DIR = arg
+            elif opt == "--no-cleanup":
+                DO_CLEANUP = False
+            else:
+                print "\nInvalid argument '%s'!\nAccepted arguments:\n%s\n" % \
+                      (opt, CMD_LINE_OPTS_ACCEPTED)
+                sys.exit()
+        ROOT_DIR = os.path.expanduser(ROOT_DIR)
+        TEMP_DIR = os.path.join(ROOT_DIR, TEMP_DIR)
+        if TEMP_DIR.endswith("/"):
+            TEMP_DIR = TEMP_DIR[:-1]
+        INSTALL_DIR = os.path.join(ROOT_DIR, INSTALL_DIR)
+        if INSTALL_DIR.endswith("/"):
+            INSTALL_DIR = INSTALL_DIR[:-1]
+        if showConf:
+            showConfig()
+            sys.exit()
+        if showInstModes:
+            showInstallModes()
+            sys.exit()
+        if showSelectTasks:
+            selectTasks(selTasks)
+    except Exception, e:
+        print "\nError: %s!\nAccepted arguments:\n%s\n" % (e, CMD_LINE_OPTS_ACCEPTED)
+        sys.exit()
+
+
+def init():
+    print "Installation mode '%s' loaded" % INST_MODE_CURR
+    sys.stdout.write("\nCreating temporary directory '%s' ... " % TEMP_DIR)
+    sys.stdout.flush()
+    if not os.path.isdir(TEMP_DIR):
+        os.makedirs(TEMP_DIR)
+    os.chdir(TEMP_DIR)
+    print "DONE"
+
+
+def install():
+    print "\nInstalling 'EventViz-15' (%d tasks)..." % len(INST_TASKS)
+    taskCnt = len(INST_TASKS)
+    for i in xrange(taskCnt):
+        INST_TASKS[i].execute(i, taskCnt)
+    print "Installation completed!\n"
+
+
+def uninstall():
+    if len(UNINST_TASKS) == 0:
+        return
+    print "\nUninstalling previous 'EventViz-15' installation ... "
+    taskCnt = len(UNINST_TASKS)
+    for i in xrange(taskCnt):
+        UNINST_TASKS[i].execute(i, taskCnt)
+    print "Uninstalling previous 'EventViz-15' installation ... DONE"
+
+
+def cleanup(silent):
+    if not silent:
+        sys.stdout.write("Performing cleanup ... ")
+        sys.stdout.flush()
+    os.chdir(ROOT_DIR)
+    shutil.rmtree(TEMP_DIR)
+    if not silent:
+        print "DONE\n"
+
+
+def main(argv):
+    silentCleanup = False
+    print "\n--------------------------- %s -------------------------- " % INSTALLER_INFO
+    processCmdLineOpts(argv)
+    try:
+        init()
+        uninstall()
+        install()
+    except KeyboardInterrupt:
+        print "\n\nInstallation aborted by user!\n"
+    except:
+        silentCleanup = True
+        print "\n\nERROR: Failed to execute installer!\n"
+        raise
+    finally:
+        if DO_CLEANUP:
+            cleanup(silentCleanup)
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
