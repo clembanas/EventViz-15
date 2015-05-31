@@ -376,7 +376,7 @@ class InstTask_InstallJavaApp(InstTaskBase):
 
 # ------------------------------------------- Settings --------------------------------------------
 # Command line options
-CMD_LINE_OPTS = "m:t:r:h:u:p:d:r:w:i:"                          # Short command line options
+CMD_LINE_OPTS = "m:t:r:h:u:p:d:x:w:i:"                          # Short command line options
 CMD_LINE_LONG_OPTS = ["show-config", "show-modes",              # Long command line options
                       "show-task-selection", "mode=",
                       "tasks=", "repo=", "host=", "user=",
@@ -396,7 +396,7 @@ CMD_LINE_OPTS_ACCEPTED = ("   --show-config ........... Show default configurati
                           "   -u (--user=) ............ Set database user name\n"
                           "   -p (--password=) ........ Set database user password\n"
                           "   -d (--db-name=) ......... Set database name\n"
-                          "   -r (--root-dir=) ........ Set root directory path of installation\n"
+                          "   -x (--root-dir=) ........ Set root directory path of installation\n"
                           "   -w (--temp-dir=) ........ Set root-relative temporary directory "
                           "path\n"
                           "   -i (--install-dir=) ..... Set root-relative installation directory "
@@ -707,7 +707,7 @@ def processCmdLineOpts(argv):
                 DB_PWORD = arg
             elif opt in ("-d", "--db-name"):
                 DB_NAME = arg
-            elif opt in ("-r", "--root-dir"):
+            elif opt in ("-x", "--root-dir"):
                 ROOT_DIR = arg
             elif opt in ("-w", "--temp-dir"):
                 TEMP_DIR = arg
