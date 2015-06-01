@@ -51,6 +51,7 @@ public class ClusteringNodeServer {
 		
 		}catch(Exception ex)
 		{
+			ex.printStackTrace();
 			tryWriteException(ex);
 		}
 	}

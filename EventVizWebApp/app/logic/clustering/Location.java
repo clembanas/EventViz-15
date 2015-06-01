@@ -1,7 +1,9 @@
 package logic.clustering;
 
-public class Location implements ILocation{
-	
+import java.io.Serializable;
+
+public class Location implements ILocation, Serializable{
+	private static final long serialVersionUID = 4486058443709461482L;
 	private String id;
 	private double lat;
 	private double lng;

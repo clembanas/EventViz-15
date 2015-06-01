@@ -1,9 +1,11 @@
 package logic.clustering;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-public class MarkerCluster implements IMarker {
+public class MarkerCluster implements IMarker, Serializable {
+	private static final long serialVersionUID = 6837877666870874516L;
 	private final List<MarkerCluster> childClusters = new ArrayList<MarkerCluster>();
 	private final List<Marker> markers = new ArrayList<Marker>();
 	public List<Marker> getMarkers() {
@@ -16,6 +18,13 @@ public class MarkerCluster implements IMarker {
 	private ILocation _cLatLng;
 	private Location _wLatLng;
 	private Location _latlng;
+	
+	// just for serialization
+	public MarkerCluster()
+	{
+		// assign invalid zoom
+		this._zoom = -2;
+	}
 	
 	public MarkerCluster(int zoom) {
 		this._zoom = zoom;

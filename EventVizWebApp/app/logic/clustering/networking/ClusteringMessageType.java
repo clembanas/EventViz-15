@@ -20,7 +20,11 @@ public enum ClusteringMessageType {
             return AddLocation;
         case 1:
             return WaitForResult;
+        case 2:
+            return Exception;
+        case 3:
+            return WaitForResultResponse;
         }
-        return null;
+        throw new RuntimeException("not implemented yet");
     }
 }

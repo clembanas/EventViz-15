@@ -4,16 +4,20 @@
 package logic.clustering;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.fail;
 
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
 
+import logic.clustering.networking.ClusteringNodeClient;
+
+import org.apache.commons.lang3.SerializationUtils;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 /**
@@ -21,6 +25,28 @@ import org.junit.Test;
  *
  */
 public class ClusteringUtilTest {
+	private static MarkerCluster markerCluster32000Points = null;
+	
+	@BeforeClass
+	public static void initializeClusteringNodeServer() throws IOException
+	{
+		new Thread(new Runnable()
+		{
+			@Override
+			public void run() {
+				logic.clustering.networking.ServerMain.main(new String[0]);
+			}
+		}).start();
+		
+		
+		markerCluster32000Points = ClusteringUtil.cluster(createLocationsTestCluster32000Points());
+	}
+	
+	@Test
+	public void testBinarySerialization32000Points()
+	{
+		SerializationUtils.deserialize(SerializationUtils.serialize(markerCluster32000Points));
+	}
 	
 	@Test
 	public void testCluster0Points() {
@@ -38,15 +64,53 @@ public class ClusteringUtilTest {
 	
 
 	@Test
-	public void testCluster2Points() {
+	public void testCluster2Points1LocalWorker() {
 		// public static MarkerClusterGroup Cluster(Iterable<ILocation> locations)
 		
+		List<ILocation> locations = createLocationsTestCluster2Points();
+		
+		ClusteringWorker[] workers = new ClusteringWorker[1];
+		workers[0] = new LocalClusteringWorker();
+		MarkerCluster clusterTopLevel = ClusteringUtil.cluster(locations, workers);
+		
+		assertTestCluster2Points(clusterTopLevel);
+	}
+	
+	@Test
+	public void testCluster2Points1NetworkWorker() throws UnknownHostException, IOException {
+		// public static MarkerClusterGroup Cluster(Iterable<ILocation> locations)
+		
+		List<ILocation> locations = createLocationsTestCluster2Points();
+		
+		ClusteringWorker[] workers = new ClusteringWorker[1];
+		workers[0] = new ClusteringNodeClient("localhost", 9999);
+		MarkerCluster clusterTopLevel = ClusteringUtil.cluster(locations, workers);
+		
+		assertTestCluster2Points(clusterTopLevel);
+	}
+	
+	@Test
+	public void testCluster2Points2LocalWorker() {
+		// public static MarkerClusterGroup Cluster(Iterable<ILocation> locations)
+		
+		List<ILocation> locations = createLocationsTestCluster2Points();
+		
+		ClusteringWorker[] workers = new ClusteringWorker[2];
+		workers[0] = new LocalClusteringWorker();
+		workers[1] = new LocalClusteringWorker();
+		MarkerCluster clusterTopLevel = ClusteringUtil.cluster(locations, workers);
+		
+		assertTestCluster2Points(clusterTopLevel);
+	}
+
+	private List<ILocation> createLocationsTestCluster2Points() {
 		List<ILocation> locations = new ArrayList<ILocation>();
 		locations.add(new Location("testID", 47.9139476, 11.421561));
 		locations.add(new Location("testID2", 32.70788, 11.40115));
-		
-		MarkerCluster clusterTopLevel = ClusteringUtil.cluster(locations);
-		
+		return locations;
+	}
+
+	private void assertTestCluster2Points(MarkerCluster clusterTopLevel) {
 		MarkerCluster clusterZoom0 = clusterTopLevel.getChildClusters().get(0);
 		assertEquals(0, clusterZoom0.getZoom());
 		assertEquals(2, clusterZoom0.getChildCount());
@@ -114,8 +178,7 @@ public class ClusteringUtilTest {
 			{
 				fail("Marker was not in expected markers");
 			}
-		}		
-	
+		}
 	}
 	
 	
@@ -140,12 +203,50 @@ public class ClusteringUtilTest {
 	}
 	
 	@Test
-	public void testCluster32000Points() throws FileNotFoundException, IOException {
+	public void testCluster32000Points1LocalWorker() throws FileNotFoundException, IOException {		
+		List<ILocation> locations = createLocationsTestCluster32000Points();
 		
+		ClusteringWorker[] workers = new ClusteringWorker[1];
+		workers[0] = new LocalClusteringWorker();
+		MarkerCluster clusterZoom0 = ClusteringUtil.cluster(locations, workers);
+	}
+	
+	@Test
+	public void testCluster32000Points2LocalWorker() throws FileNotFoundException, IOException {		
+		List<ILocation> locations = createLocationsTestCluster32000Points();
+		
+		ClusteringWorker[] workers = new ClusteringWorker[2];
+		workers[0] = new LocalClusteringWorker();
+		workers[1] = new LocalClusteringWorker();
+		MarkerCluster clusterZoom0 = ClusteringUtil.cluster(locations, workers);
+	}
+	
+	@Test
+	public void testCluster32000Points1NetworkWorker() throws FileNotFoundException, IOException {		
+		List<ILocation> locations = createLocationsTestCluster32000Points();
+		
+		ClusteringWorker[] workers = new ClusteringWorker[1];
+		workers[0] = new ClusteringNodeClient("localhost", 9999);
+		
+		MarkerCluster clusterZoom0 = ClusteringUtil.cluster(locations, workers);
+	}
+	
+	@Test
+	public void testCluster32000Points2NetworkWorker() throws FileNotFoundException, IOException {		
+		List<ILocation> locations = createLocationsTestCluster32000Points();
+		
+		ClusteringWorker[] workers = new ClusteringWorker[2];
+		workers[0] = new ClusteringNodeClient("localhost", 9999);
+		workers[1] = new ClusteringNodeClient("localhost", 9999);
+		
+		MarkerCluster clusterZoom0 = ClusteringUtil.cluster(locations, workers);
+	}
+
+	private static List<ILocation> createLocationsTestCluster32000Points() throws IOException {
 		List<ILocation> locations = new ArrayList<ILocation>();		
 		
 		int i = 0;
-		try (BufferedReader br = new BufferedReader(new InputStreamReader(getClass().getResourceAsStream("/ClusterPoints32000.txt")))) {
+		try (BufferedReader br = new BufferedReader(new InputStreamReader(ClusteringUtilTest.class.getResourceAsStream("/ClusterPoints32000.txt")))) {
 		    String line;
 		    while ((line = br.readLine()) != null) {
 		    	if(line.isEmpty())
@@ -160,8 +261,7 @@ public class ClusteringUtilTest {
 		    }
 		}
 		
-		MarkerCluster clusterZoom0 = ClusteringUtil.cluster(locations);
-		
+		return locations;
 	}
 
 }
