@@ -1,20 +1,17 @@
 package db;
 
-import static org.junit.Assert.fail;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import containers.*;
+import database.EventViz15_DB_MySQLAccess;
+import jsonGeneration.JsonResultGenerator;
+import org.junit.Before;
+import org.junit.Test;
 
 import java.sql.SQLException;
 import java.util.List;
 
-import jsonGeneration.JsonResultGenerator;
-
-import org.junit.Before;
-import org.junit.Test;
-
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
-
-import containers.*;
-import database.EventViz15_DB_MySQLAccess;
+import static org.junit.Assert.fail;
 
 public class DbConnectionTests {
 
@@ -29,7 +26,7 @@ public class DbConnectionTests {
 	
 	@Test
 	public void getCity_JSON() {
-		List<EventVizCity> cities = null;
+		List<EventVizCity> cities;
 		JsonArray city_JSON = null;
 		try {
 			cities = EventViz15_DB_MySQLAccess.getCity("Dublin", "Ireland");
@@ -45,7 +42,7 @@ public class DbConnectionTests {
 	@Test
 	public void getEventById_JSON() {
 		String eventful_id = "E0-001-078479724-7@2015052514";
-		EventVizEvent event = null;
+		EventVizModelPopulationObject event;
 		JsonObject specificEvent_JSON = null;
 		try {
 			event = EventViz15_DB_MySQLAccess.getEventById(eventful_id);
@@ -61,7 +58,7 @@ public class DbConnectionTests {
 	
 	@Test
 	public void getEvents_JSON() {
-		List<EventVizEventBasics> events = null;
+		List<EventVizEventBasics> events;
 		JsonArray events_JSON = null;
 		try {
 			events = EventViz15_DB_MySQLAccess.getEvents();
