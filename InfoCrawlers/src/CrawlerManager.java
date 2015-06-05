@@ -152,12 +152,6 @@ public class CrawlerManager {
 		crawlerCtrlrs.put(crawlerClass, new CrawlerCtrlr(crawlerClass, null, null));
 	}
 	
-	public static void registerCrawler(Class<? extends CrawlerBase> crawlerClass,
-		Object ctorData)
-	{
-		crawlerCtrlrs.put(crawlerClass, new CrawlerCtrlr(crawlerClass, ctorData, null));
-	}
-	
 	@SafeVarargs
 	public static void registerCrawler(Class<? extends CrawlerBase> crawlerClass,
 		Class<? extends CrawlerBase> ... dependsOnCrawlers)
