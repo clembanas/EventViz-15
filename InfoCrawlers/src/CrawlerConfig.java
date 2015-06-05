@@ -7,8 +7,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
-import com.cloudera.impala.dsi.exceptions.InvalidArgumentException;
-
 
 /**
  * Class used to access all Crawler specific settings
@@ -109,15 +107,18 @@ public class CrawlerConfig {
 		return Boolean.valueOf(props.getProperty("debug.crawler.band_infos"));
 	}
 
+	@SuppressWarnings("deprecation")
 	public static Class<? extends DBConnector> getDBConnectorClass()
 	{	
-		try {
-			Class<?> _class = Class.forName(props.getProperty("database.connector_class"));
-			return _class.asSubclass(DBConnector.class);
-		}
-		catch (Exception e) {
-			throw new InvalidArgumentException(e.getMessage(), 0);
-		}
+		String connClassName = props.getProperty("database.connector_class");
+		
+		if (connClassName.equalsIgnoreCase(DBConnector_MySQL.class.getName()))
+			return DBConnector_MySQL.class;
+		if (connClassName.equalsIgnoreCase(DBConnector_Derby.class.getName()))
+			return DBConnector_Derby.class;
+		if (connClassName.equalsIgnoreCase(DBConnector_Impala.class.getName()))
+			return DBConnector_Impala.class;
+		throw new IllegalArgumentException("Unknown connector class '" + connClassName + "'!");
 	}
 
 	public static int getEventfulCrawlerMaxDays()
