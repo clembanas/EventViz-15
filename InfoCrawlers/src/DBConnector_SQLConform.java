@@ -9,7 +9,7 @@
  */
 public abstract class DBConnector_SQLConform extends DBConnector {
 	
-	protected DBConnector_SQLConform() {} 	//Singleton class
+	protected DBConnector_SQLConform() throws Exception {}	  //Singleton class
 	
 	protected String getStmtCreateTblDebugInfoLogs()
 	{

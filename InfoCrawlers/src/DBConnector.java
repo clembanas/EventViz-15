@@ -171,8 +171,9 @@ public abstract class DBConnector {
 	protected Connection dbConn = null;
 	protected String hostname = "Unknown";
 	
-	protected DBConnector() 	//Singleton class
+	protected DBConnector() throws Exception	//Singleton class
 	{
+		DBConfig.load();
 		//Load settings from database-config file
 		MAX_LEN_CRAWLER_DEBUG_LOG_HOST = DBConfig.getMaxLenCrawlerDbgLogHost();
 		MAX_LEN_CRAWLER_DEBUG_LOG_CLASS_PATH = DBConfig.getMaxLenCrawlerDbgLogClassPath();

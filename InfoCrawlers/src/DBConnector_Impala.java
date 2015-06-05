@@ -76,7 +76,7 @@ public class DBConnector_Impala extends DBConnector_SQLConform {
 	
 	private Lock updateLock = new ReentrantLock();
 	
-	protected DBConnector_Impala()	 //Singleton
+	protected DBConnector_Impala() throws Exception		 //Singleton
 	{
 		PrimaryKey.PrimaryKeyClass = ImpalaPrimaryKey.class;
 	}
