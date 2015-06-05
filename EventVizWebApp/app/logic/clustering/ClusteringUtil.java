@@ -6,38 +6,43 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import play.libs.Json;
 import logic.clustering.serialization.LightMarkerClusterVO;
+import play.libs.Json;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
 
-public class ClusteringUtil {
-	private static final int WORKER_COUNT = 4;
-	private static final int STRIPE_SIZE = 360 / WORKER_COUNT;
-	
+public class ClusteringUtil {	
 	
 	private static ClusteringWorker[] createClusteringWorker()
 	{
-		ClusteringWorker[] workers = new ClusteringWorker[WORKER_COUNT];
-		for(int i = 0; i < WORKER_COUNT; i++)
-		{
-			workers[i] = new LocalClusteringWorker();
+		ClusteringWorker[] workers = new ClusteringWorker[2];
+		
+		try {
+			//workers[0] = new ClusteringNodeClient("localhost", 9999);
+			workers[0] = new LocalClusteringWorker();
+			workers[1] = new LocalClusteringWorker();
+		} catch (Exception e) {
+			throw new RuntimeException("Error creating clusteringworkers: '" + e.getMessage() + "'", e);
 		}
 		
 		return workers;
 	}
-	
-	
 	public static MarkerCluster cluster(Iterable<ILocation> locations)
 	{
 		ClusteringWorker[] workers = createClusteringWorker();
-		
+		return cluster(locations, workers);
+	}
+	
+	public static MarkerCluster cluster(Iterable<ILocation> locations, ClusteringWorker[] workers)
+	{		
+		int workerCount = workers.length;
+		int stripeSize = 360 / workerCount;
 		for(ILocation location : locations)
 		{
-			int workerId = ((int)(location.getLongitude() + 180) / STRIPE_SIZE) % WORKER_COUNT;
+			int workerId = ((int)(location.getLongitude() + 180) / stripeSize) % workers.length;
 			workers[workerId].addLocation(location);
 		}
 		
@@ -54,6 +59,13 @@ public class ClusteringUtil {
 			}
 			
 			resultTop.merge(topCluster);
+			
+			try {
+				worker.close();
+			} catch (Exception e) {
+				// ignore, but print stacktrace
+				e.printStackTrace();
+			}
 		}
 		
 		return resultTop;

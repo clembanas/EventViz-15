@@ -4,10 +4,8 @@
 
 # Home page
 GET     /                           controllers.Application.index()
-GET     /events                     controllers.Application.getEvents()
-GET     /city       				controllers.Application.getCity(city: java.lang.String ?= "", country: java.lang.String ?= "")
 GET		/getSentiment				controllers.Application.getSentiment(terms: java.lang.String ?= "", location: java.lang.String ?= "")
-GET		/getEventById				controllers.Application.getEventById(id: java.lang.String ?= "")
+GET		/getEventById				controllers.Application.getEventById(id: java.lang.Integer ?= 0)
 GET     /clusteringtest             controllers.Application.clusteringtest()
 GET     /defaultCluster             controllers.Application.getDefaultCluster()
 

@@ -1,9 +1,17 @@
 package logic.clustering;
 
-public class Marker extends LocationProxy implements IMarker {
-	
+import java.io.Serializable;
+
+public class Marker extends LocationProxy implements IMarker, Serializable {
+	private static final long serialVersionUID = -2795057827017912992L;
 	private MarkerCluster parent = null;
 	private String id = "";
+	
+	// just for serialization
+	public Marker()
+	{
+		super(null);
+	}
 
 	public Marker(ILocation realSubject) {
 		super(realSubject);

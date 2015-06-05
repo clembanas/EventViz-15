@@ -1,6 +1,6 @@
 package logic.clustering;
 
-public interface ClusteringWorker {
+public interface ClusteringWorker extends AutoCloseable {
 
 	void addLocation(ILocation location);
 

@@ -1,21 +1,22 @@
 package containers;
 
+import java.sql.Date;
+
 public class EventVizEvent {
 	private int id;
 	private String name;
 	private String description;
 	private String event_type;
+	private Date date;
 	private int location_id;
-	private String eventful_id;
-	
-	public EventVizEvent(int id, String name, String description,
-			String event_type, int location_id, String eventful_id) {
+
+	public EventVizEvent(int id, String name, String description, String event_type, Date date, int location_id) {
 		this.id = id;
 		this.name = name;
 		this.description = description;
 		this.event_type = event_type;
+		this.date = date;
 		this.location_id = location_id;
-		this.eventful_id = eventful_id;
 	}
 
 	public int getId() {
@@ -50,6 +51,14 @@ public class EventVizEvent {
 		this.event_type = event_type;
 	}
 
+	public Date getDate() {
+		return date;
+	}
+
+	public void setDate(Date date) {
+		this.date = date;
+	}
+
 	public int getLocation_id() {
 		return location_id;
 	}
@@ -58,12 +67,4 @@ public class EventVizEvent {
 		this.location_id = location_id;
 	}
 
-	public String getEventful_id() {
-		return eventful_id;
-	}
-
-	public void setEventful_id(String eventful_id) {
-		this.eventful_id = eventful_id;
-	}
-	
 }

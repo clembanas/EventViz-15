@@ -61,4 +61,9 @@ public class LocalClusteringWorker extends Thread implements ClusteringWorker {
 		return markerClusterGroup.getTopLevelCluster();
 	}
 
+	@Override
+	public void close() throws Exception {
+		// nothing to do...
+	}
+
 }
