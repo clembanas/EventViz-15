@@ -112,6 +112,34 @@ public class Utils {
 		return result;
 	}
 	
+	public static Class<?> getRootClass(Class<?> _class)
+	{
+		Class<?> superClass = _class.getSuperclass();
+		
+		while (superClass != null) {
+			_class = superClass;
+			superClass = _class.getSuperclass();
+		}
+		return _class;
+	}
+	
+	public static String classPathToString(Class<?> derivedClass, Class<?> baseClass, 
+		Class<?> subClass)
+	{
+		StringBuilder strBuilder = new StringBuilder(derivedClass.getName());
+		
+		if (baseClass != null && baseClass != derivedClass) {
+			strBuilder.append("[~");
+			strBuilder.append(baseClass.getName());
+			strBuilder.append("]");
+		}
+		if (subClass != null) {
+			strBuilder.append("::");
+			strBuilder.append(subClass.getName());
+		}
+		return strBuilder.toString();
+	}
+	
 	public static String wrapString(String s, int maxLen, String delim)
 	{
 		StringBuilder strBuilder = new StringBuilder();

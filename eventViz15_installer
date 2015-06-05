@@ -16,6 +16,7 @@ import stat
 import getopt
 import urllib
 import math
+import fileinput
 
 
 # --------------------------------------- Installer classes ---------------------------------------
@@ -160,6 +161,23 @@ class InstTask_CreateFile(InstTaskBase):
         if self.content:
             f.write(replaceWildcards(self.content))
         f.close()
+
+
+# Installer task: Update Java config-file (i.e. *.properties file)
+# Note: Keys must not contain wildcards!
+class InstTask_UpdateJavaConfFile(InstTaskBase):
+    def __init__(self, name, desc, file, keyValueDict, depend=None):
+        InstTaskBase.__init__(self, name, desc, depend)
+        self.file = file
+        self.keyValueDict = keyValueDict
+
+    def runInstallTask(self):
+        for line in fileinput.input(replaceWildcards(self.file), inplace=1):
+            key = line.split("=", 1)[0].strip()
+            if key in self.keyValueDict:
+                print "%s=%s" % (key, replaceWildcards(self.keyValueDict[key]))
+            else:
+                print line
 
 
 # Installer task: Remove a directory
@@ -526,28 +544,44 @@ INST_TASKS_SERVER = \
      InstTask_Exec("Compile 'EventViz15 play web-server'",
                    "Compiling 'EventViz15 play web-server'",
                    "$INSTALL_DIR$/activator clean stage", "$INSTALL_DIR$", True),
-     InstTask_Copy("Install info-crawler libraries", "Installing info-crawler "
-                   "libraries", "$TEMP_DIR$/EventViz-15/InfoCrawlers/lib",
+     InstTask_Copy("Install info-crawler libraries", "Installing info-crawler libraries",
+                   "$TEMP_DIR$/EventViz-15/InfoCrawlers/lib",
                    "$INSTALL_DIR$/lib", exceptEntries=["log4j-1.2.17.jar"]),
-     InstTask_CreateFile("Create info-crawler database config-file",
-                         "Creating info-crawler database config-file",
-                         "$INSTALL_DIR$/conf/crawler_db_config.properties",
-                         "db_host=$DB_HOST$\ndb_user=$DB_USER$\ndb_pword=$DB_PWORD$"
-                         "\ndb_name=$DB_NAME$"),
+     InstTask_Copy("Install database-config file", "Installing database-config file"
+                   "$TEMP_DIR$/EventViz-15/InfoCrawlers/db_config.properties",
+                   "$INSTALL_DIR$/conf"),
+     InstTask_UpdateJavaConfFile("Update database config-file",
+                                 "Updating database config-file",
+                                 "$INSTALL_DIR$/conf/db_config.properties",
+                                 {"mysql.db_host": "$DB_HOST$", "mysql.db_user": "$DB_USER$",
+                                  "mysql.db_pword": "$DB_PWORD$", "mysql.db_name": "$DB_NAME$"}),
+     InstTask_Copy("Install crawler-config file", "Installing crawler-config file"
+                   "$TEMP_DIR$/EventViz-15/InfoCrawlers/crawler_config.properties",
+                   "$INSTALL_DIR$/conf"),
      InstTask_InstallJavaApp("Install info-crawlers", "Installing info-crawlers",
                              "$TEMP_DIR$/EventViz-15/InfoCrawlers/src/Main_InfoCrawlers.java",
                              "$INSTALL_DIR$/bin/info_crawlers_files", "$INSTALL_DIR$/lib",
                              "$INSTALL_DIR$/bin/info_crawlers"),
-     InstTask_CreateLink("Configure info-crawlers", "Configuring info-crawlers",
-                         "$INSTALL_DIR$/conf/crawler_db_config.properties",
+     InstTask_CreateLink("Configure info-crawler database config-file",
+                         "Configuring info-crawler database config-file",
+                         "$INSTALL_DIR$/conf/db_config.properties",
                          "$INSTALL_DIR$/bin/info_crawlers_files/db_config.properties"),
+     InstTask_CreateLink("Configure info-crawler config-file",
+                         "Configuring info-crawler config-file",
+                         "$INSTALL_DIR$/conf/crawler_config.properties",
+                         "$INSTALL_DIR$/bin/info_crawlers_files/crawler_config.properties"),
      InstTask_InstallJavaApp("Install table-creator", "Installing table-creator",
                              "$TEMP_DIR$/EventViz-15/InfoCrawlers/src/Main_TableCreator.java",
                              "$INSTALL_DIR$/bin/table_creator_files", "$INSTALL_DIR$/lib",
                              "$INSTALL_DIR$/bin/table_creator"),
-     InstTask_CreateLink("Configure table-creator", "Configuring table-creator",
-                         "$INSTALL_DIR$/conf/crawler_db_config.properties",
+     InstTask_CreateLink("Configure table-creator database config-file",
+                         "Configuring table-creator database config-file",
+                         "$INSTALL_DIR$/conf/db_config.properties",
                          "$INSTALL_DIR$/bin/table_creator_files/db_config.properties"),
+     InstTask_CreateLink("Configure table-creator config-file",
+                         "Configuring table-creator config-file",
+                         "$INSTALL_DIR$/conf/crawler_config.properties",
+                         "$INSTALL_DIR$/bin/table_creator_files/crawler_config.properties"),
      InstTask_Exec("Create database '$DB_NAME$'", "Creating database '$DB_NAME$'",
                    'mysql --host=$DB_HOST$ --user=$DB_USER$ --password=$DB_PWORD$ -e '
                    '"create database if not exists $DB_NAME$"'),

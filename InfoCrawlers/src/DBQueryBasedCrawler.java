@@ -33,9 +33,9 @@ public abstract class DBQueryBasedCrawler extends JobBasedCrawler {
 				}
 			} 
 			catch (Exception e) {
-				DBQueryBasedCrawler.this.handleException(e, 
-					"Failed to create worker job for crawler '" + 
-					DBQueryBasedCrawler.this.getClass().getName() + "'!");
+				ExceptionHandler.handle("Failed to create worker job for crawler '" + 
+					DBQueryBasedCrawler.this.getClass().getName() + "'!", e, 
+					DBQueryBasedCrawler.this.getClass(), DBQueryBasedCrawler.class, getClass());
 			}
 		}
 	};
@@ -83,8 +83,9 @@ public abstract class DBQueryBasedCrawler extends JobBasedCrawler {
 			datasetIdx++;
 			if (lastEnqueueInfo <= (100.0/ (float)datasetCnt) * (float)datasetIdx - 1.0) {
 				lastEnqueueInfo = (int)Math.ceil((100.0/ (float)datasetCnt) * (float)datasetIdx);
-				debug_print(lastEnqueueInfo + "% of " + datasetCnt + " datasets processed...");
-				dbConnection.logCrawlerProgress(getClass(), lastEnqueueInfo);
+				DebugUtils.printDebugInfo(lastEnqueueInfo + "% of " + datasetCnt + 
+					" datasets processed...", getClass(), DBQueryBasedCrawler.class);
+				dbConnector.logCrawlerProgress(getClass(), lastEnqueueInfo);
 			}
 			return Utils.createPair((WorkerJobBase)new DBWorkerJob(nextDataset.first, datasetMeta), 
 					   (Object)Utils.createPair(nextDataset, datasetMeta));

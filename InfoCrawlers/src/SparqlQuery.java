@@ -22,15 +22,6 @@ import com.hp.hpl.jena.rdf.model.RDFNode;
  */
 public class SparqlQuery {
 	
-	public static final int LIMIT_NONE = 0;
-	public static final int MAX_QUERY_RETRIES = 30;
-	public static final int QUERY_RETRY_DELAY = 2500;	//msec
-	
-	public static boolean DEBUG = true;
-	public static boolean DEBUG_QUERIES = true;
-	public static boolean DEBUG_RESULTS = true;
-	public static boolean DEBUG_NO_QUERY_STR = true;
-	public static boolean DEBUG_NO_PREFIXES = true;
 	public static String[] DEF_PREFIXES = new String[] {
 			"owl: <http://www.w3.org/2002/07/owl#>",
 			"xsd: <http://www.w3.org/2001/XMLSchema#>",
@@ -45,18 +36,37 @@ public class SparqlQuery {
 			"skos: <http://www.w3.org/2004/02/skos/core#>",
 			"geo: <http://www.w3.org/2003/01/geo/wgs84_pos#>"
 		};
-	public static int DEF_LIMIT = 100;
+	public static final int LIMIT_NONE = 0;
+	private static int DEF_LIMIT;
+	private static int MAX_QUERY_RETRIES;
+	private static int QUERY_RETRY_DELAY;		//msec
+	
+	
+	/**
+	 * Available debug flags
+	 */
+	public static enum DebugFlag implements DebugUtils.DebugFlagBase {
+		QUERIES(1),
+		QUERY_RESULTS(2),
+		NO_QUERY_STRING(4),
+		NO_QUERY_PREFIXES(8);
+		
+		public final int value;
+		
+		DebugFlag(int value) 
+		{
+			this.value = value;
+		}
+
+		public int toInt() 
+		{
+			return value;
+		}
+	}
 
 	
 	private static Map<String, String> defPrefixCache = genPrefixCache(DEF_PREFIXES);	
 
-	private static void debug_print(final String info)
-	{
-		if (DEBUG) 
-			DebugUtils.debug_printf("[SparqlQuery (Thread %s)]: %s\n", 
-				Thread.currentThread().getId(),	info);
-	}
-	
 	private static void debug_queryResult(String query, ResultSet resSet)
 	{
 		if (resSet.hasNext()) {
@@ -87,12 +97,14 @@ public class SparqlQuery {
 				tableDebugger.addRow(entries);
 			}
 			while (resSet.hasNext());
-			debug_print("Results of query '" + (DEBUG_NO_QUERY_STR ? "..." : query) + "':\n" + 
-				tableDebugger);
+				DebugUtils.printDebugInfo("Results of query '" + 
+					(DebugUtils.canDebug(SparqlQuery.class, DebugFlag.NO_QUERY_STRING) ? "..." : 
+					query) + "':\n" + tableDebugger, SparqlQuery.class);
 		}
 		else 
-			debug_print("Query '" + (DEBUG_NO_QUERY_STR ? "..." : query) + 
-				"' returned no results!");
+			DebugUtils.printDebugInfo("Query '" + 
+				(DebugUtils.canDebug(SparqlQuery.class, DebugFlag.NO_QUERY_STRING) ? "..." : 
+				query) + "' returned no results!", SparqlQuery.class);
 	}
 	
 	private static Map<String, String> genPrefixCache(String[] prefixes) 
@@ -135,7 +147,7 @@ public class SparqlQuery {
 				try {
 					ResultSet resSet = queryExec.execSelect();
 		        
-			  		if (DEBUG_RESULTS) {
+			  		if (DebugUtils.canDebug(SparqlQuery.class, DebugFlag.QUERY_RESULTS)) {
 			  			ResultSetRewindable rewindResSet = ResultSetFactory.makeRewindable(resSet);
 			  			
 			  			debug_queryResult(query, rewindResSet);
@@ -150,7 +162,7 @@ public class SparqlQuery {
 						 e.getResponseCode() == 405     //Query not allowed
 						)) {
 						retries++;
-						retryQueryDelay += retryQueryDelay;
+						retryQueryDelay += QUERY_RETRY_DELAY;
 						try {
 							Thread.sleep(retryQueryDelay);
 						} catch (InterruptedException e1) {}
@@ -164,24 +176,33 @@ public class SparqlQuery {
 			queryExec.close();
 		}
 	}
+	
+	public static void init()
+	{
+		DEF_LIMIT = CrawlerConfig.getSparqlBasedCrawlerDefQueryLimit();
+		MAX_QUERY_RETRIES = CrawlerConfig.getSparqlBasedCrawlerMaxQueryRetries();
+		QUERY_RETRY_DELAY = CrawlerConfig.getSparqlBasedCrawlerQueryRetryDelay();
+	}
 
 	public static ResultSet execute(String svc, String query, String[] prefixes)
 	{
 		if (DEF_LIMIT != LIMIT_NONE)
 			query += " LIMIT " + DEF_LIMIT;
-		if (DEBUG_NO_PREFIXES) {
-			if (DEBUG_QUERIES) 
-				debug_print("Executing query '" + (DEBUG_NO_QUERY_STR ? "..." : query) + "' on '" + 
-					svc + "'...");
+		if (DebugUtils.canDebug(SparqlQuery.class, DebugFlag.NO_QUERY_PREFIXES)) {
+			if (DebugUtils.canDebug(SparqlQuery.class, DebugFlag.QUERIES)) 
+				DebugUtils.printDebugInfo("Executing query '" + 
+					(DebugUtils.canDebug(SparqlQuery.class, DebugFlag.NO_QUERY_STRING) ? "..." : 
+					query) + "' on '" +	svc + "'...", SparqlQuery.class);
 			query = (prefixes.length == 0 ? "" : "PREFIX " +
 						StringUtils.join(prefixes, " PREFIX ")) + "\n" + query;
 		}
 		else {
 			query = (prefixes.length == 0 ? "" : "PREFIX " +
 						StringUtils.join(prefixes, " PREFIX ")) + "\n" + query;
-			if (DEBUG_QUERIES) 
-				debug_print("Executing query '" + (DEBUG_NO_QUERY_STR ? "..." : query) + "' on '" + 
-					svc + "'...");
+			if (DebugUtils.canDebug(SparqlQuery.class, DebugFlag.QUERIES)) 
+				DebugUtils.printDebugInfo("Executing query '" + 
+					(DebugUtils.canDebug(SparqlQuery.class, DebugFlag.NO_QUERY_STRING) ? "..." : 
+					query) + "' on '" +	svc + "'...", SparqlQuery.class);
 		}
 		return executeQuery(svc, query);
 	}

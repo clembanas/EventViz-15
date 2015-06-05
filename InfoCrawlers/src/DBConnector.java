@@ -1,6 +1,7 @@
 /**
  * @author Bernhard Weber
  */
+import java.net.InetAddress;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
@@ -9,12 +10,62 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.Statement;
 import java.sql.Timestamp;
+import java.util.Date;
 
 
 /**
- * Wrapper class/ interface for the actual database connection
+ * Wrapper class for the actual database connection
  */
-public abstract class DBConnection {
+public abstract class DBConnector {
+	
+	//Constants which are loaded from config-file
+	protected static Class<? extends DBConnector> DB_CONNECTOR_CLASS = null;
+	protected static int MAX_LEN_CRAWLER_DEBUG_LOG_HOST;
+	protected static int MAX_LEN_CRAWLER_DEBUG_LOG_CLASS_PATH;
+	protected static int MAX_LEN_CRAWLER_DEBUG_LOG_INFO;
+	protected static int MAX_LEN_CRAWLER_EXCEPT_LOG_HOST;
+	protected static int MAX_LEN_CRAWLER_EXCEPT_LOG_CLASS_PATH;
+	protected static int MAX_LEN_CRAWLER_EXCEPT_LOG_INFO;
+	protected static int MAX_LEN_CRAWLER_EXCEPT_LOG_MSG;
+	protected static int MAX_LEN_CRAWLER_EXCEPT_LOG_CLASS;
+	protected static int MAX_LEN_CRAWLER_EXCEPT_LOG_STACK;
+	protected static int MAX_LEN_CRAWLER_INFO_CLASS;
+	protected static int MAX_LEN_CRAWLER_INFO_SUMMARY;
+	protected static int MAX_LEN_CITY_NAME;
+	protected static int MAX_LEN_CITY_REGION;
+	protected static int MAX_LEN_CITY_COUNTRY;
+	protected static int MAX_LEN_CITY_DBPEDIA_RES;
+	protected static int MAX_LEN_LOCATION_NAME;
+	protected static int MAX_LEN_EVENT_NAME;
+	protected static int MAX_LEN_EVENT_DESC;
+	protected static int MAX_LEN_EVENT_TYPE;
+	protected static int MAX_LEN_EVENT_EVENTFUL_ID;
+	protected static int MAX_LEN_BAND_NAME;
+	protected static int MAX_LEN_BAND_DBPEDIA_RES;
+	protected static int MAX_LEN_ARTIST_NAME;
+	protected static int MAX_LEN_ARTIST_ALT_NAME;
+	protected static int MAX_LEN_ARTIST_DBPEDIA_RES;
+		
+	
+	/**
+	 * Available debug flags
+	 */
+	public static enum DebugFlag implements DebugUtils.DebugFlagBase {
+		UPDATES(1),
+		QUERY_RESULTS(2);
+		
+		public final int value;
+		
+		DebugFlag(int value) 
+		{
+			this.value = value;
+		}
+
+		public int toInt() 
+		{
+			return value;
+		}
+	}
 	
 	/**
 	 * Wrapper class for the database's primary key
@@ -65,46 +116,16 @@ public abstract class DBConnection {
 			return data.toString();
 		}
 	}
-	
-	public static class UpdateDBValue {
-		
-	}
-	
-	
-	public static boolean DEBUG = true;
-	public static boolean DEBUG_UPDATES = true;
-	public static boolean DEBUG_QUERY_RESULTS = true;
-	public static Class<? extends DBConnection> DB_CONNECTION_CLASS = null;
-	//Maximum length settings of various table entries
-	public static final int MAX_LEN_CRAWLER_EXCEPT_LOG_MSG = 255;
-	public static final int MAX_LEN_CRAWLER_EXCEPT_LOG_CLASS = 100;
-	public static final int MAX_LEN_CRAWLER_EXCEPT_LOG_STACK = 255;
-	public static final int MAX_LEN_CRAWLER_INFO_CLASS = 100;
-	public static final int MAX_LEN_CRAWLER_INFO_SUMMARY = 255;
-	public static final int MAX_LEN_CITY_NAME = 255;
-	public static final int MAX_LEN_CITY_REGION = 255;
-	public static final int MAX_LEN_CITY_COUNTRY = 255;
-	public static final int MAX_LEN_CITY_DBPEDIA_RES = 255;
-	public static final int MAX_LEN_LOCATION_NAME = 255;
-	public static final int MAX_LEN_EVENT_NAME = 255;
-	public static final int MAX_LEN_EVENT_DESC = 255;
-	public static final int MAX_LEN_EVENT_TYPE = 50;
-	public static final int MAX_LEN_EVENT_EVENTFUL_ID = 50;
-	public static final int MAX_LEN_BAND_NAME = 255;
-	public static final int MAX_LEN_BAND_DBPEDIA_RES = 255;
-	public static final int MAX_LEN_ARTIST_NAME = 255;
-	public static final int MAX_LEN_ARTIST_ALT_NAME = 255;
-	public static final int MAX_LEN_ARTIST_DBPEDIA_RES = 255;
 
-	private static DBConnection instance = null;
-	protected Connection dbConn = null;
 	
+	//Methods which needs to be implemented by derived classes
 	protected abstract String getDriverName();
 	protected abstract String getConnectionStr();
 	protected abstract boolean queryPagingSupported();
 	protected abstract void beginUpdate() throws Exception;
 	protected abstract void endUpdate() throws Exception;
 	protected abstract void cancelUpdate() throws Exception;
+	protected abstract String getStmtCreateTblDebugInfoLogs();
 	protected abstract String getStmtCreateTblExceptionLogs();
 	protected abstract String getStmtCreateTblCrawlerInfos();
 	protected abstract String getStmtCreateTblCities();
@@ -115,6 +136,7 @@ public abstract class DBConnection {
 	protected abstract String getStmtCreateTblEventPerformers();
 	protected abstract String getStmtCreateTblBandMembers();
 	protected abstract String getStmtDropTable(String tableName);
+	protected abstract String getStmtLogDebugInfo();
 	protected abstract String getStmtLogException();
 	protected abstract String getStmtInsertCrawlerInfoStarted();
 	protected abstract String getStmtUpdateCrawlerInfoStarted();
@@ -145,13 +167,47 @@ public abstract class DBConnection {
 	protected abstract String getStmtLocationExists();
 	protected abstract Utils.Pair<String, PrimaryKey> getStmtInsertLocation();
 	
-	protected DBConnection() {}	//Singleton class
+	private static DBConnector instance = null;
+	protected Connection dbConn = null;
+	protected String hostname = "Unknown";
 	
-	protected void debug_print(final String info)
+	protected DBConnector() 	//Singleton class
 	{
-		if (DEBUG) 
-			DebugUtils.debug_printf("[DBConnection (Thread %s)]: %s\n", 
-				Thread.currentThread().getId(),	info);
+		//Load settings from database-config file
+		MAX_LEN_CRAWLER_DEBUG_LOG_HOST = DBConfig.getMaxLenCrawlerDbgLogHost();
+		MAX_LEN_CRAWLER_DEBUG_LOG_CLASS_PATH = DBConfig.getMaxLenCrawlerDbgLogClassPath();
+		MAX_LEN_CRAWLER_DEBUG_LOG_INFO = DBConfig.getMaxLenCrawlerDbgLogInfo();
+		MAX_LEN_CRAWLER_EXCEPT_LOG_HOST = DBConfig.getMaxLenCrawlerExceptLogHost();
+		MAX_LEN_CRAWLER_EXCEPT_LOG_CLASS_PATH = DBConfig.getMaxLenCrawlerExceptLogClassPath();
+		MAX_LEN_CRAWLER_EXCEPT_LOG_INFO = DBConfig.getMaxLenCrawlerExceptLogInfo();
+		MAX_LEN_CRAWLER_EXCEPT_LOG_MSG = DBConfig.getMaxLenCrawlerExceptLogMsg();
+		MAX_LEN_CRAWLER_EXCEPT_LOG_CLASS = DBConfig.getMaxLenCrawlerExceptLogClass();
+		MAX_LEN_CRAWLER_EXCEPT_LOG_STACK = DBConfig.getMaxLenCrawlerExceptLogStack();
+		MAX_LEN_CRAWLER_INFO_CLASS = DBConfig.getMaxLenCrawlerInfoClass();
+		MAX_LEN_CRAWLER_INFO_SUMMARY = DBConfig.getMaxLenCrawlerInfoSummary();
+		MAX_LEN_CITY_NAME = DBConfig.getMaxLenCityName();
+		MAX_LEN_CITY_REGION = DBConfig.getMaxLenCityRegion();
+		MAX_LEN_CITY_COUNTRY = DBConfig.getMaxLenCityCountry();
+		MAX_LEN_CITY_DBPEDIA_RES = DBConfig.getMaxLenCityDBPediaRes();
+		MAX_LEN_LOCATION_NAME = DBConfig.getMaxLenLocationName();
+		MAX_LEN_EVENT_NAME = DBConfig.getMaxLenEventName();
+		MAX_LEN_EVENT_DESC = DBConfig.getMaxLenEventDesc();
+		MAX_LEN_EVENT_TYPE = DBConfig.getMaxLenEventType();
+		MAX_LEN_EVENT_EVENTFUL_ID = DBConfig.getMaxLenEventEventfulId();
+		MAX_LEN_BAND_NAME = DBConfig.getMaxLenBandName();
+		MAX_LEN_BAND_DBPEDIA_RES = DBConfig.getMaxLenBandDBPediaRes();
+		MAX_LEN_ARTIST_NAME = DBConfig.getMaxLenArtistName();
+		MAX_LEN_ARTIST_ALT_NAME = DBConfig.getMaxLenArtistAltName();
+		MAX_LEN_ARTIST_DBPEDIA_RES = DBConfig.getMaxLenArtistDBPediaRes();
+		//Determine hostname
+		try {
+			hostname = InetAddress.getLocalHost().getHostAddress();
+		} 
+		catch (Exception e) {}
+		try {
+			hostname = InetAddress.getLocalHost().getHostName() + " (" + hostname + ")";
+		} 
+		catch (Exception e) {}
 	}
 	
 	protected void debug_queryResult(String query, ResultSet resSet) throws Exception
@@ -172,29 +228,33 @@ public abstract class DBConnection {
 				tableDebugger.addRow(entries);
 			}
 			while (resSet.next());
-			debug_print("Results of query '" + query + "':\n" + tableDebugger);
+			DebugUtils.printDebugInfo("Results of query '" + query + "':\n" + tableDebugger,
+				getClass(), DBConnector.class, DebugFlag.QUERY_RESULTS);
 		}
 		else
-			debug_print("Query '" + query + "' returned no results!");
+			DebugUtils.printDebugInfo("Query '" + query + "' returned no results!", getClass(),
+				DBConnector.class, DebugFlag.QUERY_RESULTS);
 		resSet.beforeFirst();
 	}
 	
 	protected void debug_update(String stmt, Object ... args)
 	{
-		if (DEBUG && DEBUG_UPDATES) {
-			debug_print("Executing update:\n   " + Utils.wrapString(Utils.replaceEach(stmt, "?", 
-				"arg:'%s'", args), 50, "\n   "));
+		if (DebugUtils.canDebug(getClass(), DBConnector.class, DebugFlag.UPDATES)) {
+			DebugUtils.printDebugInfo("Executing update:\n   " + Utils.wrapString(
+				Utils.replaceEach(stmt, "?", "arg:'%s'", args), 50, "\n   "), getClass(), 
+				DBConnector.class, DebugFlag.UPDATES);
 		}
 	}
 	
 	protected String trimAndTrunc(String s, int maxLen)
 	{
-		if (DEBUG && s != null) { 
+		if (DebugUtils.canDebug(getClass(), DBConnector.class) && s != null) { 
 			int len = s.length();
 			
 			s = Utils.trimAndTrunc(s, maxLen);
 			if (s.length() != len) 
-				debug_print("WARNING: '" + s + "' truncated to length '" + maxLen + "'!");
+				DebugUtils.printDebugInfo("WARNING: '" + s + "' truncated to length '" + maxLen + 
+					"'!", getClass(), DBConnector.class);
 			return s;
 		}
 		return Utils.trimAndTrunc(s, maxLen); 
@@ -224,29 +284,34 @@ public abstract class DBConnection {
 		try {
 			if (tableExists(stmt, tableName)) {
 				if (dropExisting) {
-					debug_print("Dropping table '" + tableName + "' ...");
+					DebugUtils.printDebugInfo("Dropping table '" + tableName + "' ...", getClass(),
+						DBConnector.class);
 					try {
 						dropTable(stmt, tableName);
 					}
 					catch (Exception e) {
-						ExceptionHandler.handle(e, "Failed to drop table '" + tableName + "'!");
+						ExceptionHandler.handle("Failed to drop table '" + tableName + "'!", e, 
+							getClass(), DBConnector.class);
 						throw e;
 					}
-					debug_print("Dropping table '" + tableName + "' ... DONE");
+					DebugUtils.printDebugInfo("Dropping table '" + tableName + "' ... DONE",
+						getClass(), DBConnector.class);
 				}
 				else {
-					debug_print("Skipping creation of table '" + tableName + 
-						"' since it already exists!");
+					DebugUtils.printDebugInfo("Skipping creation of table '" + tableName + 
+						"' since it already exists!", getClass(), DBConnector.class);
 					return;
 				}
 			}
-			debug_print("Creating table '" + tableName + "' using statement:\n   " + 
-				Utils.wrapString(query,	50, "\n   "));
+			DebugUtils.printDebugInfo("Creating table '" + tableName + "' using statement:\n   " + 
+				Utils.wrapString(query,	50, "\n   "), getClass(), DBConnector.class);
 			stmt.executeUpdate(query);
-			debug_print("Creating table '" + tableName + "' ... DONE\n");
+			DebugUtils.printDebugInfo("Creating table '" + tableName + "' ... DONE\n", getClass(),
+				DBConnector.class);
 		}
 		catch (Exception e) {
-			ExceptionHandler.handle(e, "Failed to create table '" + tableName + "'!");
+			ExceptionHandler.handle("Failed to create table '" + tableName + "'!", e, getClass(),
+				DBConnector.class);
 			throw e;
 		}
 	}
@@ -274,9 +339,10 @@ public abstract class DBConnection {
 	{
 		String dbgQueryStr = "";
 		
-		if (DEBUG) {
+		if (DebugUtils.canDebug(getClass(), DBConnector.class)) {
 			dbgQueryStr = Utils.replaceEach(query, "?", "arg:'%s'", args);
-			debug_print("Executing query '" + dbgQueryStr +	"'...");
+			DebugUtils.printDebugInfo("Executing query '" + dbgQueryStr +	"'...", getClass(),
+				DBConnector.class);
 		}
 		
 		PreparedStatement stmt = dbConn.prepareStatement(query, ResultSet.TYPE_SCROLL_INSENSITIVE, 
@@ -284,19 +350,20 @@ public abstract class DBConnection {
 		setStatementArgs(stmt, args);
 		
 		ResultSet resSet = stmt.executeQuery();
-		if (DEBUG && DEBUG_QUERY_RESULTS) 
+		if (DebugUtils.canDebug(getClass(), DBConnector.class, DebugFlag.QUERY_RESULTS)) 
 			debug_queryResult(dbgQueryStr, resSet);
 		return resSet;
 	}
 	
 	protected ResultSet executeQuery(String query) throws Exception
 	{
-		debug_print("Executing query '" + query + "'...");
+		DebugUtils.printDebugInfo("Executing query '" + query + "'...", getClass(), 
+			DBConnector.class);
 		
 		ResultSet resSet = dbConn.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, 
 							   ResultSet.CONCUR_READ_ONLY).executeQuery(query);
 		
-		if (DEBUG_QUERY_RESULTS) {
+		if (DebugUtils.canDebug(getClass(), DBConnector.class, DebugFlag.QUERY_RESULTS)) {
 			debug_queryResult(query, resSet);
 			resSet.beforeFirst();
 		}
@@ -305,7 +372,8 @@ public abstract class DBConnection {
 	
 	protected PreparedStatement executeUpdate(String updStmt, Object ... args) throws Exception
 	{
-		debug_print("Executing update '" + updStmt + "'...");
+		DebugUtils.printDebugInfo("Executing update '" + updStmt + "'...", getClass(), 
+			DBConnector.class);
 		
 		PreparedStatement stmt = dbConn.prepareStatement(updStmt, 
 				 					 PreparedStatement.RETURN_GENERATED_KEYS);
@@ -322,10 +390,12 @@ public abstract class DBConnection {
 			PreparedStatement stmt = executeUpdate(updtStmt, 
 										 new Timestamp(System.currentTimeMillis()));
 			
-			debug_print(stmt.getUpdateCount() + " timestamps updated");
+			DebugUtils.printDebugInfo(stmt.getUpdateCount() + " timestamps updated", getClass(),
+				DBConnector.class);
 		}
 		catch (Exception e) {
-			ExceptionHandler.handle(e, "Failed to update crawler timestamps!");
+			ExceptionHandler.handle("Failed to update crawler timestamps!", e, getClass(),
+				DBConnector.class);
 		}
 	}
 	
@@ -371,6 +441,8 @@ public abstract class DBConnection {
 		Statement stmt = dbConn.createStatement();
 		
 		try {
+			createTable(stmt, "Crawler_debug_info_logs", getStmtCreateTblDebugInfoLogs(), 
+				dropExisting);
 			createTable(stmt, "Crawler_exception_logs", getStmtCreateTblExceptionLogs(), 
 				dropExisting);
 			createTable(stmt, "Crawler_infos", getStmtCreateTblCrawlerInfos(), dropExisting);
@@ -392,7 +464,7 @@ public abstract class DBConnection {
 		if (dbConn == null) {
 			Class.forName(getDriverName()).newInstance();
 			dbConn = DriverManager.getConnection(getConnectionStr());
-			debug_print("Connected to DB...");
+			DebugUtils.printDebugInfo("Connected to DB...", getClass(), DBConnector.class);
 		}
 	}
 	
@@ -401,8 +473,13 @@ public abstract class DBConnection {
 		if (dbConn != null) {
 			dbConn.close();
 			dbConn = null;
-			debug_print("Disconnected from DB...");
+			DebugUtils.printDebugInfo("Disconnected from DB...", getClass(), DBConnector.class);
 		}
+	}
+	
+	public synchronized boolean isConnected() 
+	{
+		return dbConn != null;
 	}
 	
 	public boolean supportsQueryPaging()
@@ -410,13 +487,25 @@ public abstract class DBConnection {
 		return queryPagingSupported();
 	}
 	
-	public synchronized void logException(final Exception e, final String info, 
-		final String stackTrace) throws Exception
+	public void logException(final String classPath, final long threadID, final String info, 
+		final Exception e, final String stackTrace) throws Exception
 	{
 		executeUpdate(getStmtLogException(), new Timestamp(System.currentTimeMillis()), 
-			trimAndTrunc(info, MAX_LEN_CRAWLER_EXCEPT_LOG_MSG), 
+			trimAndTrunc(hostname, MAX_LEN_CRAWLER_EXCEPT_LOG_HOST), threadID,
+			trimAndTrunc(classPath, MAX_LEN_CRAWLER_EXCEPT_LOG_CLASS_PATH), 
+			trimAndTrunc(info, MAX_LEN_CRAWLER_EXCEPT_LOG_INFO),
+			trimAndTrunc(e.getMessage(), MAX_LEN_CRAWLER_EXCEPT_LOG_MSG),
 			trimAndTrunc(e.getClass().getName(), MAX_LEN_CRAWLER_EXCEPT_LOG_CLASS),
 			trimAndTrunc(stackTrace, MAX_LEN_CRAWLER_EXCEPT_LOG_STACK));
+	}
+	
+	public void logDebugInfo(final String classPath, final long threadID, final String info) 
+		throws Exception
+	{
+		executeUpdate(getStmtLogDebugInfo(), new Timestamp(System.currentTimeMillis()), 
+			trimAndTrunc(hostname, MAX_LEN_CRAWLER_DEBUG_LOG_HOST), threadID,
+			trimAndTrunc(classPath, MAX_LEN_CRAWLER_DEBUG_LOG_CLASS_PATH), 
+			trimAndTrunc(info, MAX_LEN_CRAWLER_DEBUG_LOG_INFO));
 	}
 	
 	public synchronized void logCrawlerStarted(Class<? extends CrawlerBase> crawlerClass) 
@@ -433,7 +522,8 @@ public abstract class DBConnection {
 					new Timestamp(System.currentTimeMillis()));
 		}
 		catch (Exception e) {
-			ExceptionHandler.handle(e, "Failed to write crawler-start info!");
+			ExceptionHandler.handle("Failed to write crawler-start info!", e, getClass(),
+				DBConnector.class);
 		}
 	}
 	
@@ -447,7 +537,8 @@ public abstract class DBConnection {
 				trimAndTrunc(crawlerClass.getName(), MAX_LEN_CRAWLER_INFO_CLASS));
 		}
 		catch (Exception e) {
-			ExceptionHandler.handle(e, "Failed to write crawler-finish info!");
+			ExceptionHandler.handle("Failed to write crawler-finish info!", e, getClass(),
+				DBConnector.class);
 		}
 	}
 	
@@ -459,12 +550,13 @@ public abstract class DBConnection {
 				trimAndTrunc(crawlerClass.getName(), MAX_LEN_CRAWLER_INFO_CLASS));
 		}
 		catch (Exception e) {
-			ExceptionHandler.handle(e, "Failed to update crawler progress!");
+			ExceptionHandler.handle("Failed to update crawler progress!", e, getClass(),
+				DBConnector.class);
 		}
 	}
 	
 	public Utils.Pair<PrimaryKey, Boolean> insertEvent(String name, String desc, String type, 
-		String eventfulID,	PrimaryKey locationID) throws Exception
+		Date startTime, Date stopTime, String eventfulID, PrimaryKey locationID) throws Exception
 	{
 		try {
 			beginUpdate();
@@ -481,6 +573,7 @@ public abstract class DBConnection {
 									 trimAndTrunc(name, MAX_LEN_EVENT_NAME),
 									 trimAndTrunc(desc, MAX_LEN_EVENT_DESC),
 									 trimAndTrunc(type, MAX_LEN_EVENT_TYPE),
+									 startTime, stopTime,
 									 trimAndTrunc(eventfulID, MAX_LEN_EVENT_EVENTFUL_ID),
 									 locationID), insertEventStmt.second);
 			endUpdate();
@@ -666,13 +759,15 @@ public abstract class DBConnection {
 	}
 	
 	public void updateCity(PrimaryKey cityID, float latitude, float longitude, String regName,	
-		String ctryName, String cityResID) throws Exception
+		String ctryName, String cityResID, String regResID, String ctryResID) throws Exception
 	{
 		try {
 			beginUpdate();
 			executeUpdate(getStmtUpdateCity(), trimAndTrunc(regName, MAX_LEN_CITY_REGION),
 				trimAndTrunc(ctryName, MAX_LEN_CITY_COUNTRY), latitude, longitude, 
-				trimAndTrunc(cityResID, MAX_LEN_CITY_DBPEDIA_RES), 
+				trimAndTrunc(cityResID, MAX_LEN_CITY_DBPEDIA_RES),
+				trimAndTrunc(regResID, MAX_LEN_CITY_DBPEDIA_RES), 
+				trimAndTrunc(ctryResID, MAX_LEN_CITY_DBPEDIA_RES), 
 				new Timestamp(System.currentTimeMillis()), cityID);
 			endUpdate();
 		}
@@ -715,10 +810,10 @@ public abstract class DBConnection {
 		}
 	}
 	
-	public static synchronized DBConnection getInstance() throws Exception 
+	public static synchronized DBConnector getInstance() throws Exception 
 	{
 		if (instance == null)
-			instance = DB_CONNECTION_CLASS.newInstance();
+			instance = DB_CONNECTOR_CLASS.newInstance();
 		return instance;
 	}
 }

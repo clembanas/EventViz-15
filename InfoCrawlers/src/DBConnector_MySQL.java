@@ -1,20 +1,22 @@
 /**
  * @author Bernhard Weber
  */
-import java.io.BufferedInputStream;
-import java.io.FileInputStream;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
-import java.util.Properties;
 import java.util.concurrent.locks.*;
 
 
 /**
- * Actual DBConnection implementation for working with MySQL databases
+ * Actual DBConnector implementation for working with MySQL databases
  */
-public class DBConnection_MySQL extends DBConnection_SQLConform {
+public class DBConnector_MySQL extends DBConnector_SQLConform {
+
+	public static String DB_NAME;
+	public static final String DRIVER_NAME = "com.mysql.jdbc.Driver";
+	public static String CONNECTION_STR;
+	
 	
 	/**
 	 * Actual primary key implementation for MySQL databases (primary key is of type INTEGER)
@@ -51,25 +53,18 @@ public class DBConnection_MySQL extends DBConnection_SQLConform {
 		}
 	}
 	
-	public static String DB_NAME;
-	public static final String DRIVER_NAME = "com.mysql.jdbc.Driver";
-	public static String CONNECTION_STR;
 	
 	private Lock updateLock = new ReentrantLock();
 	
-	protected DBConnection_MySQL() throws Exception	 //Singleton
+	protected DBConnector_MySQL() throws Exception	 //Singleton
 	{
 		PrimaryKey.PrimaryKeyClass = MySQLPrimaryKey.class;
-		Properties properties = new Properties();
-		BufferedInputStream stream = new BufferedInputStream(new FileInputStream(
-											 "db_config.properties"));
-		
-		properties.load(stream);
-		stream.close();
-		DB_NAME = properties.getProperty("db_name");
+		DBConfig.load();
+		DBConfig.setDBType(DBConfig.DBType.MYSQL);
+		DB_NAME = DBConfig.getDBName();
 		CONNECTION_STR = String.format("jdbc:mysql://%s/%s?user=%s&password=%s", 
-						 	 properties.getProperty("db_host"), properties.getProperty("db_name"),
-							 properties.getProperty("db_user"), properties.getProperty("db_pword"));
+							 DBConfig.getDBHost(), DBConfig.getDBName(), DBConfig.getDBUser(),
+							 DBConfig.getDBPword());
 	}
 	
 	protected boolean tableExists(Statement stmt, String tableName) throws Exception 
@@ -93,8 +88,10 @@ public class DBConnection_MySQL extends DBConnection_SQLConform {
 				   "country VARCHAR(" + MAX_LEN_CITY_COUNTRY + "), " +
 				   "longitude FLOAT, " +
 				   "latitude FLOAT, " +
+				   "dbpedia_res_city VARCHAR(" + MAX_LEN_CITY_DBPEDIA_RES + ")," +
+				   "dbpedia_res_region VARCHAR(" + MAX_LEN_CITY_DBPEDIA_RES + ")," +
+				   "dbpedia_res_country VARCHAR(" + MAX_LEN_CITY_DBPEDIA_RES + ")," +
 				   "city_crawler_ts TIMESTAMP NULL, " +
-				   "dbpedia_resource VARCHAR(" + MAX_LEN_CITY_DBPEDIA_RES + ")," +
 				   "PRIMARY KEY (id))";
 	}
 	
@@ -106,7 +103,8 @@ public class DBConnection_MySQL extends DBConnection_SQLConform {
 				   "longitude FLOAT NOT NULL," +
 				   "latitude FLOAT NOT NULL," +
 				   "city_id INT NOT NULL," +
-				   "PRIMARY KEY (id))";
+				   "PRIMARY KEY (id), " +
+				   "INDEX (city_id))";
 	}
 	
 	protected String getStmtCreateTblEvents()
@@ -116,9 +114,13 @@ public class DBConnection_MySQL extends DBConnection_SQLConform {
 				   "name VARCHAR(" + MAX_LEN_EVENT_NAME + ") NOT NULL," +
 				   "description VARCHAR(" + MAX_LEN_EVENT_DESC + ")," +
 				   "event_type VARCHAR(" + MAX_LEN_EVENT_TYPE + ")," +
+				   "start_time DATETIME, " +
+				   "end_time DATETIME, " +
 				   "eventful_id VARCHAR(" + MAX_LEN_EVENT_EVENTFUL_ID + ")," +
 				   "location_id INT NOT NULL," +
-				   "PRIMARY KEY (id))";
+				   "PRIMARY KEY (id), " +
+				   "INDEX (location_id), " +
+				   "INDEX (eventful_id))";
 	}
 
 	protected String getStmtCreateTblBands()
@@ -126,8 +128,8 @@ public class DBConnection_MySQL extends DBConnection_SQLConform {
 		return "CREATE TABLE Bands(" +
 				   "id INT NOT NULL AUTO_INCREMENT," +
 				   "name VARCHAR(" + MAX_LEN_BAND_NAME + ") NOT NULL, " +
-				   "band_crawler_ts TIMESTAMP NULL, " +
 				   "dbpedia_resource VARCHAR(" + MAX_LEN_BAND_DBPEDIA_RES + ")," +
+				   "band_crawler_ts TIMESTAMP NULL, " +
 				   "PRIMARY KEY (id))";
 	}
 
@@ -145,7 +147,9 @@ public class DBConnection_MySQL extends DBConnection_SQLConform {
 	{
 		return "CREATE TABLE EventPerformers(" +
 				   "event_id INT NOT NULL," +
-				   "band_id INT NOT NULL)";
+				   "band_id INT NOT NULL, " +
+				   "INDEX (event_id), " + 
+				   "INDEX (band_ID))";
 	}
 
 	protected String getStmtCreateTblBandMembers()
@@ -153,13 +157,29 @@ public class DBConnection_MySQL extends DBConnection_SQLConform {
 		return "CREATE TABLE BandMembers(" +
 				   "artist_id INT NOT NULL," +
 				   "band_id INT NOT NULL, " +
-				   "member_type CHAR)";
+				   "member_type CHAR, " +
+				   "INDEX (artist_id), " + 
+				   "INDEX (band_ID))";
+	}
+	
+	protected String getStmtCreateTblDebugInfoLogs()
+	{
+		return "CREATE TABLE Crawler_debug_info_logs(" +
+				   "ts TIMESTAMP NULL, " +
+				   "hostname VARCHAR(" + MAX_LEN_CRAWLER_DEBUG_LOG_HOST + "), " +
+				   "thread_id LONG, " +
+				   "class_path VARCHAR(" + MAX_LEN_CRAWLER_DEBUG_LOG_CLASS_PATH + "), " +
+				   "info VARCHAR(" + MAX_LEN_CRAWLER_DEBUG_LOG_INFO + "))";
 	}
 	
 	protected String getStmtCreateTblExceptionLogs()
 	{
 		return "CREATE TABLE Crawler_exception_logs(" +
-				   "city_crawler_ts TIMESTAMP NULL, " +
+				   "ts TIMESTAMP NULL, " +
+				   "hostname VARCHAR(" + MAX_LEN_CRAWLER_EXCEPT_LOG_HOST + "), " +
+				   "thread_id LONG, " +
+				   "class_path VARCHAR(" + MAX_LEN_CRAWLER_EXCEPT_LOG_CLASS_PATH + "), " +
+				   "info VARCHAR(" + MAX_LEN_CRAWLER_EXCEPT_LOG_INFO + "), " +
 				   "message VARCHAR(" + MAX_LEN_CRAWLER_EXCEPT_LOG_MSG + "), " + 
 				   "exception_class VARCHAR(" + MAX_LEN_CRAWLER_EXCEPT_LOG_CLASS + "), " +
 				   "stack_trace VARCHAR(" + MAX_LEN_CRAWLER_EXCEPT_LOG_STACK + "))";

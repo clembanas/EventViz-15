@@ -2,10 +2,7 @@
  * @author Bernhard Weber
  */
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.*;
 
 
@@ -21,50 +18,21 @@ public abstract class CrawlerBase {
 		
 		public void run() 
 		{
-			debug_print("Worker thread started...", CrawlerBase.class);
+			DebugUtils.printDebugInfo("Worker thread started...", CrawlerBase.this.getClass(), 
+				CrawlerBase.class, getClass());
 			workerThd_run();
-			debug_print("Worker thread finished", CrawlerBase.class);
+			DebugUtils.printDebugInfo("Worker thread finished", CrawlerBase.this.getClass(), 
+				CrawlerBase.class, getClass());
 		}
 	}
 	
 
-	private static Set<Class<?>> debug_crawlerClasses = new HashSet<Class<?>>();
 	private ExecutorService thdPool;
 	private List<Future<?>> pendingWorkerThds = new ArrayList<Future<?>>();
-	protected DBConnection dbConnection;
+	protected DBConnector dbConnector;
 	
 	protected abstract int getWorkerThdCount();
 	protected abstract void workerThd_run();
-	
-	protected boolean debug_canDebug(Class<? extends CrawlerBase> crawlerClass)
-	{
-		return debug_crawlerClasses.contains(crawlerClass);
-	}
-	
-	protected void debug_print(final String info, Class<? extends CrawlerBase> crawlerClass)
-	{
-		if (debug_canDebug(crawlerClass)) 
-			DebugUtils.debug_printf("[%s (Thread %s)]: %s\n", crawlerClass != getClass() ? 
-				getClass().getName() + "::" + crawlerClass.getName() : getClass().getName(),
-				Thread.currentThread().getId(), info);
-	}
-	
-	protected void debug_print(final String info)
-	{
-		debug_print(info, getClass());
-	}
-	
-	protected void handleException(final Exception e, final String info, final boolean printTrace)
-	{
-		ExceptionHandler.handle(e, "[" + getClass().getName() + " (Thread " + 
-			Thread.currentThread().getId() + ")]: " + info, printTrace);
-	}
-	
-	protected void handleException(final Exception e, final String info)
-	{
-		ExceptionHandler.handle(e, "[" + getClass().getName() + " (Thread " + 
-			Thread.currentThread().getId() + ")]: " + info);
-	}
 	
 	protected void startWorkerThd()
 	{
@@ -90,15 +58,15 @@ public abstract class CrawlerBase {
 				}
 			} 
 			catch (Exception e) { 
-				handleException(e, "Failed to join workers of crawler '" + 
-					getClass().getName() + "'!");
+				ExceptionHandler.handle("Failed to join workers of crawler '" +
+					getClass().getName() + "'!", e, getClass(), CrawlerBase.class);
 			}
 		}
 	}
 	
 	protected void started()
 	{
-		dbConnection.logCrawlerStarted(getClass());
+		dbConnector.logCrawlerStarted(getClass());
 	}
 	
 	protected void finished(boolean exceptionThrown)
@@ -110,9 +78,9 @@ public abstract class CrawlerBase {
 		this.thdPool = thdPool;
 	}
 	
-	public void associateDBConnection(DBConnection dbConn)
+	public void associateDBConnector(DBConnector dbConn)
 	{
-		this.dbConnection = dbConn;
+		this.dbConnector = dbConn;
 	}
 	
 	public void execute()
@@ -120,25 +88,20 @@ public abstract class CrawlerBase {
 		final int workerThdCnt = getWorkerThdCount();
 		boolean exceptionThrown = false;
 
-		debug_print("Crawler started...", CrawlerBase.class);
+		DebugUtils.printDebugInfo("Crawler started...", getClass(), CrawlerBase.class);
 		started();
 		try {
 			for (int i = 0; i < workerThdCnt; ++i)
 				startWorkerThd();
 		} 
 		catch (Exception e) {
-			handleException(e, "Error in crawler '" + getClass().getName() + "'!");
+			ExceptionHandler.handle("Error in crawler '" + getClass().getName() + "'!", e, 
+				getClass(), CrawlerBase.class);
 			exceptionThrown = true;
 		}
 		finally {
 			joinWorkerThds();
 			finished(exceptionThrown);
 		}
-	}
-	
-	@SafeVarargs
-	public static void debug_crawlers(Class<? extends CrawlerBase> ... crawlerClasses)
-	{
-		debug_crawlerClasses.addAll(Arrays.asList(crawlerClasses));
 	}
 }

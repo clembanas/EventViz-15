@@ -41,14 +41,16 @@ public abstract class JobBasedCrawler extends CrawlerBase {
 				//No further worker jobs exist
 				if (job.done) { 
 					workerJobs.put(job);
-					debug_print("Worker thread ... Done", JobBasedCrawler.class);
+					DebugUtils.printDebugInfo("Worker thread ... Done", 
+						JobBasedCrawler.this.getClass(), JobBasedCrawler.class);
 				}
 				else
 					processWorkerJob(job);
 			} 
 			catch (Exception e) {
-				JobBasedCrawler.this.handleException(e, "Error in worker thread of crawler '" + 
-					JobBasedCrawler.this.getClass().getName() + "'!");
+				ExceptionHandler.handle("Error in worker thread of crawler '" + 
+					JobBasedCrawler.this.getClass().getName() + "'!", e,
+					JobBasedCrawler.this.getClass(), JobBasedCrawler.class);
 			}
 		} 
 		while (!job.done);
@@ -62,7 +64,7 @@ public abstract class JobBasedCrawler extends CrawlerBase {
 		Utils.Pair<WorkerJobBase, Object> nextJob;
 		boolean exceptionThrown = false;
 
-		debug_print("Crawler started...", JobBasedCrawler.class);
+		DebugUtils.printDebugInfo("Crawler started...", getClass(), JobBasedCrawler.class);
 		started();
 		try {
 			nextJob = getNextWorkerJob(null);
@@ -77,7 +79,8 @@ public abstract class JobBasedCrawler extends CrawlerBase {
 			}
 		} 
 		catch (Exception e) {
-			handleException(e, "Error in crawler '" + getClass().getName() + "'!");
+			ExceptionHandler.handle("Error in crawler '" + getClass().getName() + "'!", e, 
+				getClass(), JobBasedCrawler.class);
 			exceptionThrown = true;
 		}
 		finally {

@@ -8,9 +8,15 @@ import java.util.concurrent.locks.ReentrantLock;
 
 
 /**
- * Actual DBConnection implementation for working with Cloudera Impala databases
+ * Actual DBConnector implementation for working with Cloudera Impala databases
+ * 
+ * @deprecated Not supported anymore
  */
-public class DBConnection_Impala extends DBConnection_SQLConform {
+public class DBConnector_Impala extends DBConnector_SQLConform {
+	
+	public static final String DRIVER_NAME = "com.cloudera.impala.jdbc4.Driver";
+	public static final String CONNECTION_STR = "jdbc:impala://138.232.65.251:21050";
+	
 	
 	/**
 	 * Actual primary key implementation for Cloudera Impala databases (primary key is of type 
@@ -66,14 +72,11 @@ public class DBConnection_Impala extends DBConnection_SQLConform {
 			return new ImpalaPrimaryKey(newPrimKey);
 		}
 	}
-	
-	
-	public static final String DRIVER_NAME = "com.cloudera.impala.jdbc4.Driver";
-	public static final String CONNECTION_STR = "jdbc:impala://138.232.65.251:21050";
+
 	
 	private Lock updateLock = new ReentrantLock();
 	
-	protected DBConnection_Impala()	 //Singleton
+	protected DBConnector_Impala()	 //Singleton
 	{
 		PrimaryKey.PrimaryKeyClass = ImpalaPrimaryKey.class;
 	}
@@ -118,7 +121,9 @@ public class DBConnection_Impala extends DBConnection_SQLConform {
 				   "LONGITUDE FLOAT, " +
 				   "LATITUDE FLOAT, " +
 				   "CITY_CRAWLER_TS TIMESTAMP, " +
-				   "DBPEDIA_RESOURCE VARCHAR(" + MAX_LEN_CITY_DBPEDIA_RES + "))";
+				   "DBPEDIA_RES_CITY VARCHAR(" + MAX_LEN_CITY_DBPEDIA_RES + ")," +
+				   "DBPEDIA_RES_REGION VARCHAR(" + MAX_LEN_CITY_DBPEDIA_RES + ")," +
+				   "DBPEDIA_RES_COUNTRY VARCHAR(" + MAX_LEN_CITY_DBPEDIA_RES + "))";
 	}
 
 	protected String getStmtCreateTblLocations()
@@ -138,6 +143,8 @@ public class DBConnection_Impala extends DBConnection_SQLConform {
 				   "NAME VARCHAR(" + MAX_LEN_EVENT_NAME + ")," +
 				   "DESCRIPTION VARCHAR(" + MAX_LEN_EVENT_DESC + ")," +
 				   "EVENT_TYPE VARCHAR(" + MAX_LEN_EVENT_TYPE + ")," +
+				   "start_time DATETIME, " +
+				   "end_time DATETIME, " +
 				   "EVENTFUL_ID VARCHAR(" + MAX_LEN_EVENT_EVENTFUL_ID + ")," +
 				   "LOCATION_ID INT)";
 	}

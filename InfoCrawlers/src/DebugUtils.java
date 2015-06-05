@@ -4,11 +4,63 @@
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 
 public class DebugUtils {
+	
+	/**
+	 * Interface which Debug-Flag enumerations must implement 
+	 */
+	public static interface DebugFlagBase {
+		
+		public int toInt();
+	}
+	
+	/**
+	 * Multiple Debug Flags 
+	 */
+	public static class DebugFlags {
+		
+		private int value;
+		
+		DebugFlags() 
+		{
+			value = 0;
+		}
+		
+		DebugFlags(int flags) 
+		{
+			value = flags;
+		}
+		
+		public DebugFlags(DebugFlags dbgFlags, int flags) 
+		{
+			value = flags | dbgFlags.value;
+		}
 
+		public boolean matches(DebugFlagBase ... flags) 
+		{
+			if (flags.length == 0)
+				return true;
+			for (DebugFlagBase flag: flags) {
+				if (flag == null || (value & flag.toInt()) != 0)
+					return true;
+			}
+			return false;
+		}		
+		
+		public int asInt()
+		{
+			return value;
+		}
+	}
+
+	/**
+	 * Used to output data formatted as a table. 
+	 */
 	public static class TableDebugger {
 
 		public static final int MAX_ENTRY_LEN = 40;
@@ -142,15 +194,111 @@ public class DebugUtils {
 	}
 	
 	
+	private static Map<Class<?>, DebugFlags> dbgClassFlags = new HashMap<Class<?>, DebugFlags>();
+	private static Map<Class<?>, Class<?>> dbgClasses = new HashMap<Class<?>, Class<?>>();
 	private static SimpleDateFormat dateFmt = new SimpleDateFormat("HH:mm:ss.SSS ");
 	
-	public static void debug_print(final String info)
+	public static void debugClass(Class<?> _class, int flags)
 	{
-		System.out.println(dateFmt.format(new Date()) + info);
+		Class<?> rootClass = Utils.getRootClass(_class);
+		
+		dbgClasses.put(_class, rootClass);
+		dbgClassFlags.put(_class, new DebugFlags(dbgClassFlags.get(rootClass), flags));
 	}
 	
-	public static void debug_printf(final String fmt, Object ... infos)
+	public static void debugClass(Class<?> _class)
 	{
-		System.out.printf(dateFmt.format(new Date()) + fmt, infos);
+		Class<?> rootClass = Utils.getRootClass(_class);
+		DebugFlags dbgFlags = dbgClassFlags.get(rootClass);
+		
+		dbgClasses.put(_class, rootClass);
+		dbgClassFlags.put(_class, dbgFlags == null ? new DebugFlags() : dbgFlags);
+	}
+	
+	public static boolean canDebug(Class<?> derivedClass, Class<?> baseClass, Class<?> subClass, 
+		DebugFlagBase firstFlag, DebugFlagBase ... remainFlags)
+	{
+		Class<?> rootClass = dbgClasses.get(baseClass != null ? baseClass : derivedClass);
+		
+		if (rootClass == null)
+			return false;
+		if (firstFlag == null)
+			return true;
+		
+		DebugFlags dbgFlags = dbgClassFlags.get(rootClass);
+		return dbgFlags.matches(firstFlag) || dbgFlags.matches(remainFlags);
+	}
+	
+	public static boolean canDebug(Class<?> derivedClass, Class<?> baseClass, 
+		DebugFlagBase firstFlag, DebugFlagBase ... remainFlags)
+	{
+		return canDebug(derivedClass, baseClass, null, firstFlag, remainFlags);
+	}
+	
+	public static boolean canDebug(Class<?> derivedClass, DebugFlagBase firstFlag, 
+		DebugFlagBase ... remainFlags)
+	{
+		return canDebug(derivedClass, null, null, firstFlag, remainFlags);
+	}
+	
+	public static boolean canDebug(Class<?> derivedClass, Class<?> baseClass, Class<?> subClass)
+	{
+		return canDebug(derivedClass, baseClass, subClass, null);
+	}
+	
+	public static boolean canDebug(Class<?> derivedClass, Class<?> baseClass)
+	{
+		return canDebug(derivedClass, baseClass, (Class<?>)null, null);
+	}
+	
+	public static boolean canDebug(Class<?> derivedClass)
+	{
+		return canDebug(derivedClass, (Class<?>)null, (Class<?>)null, null);
+	}
+	
+	public static void printDebugInfo(final String info, Class<?> derivedClass,	Class<?> baseClass, 
+		Class<?> subClass, DebugFlagBase firstFlag, DebugFlagBase ... remainFlags)
+	{
+		if (canDebug(derivedClass, baseClass, subClass, firstFlag, remainFlags)) {
+			String classPath = Utils.classPathToString(derivedClass, baseClass, subClass);
+			
+			System.out.println(dateFmt.format(new Date()) + " [" + classPath + " (Thread " + 
+				Thread.currentThread().getId() + ")]: " + info);
+			try {
+				DBConnector dbConn = DBConnector.getInstance();
+				
+				if (dbConn.isConnected())
+					dbConn.logDebugInfo(classPath, Thread.currentThread().getId(), info);
+			}
+			catch (Exception e1) {}
+		}
+	}
+	
+	public static void printDebugInfo(final String info, Class<?> derivedClass, 
+		Class<?> baseClass, DebugFlagBase firstFlag, DebugFlagBase ... remainFlags)
+	{
+		printDebugInfo(info, derivedClass, baseClass, null, firstFlag, remainFlags);
+	}
+
+	public static void printDebugInfo(final String info, Class<?> derivedClass,
+		DebugFlagBase firstFlag, DebugFlagBase ... remainFlags)
+	{
+		printDebugInfo(info, derivedClass, null, null, firstFlag, remainFlags);
+	}
+	
+	public static void printDebugInfo(final String info, Class<?> derivedClass,	Class<?> baseClass, 
+		Class<?> subClass)
+	{
+		printDebugInfo(info, derivedClass, baseClass, subClass, null);
+	}
+	
+	public static void printDebugInfo(final String info, Class<?> derivedClass, Class<?> baseClass)
+	{
+		printDebugInfo(info, derivedClass, baseClass, (Class<?>)null, (DebugFlagBase)null);
+	}
+
+	public static void printDebugInfo(final String info, Class<?> derivedClass)
+	{
+		printDebugInfo(info, derivedClass, (Class<?>)null, (Class<?>)null, (DebugFlagBase)null);
 	}
 }

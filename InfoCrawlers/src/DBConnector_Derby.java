@@ -7,11 +7,15 @@ import java.util.concurrent.locks.*;
 
 
 /**
- * Actual DBConnection implementation for working with Derby databases
+ * Actual DBConnector implementation for working with Derby databases
  * 
  * @deprecated (At the moment up-to-date but won't be updated in future)
  */
-public class DBConnection_Derby extends DBConnection_SQLConform {
+public class DBConnector_Derby extends DBConnector_SQLConform {
+	
+	public static final String DRIVER_NAME = "org.apache.derby.jdbc.EmbeddedDriver";
+	public static String CONNECTION_STR = "jdbc:derby:temp/derby/Events/db;create=true";
+	
 	
 	/**
 	 * Actual primary key implementation for Derby databases (primary key is of type INTEGER)
@@ -47,16 +51,16 @@ public class DBConnection_Derby extends DBConnection_SQLConform {
 			stmt.setInt(idx, (Integer)data);
 		}
 	}
-	
-	
-	public static final String DRIVER_NAME = "org.apache.derby.jdbc.EmbeddedDriver";
-	public static final String CONNECTION_STR = "jdbc:derby:temp/derby/Events/db;create=true";
+
 	
 	private Lock updateLock = new ReentrantLock();
 	
-	protected DBConnection_Derby()	 //Singleton
+	protected DBConnector_Derby() throws Exception	 //Singleton
 	{
 		PrimaryKey.PrimaryKeyClass = DerbyPrimaryKey.class;
+		DBConfig.load();
+		DBConfig.setDBType(DBConfig.DBType.MYSQL);
+		CONNECTION_STR = String.format("jdbc:derby:%s;create=true", DBConfig.getDBLocation()); 
 	}
 	
 	protected String getDriverName()
@@ -113,7 +117,9 @@ public class DBConnection_Derby extends DBConnection_SQLConform {
 				   "LONGITUDE FLOAT, " +
 				   "LATITUDE FLOAT, " +
 				   "CITY_CRAWLER_TS TIMESTAMP, " +
-				   "DBPEDIA_RESOURCE VARCHAR(" + MAX_LEN_CITY_DBPEDIA_RES + "))";
+				   "DBPEDIA_RES_CITY VARCHAR(" + MAX_LEN_CITY_DBPEDIA_RES + ")," +
+				   "DBPEDIA_RES_REGION VARCHAR(" + MAX_LEN_CITY_DBPEDIA_RES + ")," +
+				   "DBPEDIA_RES_COUNTRY VARCHAR(" + MAX_LEN_CITY_DBPEDIA_RES + "))";
 	}
 	
 	protected String getStmtCreateTblLocations()
@@ -135,6 +141,8 @@ public class DBConnection_Derby extends DBConnection_SQLConform {
 				   "NAME VARCHAR(" + MAX_LEN_EVENT_NAME + ") NOT NULL," +
 				   "DESCRIPTION VARCHAR(" + MAX_LEN_EVENT_DESC + ")," +
 				   "EVENT_TYPE VARCHAR(" + MAX_LEN_EVENT_TYPE + ")," +
+				   "start_time DATETIME, " +
+				   "end_time DATETIME, " +
 				   "EVENTFUL_ID VARCHAR(" + MAX_LEN_EVENT_EVENTFUL_ID + ")," +
 				   "LOCATION_ID INTEGER NOT NULL)";
 	}

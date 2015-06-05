@@ -7,14 +7,28 @@
  * Partial implementation for working with a SQL conform database.
  * Contains all necessary statements in a SQL standard conforming syntax. 
  */
-public abstract class DBConnection_SQLConform extends DBConnection {
+public abstract class DBConnector_SQLConform extends DBConnector {
 	
-	protected DBConnection_SQLConform() {} 	//Singleton class
+	protected DBConnector_SQLConform() {} 	//Singleton class
+	
+	protected String getStmtCreateTblDebugInfoLogs()
+	{
+		return "CREATE TABLE Crawler_debug_info_logs(" +
+				   "ts TIMESTAMP, " +
+				   "hostname VARCHAR(" + MAX_LEN_CRAWLER_DEBUG_LOG_HOST + "), " +
+				   "thread_id LONG, " +
+				   "class_path VARCHAR(" + MAX_LEN_CRAWLER_DEBUG_LOG_CLASS_PATH + "), " +
+				   "info VARCHAR(" + MAX_LEN_CRAWLER_DEBUG_LOG_INFO + "))";
+	}
 	
 	protected String getStmtCreateTblExceptionLogs()
 	{
 		return "CREATE TABLE Crawler_exception_logs(" +
-				   "city_crawler_ts TIMESTAMP, " +
+				   "ts TIMESTAMP, " +
+				   "hostname VARCHAR(" + MAX_LEN_CRAWLER_EXCEPT_LOG_HOST + "), " +
+				   "thread_id LONG, " +
+				   "class_path VARCHAR(" + MAX_LEN_CRAWLER_EXCEPT_LOG_CLASS_PATH + "), " +
+				   "info VARCHAR(" + MAX_LEN_CRAWLER_EXCEPT_LOG_INFO + "), " +
 				   "message VARCHAR(" + MAX_LEN_CRAWLER_EXCEPT_LOG_MSG + "), " + 
 				   "exception_class VARCHAR(" + MAX_LEN_CRAWLER_EXCEPT_LOG_CLASS + "), " +
 				   "stack_trace VARCHAR(" + MAX_LEN_CRAWLER_EXCEPT_LOG_STACK + "))";
@@ -35,10 +49,17 @@ public abstract class DBConnection_SQLConform extends DBConnection {
 		return "DROP TABLE " + tableName;
 	}
 	
+	protected String getStmtLogDebugInfo()
+	{
+		return "INSERT INTO Crawler_debug_info_logs (ts, hostname, thread_id, class_path, info) " +
+				   "VALUES(?, ?, ?, ?, ?)";
+	}
+	
 	protected String getStmtLogException()
 	{
-		return "INSERT INTO Crawler_exception_logs (ts, message, exception_class, stack_trace) " +
-				   "VALUES(?, ?, ?, ?)";
+		return "INSERT INTO Crawler_exception_logs (ts, hostname, thread_id, class_path, info, " +
+				   "message, exception_class, stack_trace) " +
+				   "VALUES(?, ?, ?, ?, ?, ?, ?, ?)";
 	}
 	
 	protected String getStmtInsertCrawlerInfoStarted()
@@ -70,8 +91,8 @@ public abstract class DBConnection_SQLConform extends DBConnection {
 	
 	protected Utils.Pair<String, PrimaryKey> getStmtInsertEvent() 
 	{
-		return Utils.createPair("INSERT INTO Events (name, description, event_type, eventful_id, " +
-				   "location_id) VALUES(?, ?, ?, ?, ?)", null);
+		return Utils.createPair("INSERT INTO Events (name, description, event_type, start_time, " +
+				   "end_time, eventful_id, location_id) VALUES(?, ?, ?, ?, ?, ?, ?)", null);
 	}
 	
 	protected String getStmtEventPerformerExists() 
@@ -165,8 +186,8 @@ public abstract class DBConnection_SQLConform extends DBConnection {
 	protected String getStmtUpdateCity() 
 	{
 		return "UPDATE Cities " +
-				   "SET region = ?, country = ?, latitude = ?," +
-				   "    longitude = ?, dbpedia_resource = ?, " +
+				   "SET region = ?, country = ?, latitude = ?, longitude = ?, " +
+				   "    dbpedia_res_city = ?, dbpedia_res_region = ?, dbpedia_res_country = ?, " +
 				   "    city_crawler_ts = ? WHERE id = ?";
 	}
 	

@@ -14,9 +14,6 @@ import java.util.concurrent.TimeUnit;
  */
 public class CrawlerManager {
 	
-	public static boolean DEBUG = true;
-	
-
 	/**
 	 * Controls the instantiation and execution of a crawler. 
 	 */
@@ -32,8 +29,9 @@ public class CrawlerManager {
 				if (dependencies != null) {
 					CrawlerCtrlr crawlerCtrlr; 
 
-					CrawlerManager.debug_print("Waiting for depending crawlers of '" + 
-						crawlerClass.getName() + "' to finish ...");
+					DebugUtils.printDebugInfo("Waiting for depending crawlers of '" + 
+						crawlerClass.getName() + "' to finish ...", CrawlerManager.class, null,
+						getClass());
 					for (Class<? extends CrawlerBase> dependsOnCrawlerClass: dependencies) {
 						crawlerCtrlr = getCrawlerCtrlr(dependsOnCrawlerClass);
 						if (crawlerCtrlr == null)
@@ -44,8 +42,9 @@ public class CrawlerManager {
 						crawlerCtrlr.start();
 						crawlerCtrlr.join();
 					}
-					CrawlerManager.debug_print("Waiting for depending crawlers of '" + 
-						crawlerClass.getName() + "' to finish ... Done");
+					DebugUtils.printDebugInfo("Waiting for depending crawlers of '" + 
+						crawlerClass.getName() + "' to finish ... Done", CrawlerManager.class, 
+						null, getClass());
 				}
 			}
 			
@@ -60,18 +59,18 @@ public class CrawlerManager {
 					else
 						crawler = crawlerClass.getConstructor(ctorData.getClass()).newInstance(
 									  ctorData);
-					CrawlerManager.debug_print("Executing crawler '" + crawlerClass.getName() + 
-						"' ... ");
+					DebugUtils.printDebugInfo("Executing crawler '" + crawlerClass.getName() + 
+						"' ... ", CrawlerManager.class, null, getClass());
 					crawler.associateThdPool(thdPool);
-					crawler.associateDBConnection(dbConn);
+					crawler.associateDBConnector(dbConn);
 					crawler.execute();
 					crawler = null;
-					CrawlerManager.debug_print("Executing crawler '" + crawlerClass.getName() + 
-						"' ... Done");
+					DebugUtils.printDebugInfo("Executing crawler '" + crawlerClass.getName() + 
+						"' ... Done", CrawlerManager.class, null, getClass());
 				} 
 				catch (Exception e) {
-					ExceptionHandler.handle(e, "Failed to execute crawler of class '" + 
-						crawlerClass.getName() + "'!\n");
+					ExceptionHandler.handle("Failed to execute crawler of class '" + 
+						crawlerClass.getName() + "'!\n", e, CrawlerManager.class, null, getClass());
 				}
 			}
 		}
@@ -130,28 +129,22 @@ public class CrawlerManager {
 					crawlerExec.join();
 			} 
 			catch (Exception e) {
-				ExceptionHandler.handle(e, "Failed to await crawler-executor termination of " +
-					"crawler class '" + crawlerClass.getName() + "'!\n");
+				ExceptionHandler.handle("Failed to await crawler-executor termination of " +
+					"crawler class '" + crawlerClass.getName() + "'!\n", e, CrawlerManager.class, 
+					null, getClass());
 			}
 		}
 	}
 	
 	
 	private static ExecutorService thdPool = Executors.newCachedThreadPool();
-	private static DBConnection dbConn = null;
+	private static DBConnector dbConn = null;
 	private static Map<Class<? extends CrawlerBase>, CrawlerCtrlr> crawlerCtrlrs = 
 		new HashMap<Class<? extends CrawlerBase>, CrawlerCtrlr>();
 	
 	private static CrawlerCtrlr getCrawlerCtrlr(Class<? extends CrawlerBase> crawlerClass)
 	{
 		return crawlerCtrlrs.get(crawlerClass);
-	}
-	
-	private static void debug_print(final String info)
-	{
-		if (DEBUG) 
-			DebugUtils.debug_printf("[%s (Thread %s)]: %s\n", CrawlerManager.class.getName(), 
-				Thread.currentThread().getId(), info);
 	}
 	
 	public static void registerCrawler(Class<? extends CrawlerBase> crawlerClass)
@@ -183,13 +176,14 @@ public class CrawlerManager {
 	public static void executeAll()
 	{
 		try {
-			dbConn = DBConnection.getInstance();
+			CrawlerConfig.load();
+			dbConn = DBConnector.getInstance();
 			dbConn.connect();
 			for (CrawlerCtrlr crawlerCtrlr: crawlerCtrlrs.values()) 
 				crawlerCtrlr.start();
 		} 
 		catch (Exception e) {
-			ExceptionHandler.handle(e, "Failed to connect to database!\n");
+			ExceptionHandler.handle("Failed to connect to database!\n", e, CrawlerManager.class);
 		}
 		finally {
 			for (CrawlerCtrlr crawlerCtrlr: crawlerCtrlrs.values()) 
@@ -200,7 +194,8 @@ public class CrawlerManager {
 				dbConn = null;
 			}
 			catch (Exception e) {
-				ExceptionHandler.handle(e, "Failed to disconnect from database!\n");
+				ExceptionHandler.handle("Failed to disconnect from database!\n", e, 
+					CrawlerManager.class);
 			}
 		}
 	}
@@ -212,7 +207,7 @@ public class CrawlerManager {
 			thdPool.awaitTermination(Long.MAX_VALUE, TimeUnit.MINUTES);
 		} 
 		catch (InterruptedException e) {
-			ExceptionHandler.handle(e, "Failed to shutdown thread pool!");
+			ExceptionHandler.handle("Failed to shutdown thread pool!", e, CrawlerManager.class);
 		}
 	}
 }

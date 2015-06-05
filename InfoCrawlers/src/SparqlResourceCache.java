@@ -23,7 +23,7 @@ import com.hp.hpl.jena.rdf.model.RDFNode;
  */
 public class SparqlResourceCache {
 
-	public static final int MAX_CACHE_SIZE = 5000000; 		//Maximum cache size in Bytes
+	private int MAX_CACHE_SIZE; 		//Maximum cache size in Bytes
 	
 	
 	/**
@@ -366,9 +366,11 @@ public class SparqlResourceCache {
 		}
 	}
 	
-	public SparqlResourceCache(String resPropName)
+	public SparqlResourceCache(String resPropName) throws Exception
 	{
 		RESPROP_NAME = resPropName;
+		CrawlerConfig.load();
+		MAX_CACHE_SIZE = CrawlerConfig.getSparqlBasedCrawlerMaxCacheSize();
 	}
 	
 	public String lookupName(String resID)

@@ -11,10 +11,8 @@ import com.hp.hpl.jena.query.ResultSetRewindable;
 import com.hp.hpl.jena.rdf.model.RDFNode;
 
 
-public class CityInfoCrawler extends SparqlCrawlerBase {
+public class CityInfoCrawler extends SparqlBasedCrawler {
 	
-	public static final int INCOMPLETE_CITIES_PAGE_SIZE = 100;
-	public static final int WORKER_THD_CNT = 5;
 	public static final QueryExecutor[] QUERIES = new QueryExecutor[] {
 		new QueryExecutor(
 				"SELECT DISTINCT ?city ?geolat ?geolong ?country ?country2 ?region ?subDev " +
@@ -78,6 +76,9 @@ public class CityInfoCrawler extends SparqlCrawlerBase {
 	};
 	public static final String DEBUG_DS_FMT = "City '%1col_noEsc' ('%3col_noEsc') in " +
 												   "'%2col_noEsc' (ID: %0col_noEsc)";
+	private int PAGE_SIZE;
+	private int WORKER_THD_CNT;
+	private int DB_UPDATE_INTERVAL;
 	
 	
 	public static class CityInfoQPP extends QueryPostProcBase {
@@ -126,17 +127,18 @@ public class CityInfoCrawler extends SparqlCrawlerBase {
 			public boolean store(QueryContext queryContext)
 			{
 				try {
-					queryContext.getDBConnection().updateCity(
-						DBConnection.PrimaryKey.create(queryContext.getDataRow()[0]), latitude, 
+					queryContext.getDBConnector().updateCity(
+						DBConnector.PrimaryKey.create(queryContext.getDataRow()[0]), latitude, 
 						longitude, regionName == null ? queryContext.getDataRow()[2] : regionName, 
 						countryName == null ? queryContext.getDataRow()[3] : countryName, 
-						cityResID);
+						cityResID, regionResID, countryResID);
 					updatedCityCnt.incrementAndGet();
 					return true;
 				}
 				catch (Exception e) {
-					queryContext.handleException(e, "Failed to store city information of city " + 
-						"with ID '" + queryContext.getDataRow()[0] + "'!");
+					ExceptionHandler.handle("Failed to store city information of city with ID '" + 
+						queryContext.getDataRow()[0] + "'!", e, CityInfoCrawler.class, null,
+						getClass());
 					return false;
 				}
 			}
@@ -382,11 +384,9 @@ public class CityInfoCrawler extends SparqlCrawlerBase {
 	}
 
 	
-	private int dbUpdateInterval;
-	
 	protected int getDatasetCount() throws Exception
 	{
-		return dbConnection.getIncompleteCitiesCount(dbUpdateInterval);
+		return dbConnector.getIncompleteCitiesCount(DB_UPDATE_INTERVAL);
 	}
 	
 	protected Utils.Pair<java.sql.ResultSet, Object> getNextDataset(Object customData) 
@@ -396,12 +396,12 @@ public class CityInfoCrawler extends SparqlCrawlerBase {
 		
 		if (pageIdx == null) 
 			pageIdx = new Integer(0);
-		else if (!dbConnection.supportsQueryPaging()) 
+		else if (!dbConnector.supportsQueryPaging()) 
 			return null;
 		else
 			pageIdx++;
-		return Utils.createPair(dbConnection.getIncompleteCities(dbUpdateInterval, pageIdx, 
-				   INCOMPLETE_CITIES_PAGE_SIZE), (Object)pageIdx);
+		return Utils.createPair(dbConnector.getIncompleteCities(DB_UPDATE_INTERVAL, pageIdx, 
+				   PAGE_SIZE), (Object)pageIdx);
 	}
 
 	protected int getWorkerThdCount() 
@@ -417,18 +417,21 @@ public class CityInfoCrawler extends SparqlCrawlerBase {
 		
 		super.finished(exceptionThrown);
 		if (!exceptionThrown)
-			dbConnection.updateCityCrawlerTS();
-		debug_print("\n   Summary:\n      Updated cities: " + CityInfoQPP.getUpdatedCityCount() + 
-			"\n      Cache misses: " + cacheMisses + "\n      Cache lookups: " + cacheLookups + 
-			"\n      Max cache load: " + maxCacheLoad + " Bytes\n");
-		dbConnection.logCrawlerFinished(CityInfoCrawler.class, "Updated cities: " + 
+			dbConnector.updateCityCrawlerTS();
+		DebugUtils.printDebugInfo("\n   Summary:\n      Updated cities: " + 
+			CityInfoQPP.getUpdatedCityCount() +	"\n      Cache misses: " + cacheMisses + 
+			"\n      Cache lookups: " + cacheLookups + "\n      Max cache load: " + maxCacheLoad + 
+			" Bytes\n", CityInfoCrawler.class);
+		dbConnector.logCrawlerFinished(CityInfoCrawler.class, "Updated cities: " + 
 			CityInfoQPP.getUpdatedCityCount() +	"; Cache misses: " + cacheMisses + 
 			"; Cache lookups: " + cacheLookups + "; Max cache load: " +	maxCacheLoad);
 	}
 
-	public CityInfoCrawler(Utils.Pair<String[], Integer> settings) 
+	public CityInfoCrawler() throws Exception
 	{
-		super(settings.first, QUERIES, DEBUG_DS_FMT);
-		dbUpdateInterval = settings.second;
+		super(CrawlerConfig.getSparqlBasedCrawlerDBPediaEndpoints(), QUERIES, DEBUG_DS_FMT);
+		PAGE_SIZE = CrawlerConfig.getCityInfoCrawlerPageSize();
+		WORKER_THD_CNT = CrawlerConfig.getCityInfoCrawlerWorkerThdCount();
+		DB_UPDATE_INTERVAL = CrawlerConfig.getCityInfoCrawlerUpdateInterval();
 	}
 }

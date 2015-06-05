@@ -15,11 +15,15 @@ public class ExceptionHandler {
 		}
 		return strBuilder.toString();
 	}
-
-	public static void handle(final Exception e, final String info, final boolean printTrace)
+	
+	public static void handle(final String info, final Exception e, final boolean printTrace,
+		Class<?> derivedClass, Class<?> baseClass, Class<?> subClass)
 	{
+		String classPath = Utils.classPathToString(derivedClass, baseClass, subClass);
+		
 		System.err.println("\n-------------------------- Exception --------------------------\n" +
-			info + " Error: '" + e.getMessage() + "' [" + e.getClass().getName() + "] in " + 
+			"[" + classPath + " (Thread " + Thread.currentThread().getId() + ")]: " + info + 
+			" Error: '" + e.getMessage() + "' [" + e.getClass().getName() + "] in " + 
 			e.getStackTrace()[0] + "!");
 		if (printTrace) {
 			System.err.println();
@@ -27,13 +31,29 @@ public class ExceptionHandler {
 		}
 		System.err.println("---------------------------------------------------------------\n");
 		try {
-			DBConnection.getInstance().logException(e, info, stackTraceToStr(e.getStackTrace()));
+			DBConnector dbConn = DBConnector.getInstance();
+			
+			if (dbConn.isConnected())
+				dbConn.logException(classPath, Thread.currentThread().getId(), info, e, 
+					stackTraceToStr(e.getStackTrace()));
 		}
 		catch (Exception e1) {}
 	}
 	
-	public static void handle(final Exception e, final String info)
+	public static void handle(final String info, final Exception e, Class<?> derivedClass, 
+		Class<?> baseClass, Class<?> subClass)
 	{
-		handle(e, info, true);
+		handle(info, e, true, derivedClass, baseClass, subClass);
+	}
+	
+	public static void handle(final String info, final Exception e, Class<?> derivedClass, 
+		Class<?> baseClass)
+	{
+		handle(info, e, true, derivedClass, baseClass, null);
+	}
+	
+	public static void handle(final String info, final Exception e, Class<?> _class)
+	{
+		handle(info, e, true, _class, null, null);
 	}
 }

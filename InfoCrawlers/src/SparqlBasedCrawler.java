@@ -11,7 +11,7 @@ import com.hp.hpl.jena.rdf.model.RDFNode;
 /**
  * Base class of SPARQL based crawlers 
  */
-public abstract class SparqlCrawlerBase extends DBQueryBasedCrawler {
+public abstract class SparqlBasedCrawler extends DBQueryBasedCrawler {
 	
 	protected static final String DEF_ACCEPTED_LANG_ID = "en";
 	protected static final String RESPROP_NAME = "rdfs:label";
@@ -40,77 +40,40 @@ public abstract class SparqlCrawlerBase extends DBQueryBasedCrawler {
 			this.queryIdx = queryIdx;
 		}
 		
-		public void debug_print(final String info)
-		{
-			SparqlCrawlerBase.this.debug_print(info);
-		}
-		
-		public void debug_print(final String info, Class<? extends CrawlerBase> crawlerClass)
-		{
-			SparqlCrawlerBase.this.debug_print(info, crawlerClass);
-		}
-		
-		public void debug_print_dataRow(final String fmtStr, final String[] dataRow, 
-			Class<? extends CrawlerBase> crawlerClass) throws Exception
-		{
-			if (debug_canDebug(crawlerClass)) 
-				debug_print(String.format(fmtStr, 
-					replaceWildcards(SparqlCrawlerBase.this.getDebugDSFmtStr(),	dataRow, false)),
-					crawlerClass);
-		}
-		
 		public void debug_print_dataRow(final String fmtStr, final String[] dataRow) 
 			throws Exception
 		{
-			debug_print_dataRow(fmtStr, dataRow, SparqlCrawlerBase.this.getClass());
-		}
-		
-		public void debug_print_dataRow(final String fmtStr, 
-			Class<? extends CrawlerBase> crawlerClass) throws Exception
-		{
-			debug_print_dataRow(fmtStr, dataRow, crawlerClass);
+			if (DebugUtils.canDebug(SparqlBasedCrawler.class)) 
+				DebugUtils.printDebugInfo(String.format(fmtStr, 
+					replaceWildcards(SparqlBasedCrawler.this.getDebugDSFmtStr(), dataRow, false)),
+					SparqlBasedCrawler.this.getClass(), SparqlBasedCrawler.class, getClass());
 		}
 		
 		public void debug_print_dataRow(final String fmtStr) throws Exception
 		{
-			debug_print_dataRow(fmtStr, SparqlCrawlerBase.this.getClass());
+			debug_print_dataRow(fmtStr, dataRow);
 		}
-		
-		public void debug_print_query(final String prefix, final String postfix,
-			Class<? extends CrawlerBase> crawlerClass) throws Exception
-		{
-			debug_print_dataRow(prefix + getQueryIdx() + ". query for " + getDataRowIdx() + 
-				". data row '%s'" + postfix, crawlerClass);
-		}
-		
+
 		public void debug_print_query(final String prefix, final String postfix) throws Exception
 		{
-			debug_print_query(prefix, postfix, SparqlCrawlerBase.this.getClass());
-		}
-		
-		protected void handleException(final Exception e, final String info, 
-			final boolean printTrace)
-		{
-			SparqlCrawlerBase.this.handleException(e, info, printTrace);
-		}
-		
-		protected void handleException(final Exception e, final String info)
-		{
-			SparqlCrawlerBase.this.handleException(e, info);
+			debug_print_dataRow(prefix + getQueryIdx() + ". query for " + getDataRowIdx() + 
+				". data row '%s'" + postfix);
 		}
 		
 		protected void handleQueryException(Exception e) 
 		{
 			try {
-				handleException(e, "Failed to execute " + getQueryIdx() + ". query for " + 
+				ExceptionHandler.handle("Failed to execute " + getQueryIdx() + ". query for " + 
 					getDataRowIdx() + ". data row '" +
-					replaceWildcards(SparqlCrawlerBase.this.getDebugDSFmtStr(), dataRow, false) + 
-					"'!", false);
+					replaceWildcards(SparqlBasedCrawler.this.getDebugDSFmtStr(), dataRow, false) + 
+					"'!", e, false, SparqlBasedCrawler.this.getClass(), SparqlBasedCrawler.class, 
+					getClass());
 			} 
 			catch (Exception e1) {
-				handleException(e, String.format("Failed to execute " + getQueryIdx() +	
-					". query for " + getDataRowIdx() + ". data row '[%s]'!", e1.getMessage()), 
-					false);
+				ExceptionHandler.handle(String.format("Failed to execute " + getQueryIdx() +	
+					". query for " + getDataRowIdx() + ". data row '[%s]'!", e1.getMessage()), e, 
+					false, SparqlBasedCrawler.this.getClass(), SparqlBasedCrawler.class, 
+					getClass());
 			}
 		}
 		
@@ -212,9 +175,9 @@ public abstract class SparqlCrawlerBase extends DBQueryBasedCrawler {
 			return queryIdx;
 		}
 		
-		public DBConnection getDBConnection()
+		public DBConnector getDBConnector()
 		{
-			return SparqlCrawlerBase.this.dbConnection; 
+			return SparqlBasedCrawler.this.dbConnector; 
 		}
 		
 		public String[] getDataRow() 
@@ -239,7 +202,7 @@ public abstract class SparqlCrawlerBase extends DBQueryBasedCrawler {
 		
 		public SparqlResourceCache getResourceCache()
 		{
-			return SparqlCrawlerBase.this.resCache;
+			return SparqlBasedCrawler.this.resCache;
 		}
 	}
 	
@@ -278,8 +241,8 @@ public abstract class SparqlCrawlerBase extends DBQueryBasedCrawler {
 		private SparqlResourceCache.MultiPropValueList performResPropertyQuery(
 			QueryContext queryContext, String resID, String[] propNames, String langID)
 		{
-			queryContext.debug_print("Retrieving properties of resource '" + resID + "'...",
-				SparqlCrawlerBase.class);
+			DebugUtils.printDebugInfo("Retrieving properties of resource '" + resID + "'...",
+				SparqlBasedCrawler.class, null, getClass());
 			try {
 				ResultSet resSet = SparqlQuery.execute(queryContext.getEndpoint(), 
 									   buildResPropertyQueryStr(resID, propNames, langID));
@@ -292,20 +255,20 @@ public abstract class SparqlCrawlerBase extends DBQueryBasedCrawler {
 					for (int i = 1; i <= propNames.length; ++i) 
 						propList.add(propNames[i - 1], querySol.get("propValue" + i));
 				}
-				queryContext.debug_print("Retrieving properties of resource '" + resID + 
+				DebugUtils.printDebugInfo("Retrieving properties of resource '" + resID + 
 					"' ... Done (" + (propList.isEmpty() ? 0 : 
 					ResultSetFactory.makeRewindable(resSet).size()) + " rows)",
-					SparqlCrawlerBase.class);
+					SparqlBasedCrawler.class, null, getClass());
 				result = propList.lookup();
 				queryContext.getResourceCache().addProperties(resID, propList);
-				queryContext.debug_print("Cache updated (Contains now " + 
+				DebugUtils.printDebugInfo("Cache updated (Contains now " + 
 					queryContext.getResourceCache().getSizeInBytes() + " Bytes)",
-					SparqlCrawlerBase.class);
+					SparqlBasedCrawler.class, null, getClass());
 				return result;
 			}
 			catch (Exception e) {
-				queryContext.handleException(e, "Failed to retrieve properties of resource " +
-					resID + "'!");
+				ExceptionHandler.handle("Failed to retrieve properties of resource " + resID + 
+					"'!", e, SparqlBasedCrawler.class, null, getClass());
 				return null;
 			}
 		}
@@ -385,8 +348,8 @@ public abstract class SparqlCrawlerBase extends DBQueryBasedCrawler {
 			}
 			if (nameNode.isResource())
 				return getResourceName(queryContext, nameNode.asResource().getURI());
-			queryContext.debug_print("Warning: Name-node is of unexpected type!",
-				SparqlCrawlerBase.class);
+			DebugUtils.printDebugInfo("Warning: Name-node is of unexpected type!", 
+				SparqlBasedCrawler.class, null, getClass());
 			return null;
 		}
 		
@@ -398,19 +361,16 @@ public abstract class SparqlCrawlerBase extends DBQueryBasedCrawler {
 			ResultSet resSet = queryContext.getResultSet();
 			
 			if (!resSet.hasNext()) {
-				queryContext.debug_print_query("", " returned no results!", 
-					SparqlCrawlerBase.class);
+				queryContext.debug_print_query("", " returned no results!");
 				return false;
 			}
 	        else if (processQueryResult(queryContext, resSet)) {
 		        queryContext.debug_print_query("Executing ", " ... Done (" +
-		        	ResultSetFactory.makeRewindable(resSet).size() + " rows)",
-		        	SparqlCrawlerBase.class);
+		        	ResultSetFactory.makeRewindable(resSet).size() + " rows)");
 		        return true;
 	        }
 	        else {
-	        	queryContext.debug_print_query("", " results skipped by postprocessor!",
-	        		SparqlCrawlerBase.class);
+	        	queryContext.debug_print_query("", " results skipped by postprocessor!");
 		        return false;
 	        }
 		}
@@ -483,14 +443,13 @@ public abstract class SparqlCrawlerBase extends DBQueryBasedCrawler {
 		public boolean execute(QueryContext queryContext)
 		{
 			try {
-				queryContext.debug_print_query("Executing ", "...", SparqlCrawlerBase.class);
+				queryContext.debug_print_query("Executing ", "...");
 				
 				//Replace wildcards in SPARQL query by entries from associated data row
 				String queryStr = preprocessor.execute(queryContext);
 				
 				if (queryStr == null) {
-					queryContext.debug_print_query("", " skipped by preprocessor!",
-						SparqlCrawlerBase.class);
+					queryContext.debug_print_query("", " skipped by preprocessor!");
 					return false;
 				}
 				
@@ -514,7 +473,7 @@ public abstract class SparqlCrawlerBase extends DBQueryBasedCrawler {
 	private String[] endpoints;
 	private QueryExecutor[] queryExecutors;
 	private String debugDSFmtStr;
-	protected SparqlResourceCache resCache = new SparqlResourceCache(RESPROP_NAME);
+	protected SparqlResourceCache resCache;
 	
 	protected void processDataRow(String[] dataRow, int dataRowIdx) throws Exception 
 	{
@@ -534,12 +493,14 @@ public abstract class SparqlCrawlerBase extends DBQueryBasedCrawler {
 		resCache = null;
 	}
 	
-	public SparqlCrawlerBase(String[] endpoints, QueryExecutor[] queryHandlers, 
-		String debugDSFmtStr)
+	public SparqlBasedCrawler(String[] endpoints, QueryExecutor[] queryHandlers, 
+		String debugDSFmtStr) throws Exception
 	{
+		resCache = new SparqlResourceCache(RESPROP_NAME);
 		this.endpoints = endpoints;
 		this.queryExecutors = queryHandlers;
 		this.debugDSFmtStr = debugDSFmtStr;
+		SparqlQuery.init();
 	}
 	
 	public String[] getEndpoints()

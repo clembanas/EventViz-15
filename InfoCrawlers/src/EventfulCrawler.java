@@ -17,14 +17,18 @@ import com.evdb.javaapi.data.request.EventSearchRequest;
 import com.evdb.javaapi.operations.EventOperations;
 
 
-public class EventCrawler extends JobBasedCrawler {
+public class EventfulCrawler extends JobBasedCrawler {
 	
-	public static final int WORKER_THD_CNT = 10;
-	public static final String EVENTFUL_UNAME = "RobertBierbauer";
-	public static final String EVENTFUL_PWORD = "3v3ntful";
-	public static final String EVENTFUL_APIKEY = "T79WLsPLQkRDJZxv";
-	public static final String EVENTFUL_CATEGORY = "music";
-
+	//Constants which are loaded from config-file
+	private int WORKER_THD_CNT;
+	private String EVENTFUL_UNAME;
+	private String EVENTFUL_PWORD;
+	private String EVENTFUL_APIKEY;
+	private String EVENTFUL_CATEGORY;
+	private int MAX_DAYS;
+	private int MAX_PAGE_SIZE;
+	private int MAX_PAGES;
+	
 	
 	public class EventWorkerJob extends WorkerJobBase {
 		
@@ -37,9 +41,6 @@ public class EventCrawler extends JobBasedCrawler {
 	}
 	
 	
-	private int maxDays;
-	private int maxPageSize;
-	private int maxPages;
 	private String dateRange;
 	private AtomicBoolean allPagesDone = new AtomicBoolean(false);
 	private AtomicInteger[] statistics = new AtomicInteger[]{new AtomicInteger(0), 
@@ -49,15 +50,16 @@ public class EventCrawler extends JobBasedCrawler {
 	
 	private void processEvents(List<Event> events) throws Exception
 	{
-		Utils.Pair<DBConnection.PrimaryKey, Boolean> cityID, locationID, eventID, bandID;
+		Utils.Pair<DBConnector.PrimaryKey, Boolean> cityID, locationID, eventID, bandID;
 		
 		for (Event event: events) {
-			cityID = dbConnection.insertCity(event.getVenueCity(), event.getVenueRegion(), 
+			cityID = dbConnector.insertCity(event.getVenueCity(), event.getVenueRegion(), 
 						 event.getVenueCountry());
-			locationID = dbConnection.insertLocation(event.getVenueName(), 
+			locationID = dbConnector.insertLocation(event.getVenueName(), 
 							 event.getVenueLongitude(), event.getVenueLatitude(), cityID.first);
-			eventID = dbConnection.insertEvent(event.getTitle(), event.getDescription(), 
-						  event.getVenueType(), event.getSeid(), locationID.first);
+			eventID = dbConnector.insertEvent(event.getTitle(), event.getDescription(), 
+						  event.getVenueType(), event.getStartTime(), event.getStopTime(),
+						  event.getSeid(), locationID.first);
 			if (eventID.second)
 				statistics[0].incrementAndGet();
 			if (locationID.second)
@@ -65,10 +67,10 @@ public class EventCrawler extends JobBasedCrawler {
 			if (cityID.second)
 				statistics[2].incrementAndGet();
 			for (Performer performer: event.getPerformers()) {
-				bandID = dbConnection.insertBand(performer.getName());
+				bandID = dbConnector.insertBand(performer.getName());
 				if (bandID.second)
 					statistics[3].incrementAndGet();
-				dbConnection.insertEventPerformer(eventID.first, bandID.first);
+				dbConnector.insertEventPerformer(eventID.first, bandID.first);
 			}
 		}
 	}
@@ -102,27 +104,27 @@ public class EventCrawler extends JobBasedCrawler {
 		
 		eventSrchReq.setDateRange(dateRange);
 		eventSrchReq.setCategory(EVENTFUL_CATEGORY);
-		eventSrchReq.setPageSize(maxPageSize);
+		eventSrchReq.setPageSize(MAX_PAGE_SIZE);
 		eventSrchReq.setPageNumber(((EventWorkerJob)job).pageNum);
 		srchRes = eventOps.search(eventSrchReq);
-		if (((EventWorkerJob)job).pageNum > Math.min(maxPages, srchRes.getPageCount())) {
+		if (((EventWorkerJob)job).pageNum > Math.min(MAX_PAGES, srchRes.getPageCount())) {
 			allPagesDone.set(true);
 			return;
 		}
 		events = srchRes.getEvents();
-		if (debug_canDebug(EventCrawler.class)) {
+		if (DebugUtils.canDebug(EventfulCrawler.class)) {
 			dbgInfo = "Processing " + events.size() + " events on page " + srchRes.getPageNumber() + 
-						  " (" + (maxPageSize * (srchRes.getPageNumber() - 1) + events.size()) + 
-						  "/" + Math.min(srchRes.getTotalItems(), maxPageSize * maxPages) + "; ~" + 
+						  " (" + (MAX_PAGE_SIZE * (srchRes.getPageNumber() - 1) + events.size()) + 
+						  "/" + Math.min(srchRes.getTotalItems(), MAX_PAGE_SIZE * MAX_PAGES) + "; ~" + 
 						  srchRes.getTotalItems() + " events on " + srchRes.getPageCount() + 
 						  " pages available) ...";
-			debug_print(dbgInfo);
+			DebugUtils.printDebugInfo(dbgInfo, EventfulCrawler.class);
 		}
 		processEvents(events);
-		dbConnection.logCrawlerProgress(EventCrawler.class, (int)(100.0/ 
-			(float)Math.min(srchRes.getTotalItems(), maxPageSize * maxPages) * 
-			(float)(maxPageSize * (srchRes.getPageNumber() - 1) + events.size())));
-		debug_print(dbgInfo + " Done");
+		dbConnector.logCrawlerProgress(EventfulCrawler.class, (int)(100.0/ 
+			(float)Math.min(srchRes.getTotalItems(), MAX_PAGE_SIZE * MAX_PAGES) * 
+			(float)(MAX_PAGE_SIZE * (srchRes.getPageNumber() - 1) + events.size())));
+		DebugUtils.printDebugInfo(dbgInfo + " Done", EventfulCrawler.class);
 	}
 	
 	protected void started()
@@ -137,27 +139,33 @@ public class EventCrawler extends JobBasedCrawler {
 		APIConfiguration.setEvdbPassword(EVENTFUL_PWORD);
 		APIConfiguration.setApiKey(EVENTFUL_APIKEY);
 		calendar.setTime(now);
-		calendar.add(Calendar.DATE, maxDays);
+		calendar.add(Calendar.DATE, MAX_DAYS);
 		dateRange = dateFmt.format(now) + "-" + dateFmt.format(calendar.getTime());
-		debug_print("Processing events for the next " + maxDays + " days (" + dateRange + ")...");
+		DebugUtils.printDebugInfo("Processing events for the next " + MAX_DAYS + " days (" + 
+			dateRange + ")...", EventfulCrawler.class);
 	}
 	
 	protected void finished(boolean exceptionThrown)
 	{
 		super.finished(exceptionThrown);
-		debug_print("\nSummary of added data:\n   Events: " + statistics[0].get() + 
+		DebugUtils.printDebugInfo("\nSummary of added data:\n   Events: " + statistics[0].get() + 
 			"\n   Cities: " + statistics[1].get() + "\n   Locations: " +	statistics[2].get() + 
-			"\n   Bands: " + statistics[3].get() + "\n");
-		dbConnection.logCrawlerFinished(EventCrawler.class, "Added events: " + statistics[0].get() + 
-			"; Added cities: " + statistics[1].get() + "; Added locations: " + statistics[2].get() + 
-			"; Added bands: " + statistics[3].get());
+			"\n   Bands: " + statistics[3].get() + "\n", EventfulCrawler.class);
+		dbConnector.logCrawlerFinished(EventfulCrawler.class, "Added events: " + 
+			statistics[0].get() + "; Added cities: " + statistics[1].get() + "; Added locations: " + 
+			statistics[2].get() + "; Added bands: " + statistics[3].get());
 		statistics = null;
 	}
 	
-	public EventCrawler(Utils.Triple<Integer, Integer, Integer> settings)
+	public EventfulCrawler() throws Exception
 	{
-		maxDays = settings.first;
-		maxPageSize = settings.second;
-		maxPages = settings.third;
+		WORKER_THD_CNT = CrawlerConfig.getEventfulCrawlerWorkerThdCount();
+		EVENTFUL_UNAME = CrawlerConfig.getEventfulCrawlerUname();
+		EVENTFUL_PWORD = CrawlerConfig.getEventfulCrawlerPword();
+		EVENTFUL_APIKEY = CrawlerConfig.getEventfulCrawlerApikey();
+		EVENTFUL_CATEGORY = CrawlerConfig.getEventfulCrawlerCategory();
+		MAX_DAYS = CrawlerConfig.getEventfulCrawlerMaxDays();
+		MAX_PAGE_SIZE = CrawlerConfig.getEventfulCrawlerPageSize();
+		MAX_PAGES = CrawlerConfig.getEventfulCrawlerMaxPages();
 	}
 }
