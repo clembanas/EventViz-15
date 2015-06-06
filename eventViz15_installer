@@ -612,8 +612,8 @@ INST_TASKS_SERVER = \
                    "$INSTALL_DIR$", hideOut=True, detach=True,
                    depend=InstTaskDep_Confirm("start the 'EventViz15 play web-server' now")),
      InstTask_Exec("Start info-crawlers", "Starting info-crawlers",
-                   "$INSTALL_DIR$/bin/info_crawlers", hideOut=True, detach=True,
-                   depend=InstTaskDep_Confirm("execute info-crawlers now"))]
+                   "$INSTALL_DIR$/bin/info_crawlers", "$INSTALL_DIR$/bin", hideOut=True,
+                   detach=True, depend=InstTaskDep_Confirm("execute info-crawlers now"))]
 
 registerInstallMode("Server", UNINST_TASKS_SERVER, INST_TASKS_SERVER, isDefaultMode=True)
 
