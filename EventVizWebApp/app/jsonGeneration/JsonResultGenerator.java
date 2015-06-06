@@ -18,10 +18,13 @@ public class JsonResultGenerator {
 		EventVizEvent event = model.getEvent();
 		JsonObject eventJSON = new JsonObject();
 		eventJSON.addProperty("id", event.getId());
-		eventJSON.addProperty("name", event.getName());
+		eventJSON.addProperty("eventName", event.getName());
 		eventJSON.addProperty("description", event.getDescription());
 		eventJSON.addProperty("event_type", event.getEvent_type());
-		eventJSON.addProperty("date", String.valueOf(event.getDate()));
+		eventJSON.addProperty("start_date", String.valueOf(event.getStart_date()));
+		eventJSON.addProperty("end_date", String.valueOf(event.getEnd_date()));
+		eventJSON.addProperty("start_time", String.valueOf(event.getStart_time()));
+		eventJSON.addProperty("end_time", String.valueOf(event.getEnd_time()));
 		eventJSON.addProperty("location_id", event.getLocation_id());
 		jsonResult.add("event", eventJSON);
 		
