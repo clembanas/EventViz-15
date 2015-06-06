@@ -24,7 +24,7 @@ public class DbConnectionTests {
 
 	@Test
 	public void getEventById_JSON() {
-		int eventId = 89779;
+		int eventId = 51589;
 		EventVizModelPopulationObject event;
 		JsonObject specificEvent_JSON = null;
 		try {
