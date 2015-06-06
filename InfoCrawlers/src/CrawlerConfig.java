@@ -169,7 +169,7 @@ public class CrawlerConfig {
 			if (props.containsKey("crawler.sparql_based.dbpedia_endpoint" + i))
 				result.add(props.getProperty("crawler.sparql_based.dbpedia_endpoint" + i));
 		}
-		return (String[])result.toArray();
+		return result.toArray(new String[result.size()]);
 	}
 
 	public static int getSparqlBasedCrawlerMaxQueryRetries()
