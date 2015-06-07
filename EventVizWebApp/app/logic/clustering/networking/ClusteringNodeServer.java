@@ -74,10 +74,11 @@ public class ClusteringNodeServer {
 	}
 
 	private ILocation receiveLocation() throws IOException {	
-		String id = inputStream.readUTF();
+		long id = inputStream.readLong();
 		double lat = inputStream.readDouble();
 		double lng = inputStream.readDouble();
+		String name = inputStream.readUTF();
 		
-		return new Location(id, lat, lng);
+		return new Location(id, lat, lng, name);
 	}
 }

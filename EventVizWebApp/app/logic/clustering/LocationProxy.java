@@ -17,7 +17,7 @@ public class LocationProxy implements ILocation, Serializable {
 		this.realSubject = realSubject;
 	}
 	
-	public String getId(){
+	public long getId(){
 		return realSubject.getId();
 	}
 
@@ -31,5 +31,8 @@ public class LocationProxy implements ILocation, Serializable {
 		return realSubject.getLongitude();
 	}
 	
+	public String getName(){
+		return realSubject.getName();
+	}
 
 }

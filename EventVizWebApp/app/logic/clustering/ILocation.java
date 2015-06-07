@@ -1,7 +1,8 @@
 package logic.clustering;
 
 public interface ILocation {
-	String getId();
+	long getId();
 	double getLatitude();
 	double getLongitude();
+	String getName();
 }

@@ -39,9 +39,10 @@ public class ClusteringNodeClient implements ClusteringWorker {
 		{
 			try {
 				outputStream.writeByte(ClusteringMessageType.AddLocation.getVal());
-				outputStream.writeUTF(location.getId());
+				outputStream.writeLong(location.getId());
 				outputStream.writeDouble(location.getLatitude());
 				outputStream.writeDouble(location.getLongitude());
+				outputStream.writeUTF(location.getName());
 			}catch(Exception ex)
 			{
 				this.exception = ex;

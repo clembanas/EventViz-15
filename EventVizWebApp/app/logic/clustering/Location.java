@@ -4,21 +4,23 @@ import java.io.Serializable;
 
 public class Location implements ILocation, Serializable{
 	private static final long serialVersionUID = 4486058443709461482L;
-	private String id;
+	private long id;
 	private double lat;
 	private double lng;
+	private String name;
 
-	public Location(String id, double lat, double lng) {
+	public Location(long id, double lat, double lng, String name) {
 		this.id = id;
 		this.lat = lat;
 		this.lng = lng;
+		this.name = name;
 	}
 	
-	public String getId() {
+	public long getId() {
 		return id;
 	}
 
-	public void setId(String id) {
+	public void setId(long id) {
 		this.id = id;
 	}
 	
@@ -38,5 +40,13 @@ public class Location implements ILocation, Serializable{
 	@Override
 	public double getLongitude() {
 		return lng;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
 	}
 }

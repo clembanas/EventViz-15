@@ -105,7 +105,8 @@ public class ClusteringUtil {
 			
 			for(int i = 0; i < events_JSON.size(); i++){
 				JsonObject event = (JsonObject) events_JSON.get(i);
-				locations.add(new Location(event.get("eventful_id").toString().replaceAll("\"", ""), Double.parseDouble(event.get("latitude").toString()), Double.parseDouble(event.get("longitude").toString())));
+				
+				locations.add(new Location(Long.parseLong(event.get("id").toString()), Double.parseDouble(event.get("latitude").toString()), Double.parseDouble(event.get("longitude").toString()), event.get("name").toString()));
 			}
 			MarkerCluster markerCluster = ClusteringUtil.cluster(locations);
 			cachedEventJsonNode = Json.toJson(new LightMarkerClusterVO(markerCluster));
@@ -114,6 +115,7 @@ public class ClusteringUtil {
 		return cachedEventJsonNode;
 	}
 	
+	//not working anymore
 	private static MarkerCluster getDefaultCluster() {
 		/*List<ILocation> locations = new ArrayList<ILocation>();
 		
@@ -145,7 +147,7 @@ public class ClusteringUtil {
 		    	String id = splitted[0];
 		    	String lat = splitted[1];
 		    	String lng = splitted[2];
-		    	locations.add(new Location(id, Double.parseDouble(lat), Double.parseDouble(lng)));
+		    	//locations.add(new Location(id, Double.parseDouble(lat), Double.parseDouble(lng), ""));
 		    }
 		} catch (IOException e) {
 			// TODO Auto-generated catch block

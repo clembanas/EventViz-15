@@ -15,7 +15,7 @@ public class LightMarkerVO {
 	@JsonProperty(value="_latlng")
 	public LightLocationVO getLatLng()
 	{
-		if(realMarker.getId().equals(null)){
+		if(realMarker.getId() == -1){
 			System.out.println("null");
 		}
 		return new LightLocationVO(realMarker);

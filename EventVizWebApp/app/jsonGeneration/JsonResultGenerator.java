@@ -76,7 +76,7 @@ public class JsonResultGenerator {
 		JsonArray jsonResult = new JsonArray();
 		for(EventVizEventBasics event : events) {
 			JsonObject jsonEvent = new JsonObject();
-			jsonEvent.addProperty("eventful_id", event.getEventful_id());
+			jsonEvent.addProperty("id", event.getId());
 			jsonEvent.addProperty("name", event.getName());
 			jsonEvent.addProperty("latitude", event.getLatitude());
 			jsonEvent.addProperty("longitude", event.getLongitude());

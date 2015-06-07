@@ -10,7 +10,7 @@ public class LightLocationVO {
 		this.realLocation = location;
 	}
 	
-	public String getId(){
+	public long getId(){
 		return realLocation.getId();
 	}
 	
@@ -23,5 +23,9 @@ public class LightLocationVO {
 	{
 		return realLocation.getLongitude();
 	}
-
+	
+	public String getName()
+	{
+		return realLocation.getName();
+	}
 }

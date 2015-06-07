@@ -106,17 +106,17 @@ public class EventViz15_DB_MySQLAccess {
 	}
 
 	public static List<EventVizEventBasics> getEvents() throws SQLException {
-		String sqlQuery = "SELECT eventful_id, Events.name, latitude, longitude FROM Events JOIN Locations ON Events.location_id=Locations.id";
+		String sqlQuery = "SELECT Events.id, Events.name, latitude, longitude FROM Events JOIN Locations ON Events.location_id=Locations.id";
 		PreparedStatement stmt = conn.prepareStatement(sqlQuery);
 		ResultSet rs = stmt.executeQuery();
 
 		List<EventVizEventBasics> events = new ArrayList<EventVizEventBasics>();
 		while(rs.next()) {
-			String eventful_id = rs.getString("eventful_id");
+			long id = rs.getLong("id");
 			String name = rs.getString("name");
 			float latitude = rs.getFloat("latitude");
 			float longitude = rs.getFloat("longitude");
-			events.add(new EventVizEventBasics(eventful_id, name, latitude, longitude));
+			events.add(new EventVizEventBasics(id, name, latitude, longitude));
 		}
 		rs.close();
 		stmt.close();
