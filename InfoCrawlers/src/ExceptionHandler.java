@@ -17,7 +17,7 @@ public class ExceptionHandler {
 	}
 	
 	public static void handle(final String info, final Exception e, final boolean printTrace,
-		Class<?> derivedClass, Class<?> baseClass, Class<?> subClass)
+		Class<?> derivedClass, Class<?> baseClass, Class<?> subClass, boolean canLog)
 	{
 		String classPath = Utils.classPathToString(derivedClass, baseClass, subClass);
 		
@@ -30,30 +30,55 @@ public class ExceptionHandler {
 			e.printStackTrace();
 		}
 		System.err.println("---------------------------------------------------------------\n");
-		try {
-			DBConnector dbConn = DBConnector.getInstance();
-			
-			if (dbConn.isConnected())
-				dbConn.logException(classPath, Thread.currentThread().getId(), info, e, 
-					stackTraceToStr(e.getStackTrace()));
+		if (canLog) {
+			try {
+				DBConnector dbConn = DBConnector.getInstance();
+				
+				if (dbConn.isConnected())
+					dbConn.logException(classPath, Thread.currentThread().getId(), info, e, 
+						stackTraceToStr(e.getStackTrace()));
+			}
+			catch (Exception e1) {}
 		}
-		catch (Exception e1) {}
+	}
+	
+	public static void handle(final String info, final Exception e, final boolean printTrace,
+		Class<?> derivedClass, Class<?> baseClass, Class<?> subClass)
+	{
+		handle(info, e, true, derivedClass, baseClass, subClass, true);
+	}
+	
+	public static void handle(final String info, final Exception e, Class<?> derivedClass, 
+		Class<?> baseClass, Class<?> subClass, boolean canLog)
+	{
+		handle(info, e, true, derivedClass, baseClass, subClass, canLog);
 	}
 	
 	public static void handle(final String info, final Exception e, Class<?> derivedClass, 
 		Class<?> baseClass, Class<?> subClass)
 	{
-		handle(info, e, true, derivedClass, baseClass, subClass);
+		handle(info, e, true, derivedClass, baseClass, subClass, true);
+	}
+	
+	public static void handle(final String info, final Exception e, Class<?> derivedClass, 
+		Class<?> baseClass, boolean canLog)
+	{
+		handle(info, e, true, derivedClass, baseClass, null, canLog);
 	}
 	
 	public static void handle(final String info, final Exception e, Class<?> derivedClass, 
 		Class<?> baseClass)
 	{
-		handle(info, e, true, derivedClass, baseClass, null);
+		handle(info, e, true, derivedClass, baseClass, null, true);
+	}
+	
+	public static void handle(final String info, final Exception e, Class<?> _class, boolean canLog)
+	{
+		handle(info, e, true, _class, null, null, canLog);
 	}
 	
 	public static void handle(final String info, final Exception e, Class<?> _class)
 	{
-		handle(info, e, true, _class, null, null);
+		handle(info, e, true, _class, null, null, true);
 	}
 }

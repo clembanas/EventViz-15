@@ -243,19 +243,19 @@ public abstract class DBConnector {
 		if (DebugUtils.canDebug(getClass(), DBConnector.class, DebugFlag.UPDATES)) {
 			DebugUtils.printDebugInfo("Executing update:\n   " + Utils.wrapString(
 				Utils.replaceEach(stmt, "?", "arg:'%s'", args), 50, "\n   "), getClass(), 
-				DBConnector.class, DebugFlag.UPDATES);
+				DBConnector.class, false, DebugFlag.UPDATES);
 		}
 	}
 	
 	protected String trimAndTrunc(String s, int maxLen)
 	{
-		if (DebugUtils.canDebug(getClass(), DBConnector.class) && s != null) { 
+		if (DebugUtils.canDebug(getClass(), DBConnector.class, DebugFlag.UPDATES) && s != null) { 
 			int len = s.length();
 			
 			s = Utils.trimAndTrunc(s, maxLen);
 			if (s.length() != len) 
-				DebugUtils.printDebugInfo("WARNING: '" + s + "' truncated to length '" + maxLen + 
-					"'!", getClass(), DBConnector.class);
+				DebugUtils.printDebugInfo("WARNING: '" + s + "...' truncated to length '" + maxLen + 
+					"'!", getClass(), DBConnector.class, false);
 			return s;
 		}
 		return Utils.trimAndTrunc(s, maxLen); 
@@ -286,33 +286,34 @@ public abstract class DBConnector {
 			if (tableExists(stmt, tableName)) {
 				if (dropExisting) {
 					DebugUtils.printDebugInfo("Dropping table '" + tableName + "' ...", getClass(),
-						DBConnector.class);
+						DBConnector.class, false, DebugFlag.UPDATES);
 					try {
 						dropTable(stmt, tableName);
 					}
 					catch (Exception e) {
 						ExceptionHandler.handle("Failed to drop table '" + tableName + "'!", e, 
-							getClass(), DBConnector.class);
+							getClass(), DBConnector.class, false);
 						throw e;
 					}
 					DebugUtils.printDebugInfo("Dropping table '" + tableName + "' ... DONE",
-						getClass(), DBConnector.class);
+						getClass(), DBConnector.class, false, DebugFlag.UPDATES);
 				}
 				else {
 					DebugUtils.printDebugInfo("Skipping creation of table '" + tableName + 
-						"' since it already exists!", getClass(), DBConnector.class);
+						"' since it already exists!", getClass(), DBConnector.class, false);
 					return;
 				}
 			}
 			DebugUtils.printDebugInfo("Creating table '" + tableName + "' using statement:\n   " + 
-				Utils.wrapString(query,	50, "\n   "), getClass(), DBConnector.class);
+				Utils.wrapString(query,	50, "\n   "), getClass(), DBConnector.class, false,
+				DebugFlag.UPDATES);
 			stmt.executeUpdate(query);
 			DebugUtils.printDebugInfo("Creating table '" + tableName + "' ... DONE\n", getClass(),
-				DBConnector.class);
+				DBConnector.class, false, DebugFlag.UPDATES);
 		}
 		catch (Exception e) {
 			ExceptionHandler.handle("Failed to create table '" + tableName + "'!", e, getClass(),
-				DBConnector.class);
+				DBConnector.class, false);
 			throw e;
 		}
 	}
@@ -340,10 +341,10 @@ public abstract class DBConnector {
 	{
 		String dbgQueryStr = "";
 		
-		if (DebugUtils.canDebug(getClass(), DBConnector.class)) {
+		if (DebugUtils.canDebug(getClass(), DBConnector.class, DebugFlag.QUERY_RESULTS)) {
 			dbgQueryStr = Utils.replaceEach(query, "?", "arg:'%s'", args);
 			DebugUtils.printDebugInfo("Executing query '" + dbgQueryStr +	"'...", getClass(),
-				DBConnector.class);
+				DBConnector.class, DebugFlag.QUERY_RESULTS);
 		}
 		
 		PreparedStatement stmt = dbConn.prepareStatement(query, ResultSet.TYPE_SCROLL_INSENSITIVE, 
@@ -374,7 +375,7 @@ public abstract class DBConnector {
 	protected PreparedStatement executeUpdate(String updStmt, Object ... args) throws Exception
 	{
 		DebugUtils.printDebugInfo("Executing update '" + updStmt + "'...", getClass(), 
-			DBConnector.class);
+			DBConnector.class, false, DebugFlag.UPDATES);
 		
 		PreparedStatement stmt = dbConn.prepareStatement(updStmt, 
 				 					 PreparedStatement.RETURN_GENERATED_KEYS);

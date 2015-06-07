@@ -106,6 +106,29 @@ public class DBConnector_Derby extends DBConnector_SQLConform {
 		}
 	}
 	
+	protected String getStmtCreateTblDebugInfoLogs()
+	{
+		return "CREATE TABLE Crawler_debug_info_logs(" +
+				   "ts TIMESTAMP, " +
+				   "hostname VARCHAR(" + MAX_LEN_CRAWLER_DEBUG_LOG_HOST + "), " +
+				   "thread_id BIGINT, " +
+				   "class_path VARCHAR(" + MAX_LEN_CRAWLER_DEBUG_LOG_CLASS_PATH + "), " +
+				   "info VARCHAR(" + MAX_LEN_CRAWLER_DEBUG_LOG_INFO + "))";
+	}
+	
+	protected String getStmtCreateTblExceptionLogs()
+	{
+		return "CREATE TABLE Crawler_exception_logs(" +
+				   "ts TIMESTAMP, " +
+				   "hostname VARCHAR(" + MAX_LEN_CRAWLER_EXCEPT_LOG_HOST + "), " +
+				   "thread_id BIGINT, " +
+				   "class_path VARCHAR(" + MAX_LEN_CRAWLER_EXCEPT_LOG_CLASS_PATH + "), " +
+				   "info VARCHAR(" + MAX_LEN_CRAWLER_EXCEPT_LOG_INFO + "), " +
+				   "message VARCHAR(" + MAX_LEN_CRAWLER_EXCEPT_LOG_MSG + "), " + 
+				   "exception_class VARCHAR(" + MAX_LEN_CRAWLER_EXCEPT_LOG_CLASS + "), " +
+				   "stack_trace VARCHAR(" + MAX_LEN_CRAWLER_EXCEPT_LOG_STACK + "))";
+	}
+	
 	protected String getStmtCreateTblCities()
 	{
 		return "CREATE TABLE Cities(" +
@@ -141,8 +164,8 @@ public class DBConnector_Derby extends DBConnector_SQLConform {
 				   "NAME VARCHAR(" + MAX_LEN_EVENT_NAME + ") NOT NULL," +
 				   "DESCRIPTION VARCHAR(" + MAX_LEN_EVENT_DESC + ")," +
 				   "EVENT_TYPE VARCHAR(" + MAX_LEN_EVENT_TYPE + ")," +
-				   "start_time DATETIME, " +
-				   "end_time DATETIME, " +
+				   "start_time DATE, " +
+				   "end_time DATE, " +
 				   "EVENTFUL_ID VARCHAR(" + MAX_LEN_EVENT_EVENTFUL_ID + ")," +
 				   "LOCATION_ID INTEGER NOT NULL)";
 	}

@@ -46,8 +46,6 @@ public class DebugUtils {
 
 		public boolean matches(DebugFlagBase ... flags) 
 		{
-			if (flags.length == 0)
-				return true;
 			for (DebugFlagBase flag: flags) {
 				if (flag == null || (value & flag.toInt()) != 0)
 					return true;
@@ -206,7 +204,7 @@ public class DebugUtils {
 		Class<?> rootClass = Utils.getRootClass(_class);
 		
 		dbgClasses.put(_class, rootClass);
-		dbgClassFlags.put(_class, new DebugFlags(dbgClassFlags.get(rootClass), flags));
+		dbgClassFlags.put(rootClass, new DebugFlags(dbgClassFlags.get(rootClass), flags));
 	}
 	
 	public static void debugClass(Class<?> _class)
@@ -215,7 +213,7 @@ public class DebugUtils {
 		DebugFlags dbgFlags = dbgClassFlags.get(rootClass);
 		
 		dbgClasses.put(_class, rootClass);
-		dbgClassFlags.put(_class, dbgFlags == null ? new DebugFlags() : dbgFlags);
+		dbgClassFlags.put(rootClass, dbgFlags == null ? new DebugFlags() : dbgFlags);
 	}
 	
 	public static boolean canDebug(Class<?> derivedClass, Class<?> baseClass, Class<?> subClass, 
@@ -260,21 +258,35 @@ public class DebugUtils {
 	}
 	
 	public static void printDebugInfo(final String info, Class<?> derivedClass,	Class<?> baseClass, 
-		Class<?> subClass, DebugFlagBase firstFlag, DebugFlagBase ... remainFlags)
+		Class<?> subClass, boolean canLog, DebugFlagBase firstFlag, DebugFlagBase ... remainFlags)
 	{
 		if (canDebug(derivedClass, baseClass, subClass, firstFlag, remainFlags)) {
 			String classPath = Utils.classPathToString(derivedClass, baseClass, subClass);
 			
 			System.out.println(dateFmt.format(new Date()) + " [" + classPath + " (Thread " + 
 				Thread.currentThread().getId() + ")]: " + info);
-			try {
-				DBConnector dbConn = DBConnector.getInstance();
-				
-				if (dbConn.isConnected())
-					dbConn.logDebugInfo(classPath, Thread.currentThread().getId(), info);
+			if (canLog) {
+				try {
+					DBConnector dbConn = DBConnector.getInstance();
+					
+					if (dbConn.isConnected())
+						dbConn.logDebugInfo(classPath, Thread.currentThread().getId(), info);
+				}
+				catch (Exception e1) {}
 			}
-			catch (Exception e1) {}
 		}
+	}
+	
+	public static void printDebugInfo(final String info, Class<?> derivedClass,	Class<?> baseClass, 
+		Class<?> subClass, DebugFlagBase firstFlag, DebugFlagBase ... remainFlags)
+	{
+		printDebugInfo(info, derivedClass, baseClass, subClass, true, firstFlag, remainFlags);
+	}
+	
+	public static void printDebugInfo(final String info, Class<?> derivedClass, 
+		Class<?> baseClass, boolean canLog, DebugFlagBase firstFlag, DebugFlagBase ... remainFlags)
+	{
+		printDebugInfo(info, derivedClass, baseClass, null, canLog, firstFlag, remainFlags);
 	}
 	
 	public static void printDebugInfo(final String info, Class<?> derivedClass, 
@@ -282,26 +294,45 @@ public class DebugUtils {
 	{
 		printDebugInfo(info, derivedClass, baseClass, null, firstFlag, remainFlags);
 	}
+	
+	public static void printDebugInfo(final String info, Class<?> derivedClass, boolean canLog, 
+		DebugFlagBase firstFlag, DebugFlagBase ... remainFlags)
+	{
+		printDebugInfo(info, derivedClass, null, null, canLog, firstFlag, remainFlags);
+	}
 
 	public static void printDebugInfo(final String info, Class<?> derivedClass,
 		DebugFlagBase firstFlag, DebugFlagBase ... remainFlags)
 	{
-		printDebugInfo(info, derivedClass, null, null, firstFlag, remainFlags);
+		printDebugInfo(info, derivedClass, null, null, true, firstFlag, remainFlags);
 	}
 	
 	public static void printDebugInfo(final String info, Class<?> derivedClass,	Class<?> baseClass, 
 		Class<?> subClass)
 	{
-		printDebugInfo(info, derivedClass, baseClass, subClass, null);
+		printDebugInfo(info, derivedClass, baseClass, subClass, true, null);
+	}
+	
+	public static void printDebugInfo(final String info, Class<?> derivedClass, Class<?> baseClass, 
+		boolean canLog)
+	{
+		printDebugInfo(info, derivedClass, baseClass, (Class<?>)null, canLog, (DebugFlagBase)null);
 	}
 	
 	public static void printDebugInfo(final String info, Class<?> derivedClass, Class<?> baseClass)
 	{
-		printDebugInfo(info, derivedClass, baseClass, (Class<?>)null, (DebugFlagBase)null);
+		printDebugInfo(info, derivedClass, baseClass, (Class<?>)null, true, (DebugFlagBase)null);
+	}
+	
+	public static void printDebugInfo(final String info, Class<?> derivedClass, boolean canLog)
+	{
+		printDebugInfo(info, derivedClass, (Class<?>)null, (Class<?>)null, canLog, 
+			(DebugFlagBase)null);
 	}
 
 	public static void printDebugInfo(final String info, Class<?> derivedClass)
 	{
-		printDebugInfo(info, derivedClass, (Class<?>)null, (Class<?>)null, (DebugFlagBase)null);
+		printDebugInfo(info, derivedClass, (Class<?>)null, (Class<?>)null, true,
+			(DebugFlagBase)null);
 	}
 }

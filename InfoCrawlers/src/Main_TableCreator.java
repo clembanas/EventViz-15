@@ -13,6 +13,7 @@ public class Main_TableCreator {
 		DBConnector dbConn = null;
 		
 		try {
+			System.out.println("Table-creator started");
 			CrawlerConfig.load();
 			//Setup debug settings
 			if (CrawlerConfig.canDbgDB())
@@ -27,15 +28,18 @@ public class Main_TableCreator {
 				dbConn = DBConnector.getInstance();
 				dbConn.connect();
 				try {
+					System.out.println("\nCreating tables ...");
 					dbConn.createTables(DROP_EXISTING_TABLES);
+					System.out.println("Creating tables ... DONE");
 				}
 				catch (Exception e) {
-					ExceptionHandler.handle("Failed to create tables!", e, Main_TableCreator.class);
+					ExceptionHandler.handle("Failed to create tables!", e, Main_TableCreator.class,
+						false);
 				}
 			}
 			catch (Exception e) {
 				ExceptionHandler.handle("Failed to connect to database!", e, 
-					Main_TableCreator.class);
+					Main_TableCreator.class, false);
 			}
 			finally {
 				if (dbConn != null) {
@@ -44,7 +48,7 @@ public class Main_TableCreator {
 					}
 					catch (Exception e) {
 						ExceptionHandler.handle("Failed to disconnect from database!", e, 
-							Main_TableCreator.class);
+							Main_TableCreator.class, false);
 					}
 				}
 			}
@@ -53,5 +57,6 @@ public class Main_TableCreator {
 			System.out.println("ERROR: " + e.getMessage() + "\nExiting now!");
 			e.printStackTrace();
 		}
+		System.out.println("\nTable-creator finished!");
 	}
 }
