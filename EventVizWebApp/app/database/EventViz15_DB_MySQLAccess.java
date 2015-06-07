@@ -105,6 +105,24 @@ public class EventViz15_DB_MySQLAccess {
 		return band;
 	}
 
+	public static List<EventVizEventBasics> getEvents() throws SQLException {
+		String sqlQuery = "SELECT eventful_id, Events.name, latitude, longitude FROM Events JOIN Locations ON Events.location_id=Locations.id";
+		PreparedStatement stmt = conn.prepareStatement(sqlQuery);
+		ResultSet rs = stmt.executeQuery();
+
+		List<EventVizEventBasics> events = new ArrayList<EventVizEventBasics>();
+		while(rs.next()) {
+			String eventful_id = rs.getString("eventful_id");
+			String name = rs.getString("name");
+			float latitude = rs.getFloat("latitude");
+			float longitude = rs.getFloat("longitude");
+			events.add(new EventVizEventBasics(eventful_id, name, latitude, longitude));
+		}
+		rs.close();
+		stmt.close();
+		return events;
+	}
+
 	public static void closeDBAccess() {
 		try {
 			conn.close();

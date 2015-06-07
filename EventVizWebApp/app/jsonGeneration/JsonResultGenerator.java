@@ -71,7 +71,20 @@ public class JsonResultGenerator {
 		jsonResult.addProperty("dbpedia_resource", band.getDbpedia_resource());
 		return jsonResult;
 	}
-	
+
+	public static JsonArray getEvents_JSON(List<EventVizEventBasics> events) {
+		JsonArray jsonResult = new JsonArray();
+		for(EventVizEventBasics event : events) {
+			JsonObject jsonEvent = new JsonObject();
+			jsonEvent.addProperty("eventful_id", event.getEventful_id());
+			jsonEvent.addProperty("name", event.getName());
+			jsonEvent.addProperty("latitude", event.getLatitude());
+			jsonEvent.addProperty("longitude", event.getLongitude());
+			jsonResult.add(jsonEvent);
+		}
+		return jsonResult;
+	}
+
 	public static JsonObject getSocialMentionSentiment_JSON(SocialMentionData sentimentAnalysisResult){
 		JsonObject jsonResult = new JsonObject();
 		jsonResult.addProperty("score_strength", sentimentAnalysisResult.getScore_strength());

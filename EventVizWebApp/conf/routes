@@ -3,17 +3,18 @@
 # ~~~~
 
 # Home page
-GET     /                           controllers.Application.index()
-GET		/getSentiment				controllers.Application.getSentiment(terms: java.lang.String ?= "", location: java.lang.String ?= "")
-GET		/getEventById				controllers.Application.getEventById(id: java.lang.Integer ?= 0)
-GET     /clusteringtest             controllers.Application.clusteringtest()
-GET     /defaultCluster             controllers.Application.getDefaultCluster()
+GET        /                                controllers.Application.index()
+GET        /getSentiment                    controllers.Application.getSentiment(terms: java.lang.String ?= "", location: java.lang.String ?= "")
+GET        /getEventById                    controllers.Application.getEventById(id: java.lang.Integer ?= 0)
+GET        /events                          controllers.Application.getEvents()
+GET        /clusteringtest                  controllers.Application.clusteringtest()
+GET        /defaultCluster                  controllers.Application.getDefaultCluster()
 
 
 # Map static resources from the /public folder to the /assets URL path
-GET     /assets/*file               controllers.Assets.at(path="/public", file)
-GET     /assets/javascripts/*file   controllers.Assets.at(path="/public/javascripts", file)
-GET     /assets/stylesheets/*file   controllers.Assets.at(path="/public/stylesheets", file)
-GET     /assets/images/*file   		controllers.Assets.at(path="/public/images", file)
-GET		/Icon/*file					controllers.Assets.at(path="/public/images", file)
-GET		/JavaScript/*file			controllers.Assets.at(path="/public/javascripts", file)
+GET        /assets/*file                    controllers.Assets.at(path="/public", file)
+GET        /assets/javascripts/*file        controllers.Assets.at(path="/public/javascripts", file)
+GET        /assets/stylesheets/*file        controllers.Assets.at(path="/public/stylesheets", file)
+GET        /assets/images/*file             controllers.Assets.at(path="/public/images", file)
+GET        /Icon/*file                      controllers.Assets.at(path="/public/images", file)
+GET        /JavaScript/*file                controllers.Assets.at(path="/public/javascripts", file)

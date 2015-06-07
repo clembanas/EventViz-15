@@ -38,7 +38,10 @@ public class DebugUtils {
 		
 		public DebugFlags(DebugFlags dbgFlags, int flags) 
 		{
-			value = flags | dbgFlags.value;
+			if (dbgFlags != null)
+				value = flags | dbgFlags.value;
+			else
+				value = flags;
 		}
 
 		public boolean matches(DebugFlagBase ... flags) 
