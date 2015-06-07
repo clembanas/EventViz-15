@@ -57,11 +57,6 @@ public class ClusteringUtilTest {
 		assertEquals(0, clusterTopLevel.getChildCount());
 	}
 	
-	@Test
-	public void testGetDefaultCluster() {		
-		ClusteringUtil.getDefaultClusterJsonNode();
-	}
-	
 
 	@Test
 	public void testCluster2Points1LocalWorker() {
@@ -105,8 +100,8 @@ public class ClusteringUtilTest {
 
 	private List<ILocation> createLocationsTestCluster2Points() {
 		List<ILocation> locations = new ArrayList<ILocation>();
-		locations.add(new Location("testID", 47.9139476, 11.421561));
-		locations.add(new Location("testID2", 32.70788, 11.40115));
+		locations.add(new Location(12, 47.9139, 11.4215, "name12"));
+		locations.add(new Location(13, 32.7078, 11.4011, "name13"));
 		return locations;
 	}
 
@@ -135,8 +130,8 @@ public class ClusteringUtilTest {
 		
 		
 		List<ILocation> expectedMarkers = new ArrayList<ILocation>();
-		expectedMarkers.add(new Location("testID", 47.9139, 11.4215));
-		expectedMarkers.add(new Location("testID2", 32.7078, 11.4011));
+		expectedMarkers.add(new Location(12, 47.9139, 11.4215, "name12"));
+		expectedMarkers.add(new Location(13, 32.7078, 11.4011, "name13"));
 		
 		for(ILocation expectedMarker : expectedMarkers)
 		{
@@ -181,13 +176,27 @@ public class ClusteringUtilTest {
 		}
 	}
 	
+	@Test
+	public void testClusterEventsAtSameLocation() {
+		// public static MarkerClusterGroup Cluster(Iterable<ILocation> locations)
+		
+		List<ILocation> locations = new ArrayList<ILocation>();
+		locations.add(new Location(12, 47.9139, 11.4215, "name12"));
+		locations.add(new Location(13, 47.9139, 11.4215, "name13"));
+		
+		ClusteringWorker[] workers = new ClusteringWorker[1];
+		workers[0] = new LocalClusteringWorker();
+		MarkerCluster clusterTopLevel = ClusteringUtil.cluster(locations, workers);
+		
+		
+	}
 	
 	@Test
 	public void testCluster2PointsFarAway()
 	{
 		List<ILocation> locations = new ArrayList<ILocation>();
-		locations.add(new Location("testID", 74.0,-34.6588208));
-		locations.add(new Location("testID2", 0,0));
+		locations.add(new Location(12, 74.0,-34.6588, "name12"));
+		locations.add(new Location(13, 0,0, "name13"));
 		
 		MarkerCluster clusterZoom0 = ClusteringUtil.cluster(locations);
 	}
@@ -196,9 +205,9 @@ public class ClusteringUtilTest {
 	public void testCluster3FuckingPoints()
 	{
 		List<ILocation> locations = new ArrayList<ILocation>();
-		locations.add(new Location("testID", 38.2924721, -122.4565503));
-		locations.add(new Location("testID2", 45.473753, -122.6583744));
-		locations.add(new Location("testID3", 32.8673, -97.2486));
+		locations.add(new Location(12, 38.2924, -122.4565, "name12"));
+		locations.add(new Location(13, 45.4737, -122.6583, "name13"));
+		locations.add(new Location(14, 32.8673, -97.2486, "name14"));
 		MarkerCluster clusterZoom0 = ClusteringUtil.cluster(locations);
 	}
 	
@@ -257,7 +266,8 @@ public class ClusteringUtilTest {
 		    	String lat = splitted[0];
 		    	String lng = splitted[1];
 		    	
-		    	locations.add(new Location("testID"+(i++), Double.parseDouble(lat), Double.parseDouble(lng)));
+		    	locations.add(new Location(i, Double.parseDouble(lat), Double.parseDouble(lng), "name"+i));
+		    	i++;
 		    }
 		}
 		

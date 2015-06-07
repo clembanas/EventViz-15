@@ -258,7 +258,8 @@
                 for (var i = 0; i < node._markers.length; i++) {
                     var child = node._markers[i];
                     var marker = L.marker(L.latLng(child._latlng.lat, child._latlng.lng), { title: child._leaflet_id, eventfulID: child._latlng.id });
-                    marker.on('click', clickMarker());
+                    // marius: following line led to an uncaught exception - so I uncommented it
+                    //marker.on('click', clickMarker());
                     
 
                     parent._addChild(marker);

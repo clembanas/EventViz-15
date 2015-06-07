@@ -1,17 +1,5 @@
 package logic.clustering;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-
-import logic.clustering.serialization.LightMarkerClusterVO;
-import play.libs.Json;
-
-import com.fasterxml.jackson.databind.JsonNode;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
 
 
 public class ClusteringUtil {	
@@ -30,17 +18,17 @@ public class ClusteringUtil {
 		
 		return workers;
 	}
-	public static MarkerCluster cluster(Iterable<ILocation> locations)
+	public static MarkerCluster cluster(Iterable<? extends ILocation> events)
 	{
 		ClusteringWorker[] workers = createClusteringWorker();
-		return cluster(locations, workers);
+		return cluster(events, workers);
 	}
 	
-	public static MarkerCluster cluster(Iterable<ILocation> locations, ClusteringWorker[] workers)
+	public static MarkerCluster cluster(Iterable<? extends ILocation> events, ClusteringWorker[] workers)
 	{		
 		int workerCount = workers.length;
 		int stripeSize = 360 / workerCount;
-		for(ILocation location : locations)
+		for(ILocation location : events)
 		{
 			int workerId = ((int)(location.getLongitude() + 180) / stripeSize) % workers.length;
 			workers[workerId].addLocation(location);
@@ -84,78 +72,5 @@ public class ClusteringUtil {
 		
 		MarkerCluster clusterAtLevel0 = topCluster.getChildClusters().get(0);
 		return clusterAtLevel0;*/
-	}
-
-	private static JsonNode cachedDefaultClusterJsonNode = null;
-	public static JsonNode getDefaultClusterJsonNode() {
-		if(cachedDefaultClusterJsonNode == null)
-		{
-			MarkerCluster markerCluster = getDefaultCluster();
-			cachedDefaultClusterJsonNode = Json.toJson(new LightMarkerClusterVO(markerCluster));
-		}
-		
-		return cachedDefaultClusterJsonNode;
-	}
-	
-	private static JsonNode cachedEventJsonNode = null;
-	public static JsonNode getEventJsonNode(JsonArray events_JSON) {
-		if(cachedEventJsonNode == null)
-		{
-			List<ILocation> locations = new ArrayList<ILocation>();		
-			
-			for(int i = 0; i < events_JSON.size(); i++){
-				JsonObject event = (JsonObject) events_JSON.get(i);
-				
-				locations.add(new Location(Long.parseLong(event.get("id").toString()), Double.parseDouble(event.get("latitude").toString()), Double.parseDouble(event.get("longitude").toString()), event.get("name").toString()));
-			}
-			MarkerCluster markerCluster = ClusteringUtil.cluster(locations);
-			cachedEventJsonNode = Json.toJson(new LightMarkerClusterVO(markerCluster));
-		}
-		
-		return cachedEventJsonNode;
-	}
-	
-	//not working anymore
-	private static MarkerCluster getDefaultCluster() {
-		/*List<ILocation> locations = new ArrayList<ILocation>();
-		
-		locations.add(new Location(38.2924721, -122.4565503));
-		locations.add(new Location(45.473753, -122.6583744));
-		locations.add(new Location(32.8673, -97.2486));
-		
-		/*locations.add(new Location(39.2428725, -94.6588208));
-		locations.add(new Location(38.7208, -75.0764));
-		locations.add(new Location(42.4, -7.06667));
-		locations.add(new Location(35.7117761, -93.7971925));
-		locations.add(new Location(36.1088677, -115.1537786));
-		locations.add(new Location(38.915271, -77.021098));
-		locations.add(new Location(38.2924721, -122.4565503));
-		locations.add(new Location(45.473753, -122.6483744));*/
-		//return ClusteringUtil.cluster(locations);*/
-		
-		List<ILocation> locations = new ArrayList<ILocation>();		
-		
-		java.io.File f = new java.io.File("./test/resources/ClusterPointsWithID10000.txt");		
-		try (BufferedReader br = new BufferedReader(new FileReader(f))) {
-		    String line;
-		    while ((line = br.readLine()) != null) {
-		    	if(line.isEmpty())
-		    	{
-		    		continue;
-		    	}
-		    	String[] splitted = line.split(";");
-		    	String id = splitted[0];
-		    	String lat = splitted[1];
-		    	String lng = splitted[2];
-		    	//locations.add(new Location(id, Double.parseDouble(lat), Double.parseDouble(lng), ""));
-		    }
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		
-		
-		
-		return ClusteringUtil.cluster(locations);
 	}
 }

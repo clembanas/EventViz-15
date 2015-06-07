@@ -1,15 +1,17 @@
 package containers;
 
+import logic.clustering.ILocation;
+
 /**
  * Created by clemens on 07.06.15.
  */
-public class EventVizEventBasics {
+public class EventVizEventBasics implements ILocation {
     private long id;
     private String name;
-    private float latitude;
-    private float longitude;
+    private double latitude;
+    private double longitude;
 
-    public EventVizEventBasics(long id, String name, float latitude, float longitude) {
+    public EventVizEventBasics(long id, String name, double latitude, double longitude) {
         this.id = id;
         this.name = name;
         this.latitude = latitude;
@@ -32,19 +34,19 @@ public class EventVizEventBasics {
         this.name = name;
     }
 
-    public float getLatitude() {
+    public double getLatitude() {
         return latitude;
     }
 
-    public void setLatitude(float latitude) {
+    public void setLatitude(double latitude) {
         this.latitude = latitude;
     }
 
-    public float getLongitude() {
+    public double getLongitude() {
         return longitude;
     }
 
-    public void setLongitude(float longitude) {
+    public void setLongitude(double longitude) {
         this.longitude = longitude;
     }
 

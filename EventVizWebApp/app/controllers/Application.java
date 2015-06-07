@@ -1,14 +1,20 @@
 package controllers;
 
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+
 import containers.EventVizEventBasics;
 import containers.EventVizModelPopulationObject;
 import database.EventViz15_DB_MySQLAccess;
 import jsonGeneration.JsonResultGenerator;
 import logic.clustering.ClusteringUtil;
+import logic.clustering.ILocation;
+import logic.clustering.MarkerCluster;
+import logic.clustering.serialization.LightMarkerClusterVO;
+import play.libs.Json;
 import play.mvc.Controller;
 import play.mvc.Result;
 import sentiment_analysis.SocialMentionData;
@@ -51,17 +57,18 @@ public class Application extends Controller {
         JsonObject model_JSON = JsonResultGenerator.getEventById_JSON(model);
         return ok(model_JSON.toString());
     }
-
-    public static Result getEvents() {
-        List<EventVizEventBasics> events = null;
-        try {
-            events = EventViz15_DB_MySQLAccess.getEvents();
-        } catch (SQLException e) {
-            return ok("");
-        }
-        JsonArray events_JSON = JsonResultGenerator.getEvents_JSON(events);
-
-        return ok(ClusteringUtil.getEventJsonNode(events_JSON));
+    
+    private static JsonNode cachedGetEventsJsonNode = null;
+    public static Result getEvents() throws SQLException {
+    	if(cachedGetEventsJsonNode == null)
+    	{
+    		Iterable<? extends ILocation> events = EventViz15_DB_MySQLAccess.getEvents();
+    		
+    		MarkerCluster markerCluster = ClusteringUtil.cluster(events);    		
+    		cachedGetEventsJsonNode = Json.toJson(new LightMarkerClusterVO(markerCluster));
+    	}
+    	
+    	return ok(cachedGetEventsJsonNode);
     }
 
 
@@ -81,9 +88,4 @@ public class Application extends Controller {
         }
         return ok(JsonResultGenerator.getSocialMentionSentiment_JSON(data).toString());
     }
-
-    public static Result getDefaultCluster() {
-        return ok(ClusteringUtil.getDefaultClusterJsonNode());
-    }
-
 }

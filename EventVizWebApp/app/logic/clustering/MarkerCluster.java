@@ -81,12 +81,38 @@ public class MarkerCluster implements IMarker, Serializable {
 	public void addChild(Marker child) {
 		this.addChild(child, false);		
 	}
+	
+	
+	public boolean equalsWithDelta(double p1, double p2)
+	{
+	    double delta = p1 - p2;
+	    if(delta > 0.00001 || delta < -0.00001)
+	    {
+	    	return false;
+	    }
+	    
+	    return true;
+	}
 
 	private void addChild(Marker child, boolean isNotificationFromChild) {
 		this._expandBounds(child);
 		
 		if (!isNotificationFromChild) {
-			markers.add(child);
+			
+			boolean notAlreadyAdded = true;
+			for(Marker m : markers)
+			{
+				if(equalsWithDelta(m.getLatitude(), child.getLatitude())
+						&& equalsWithDelta(m.getLongitude(), child.getLongitude()))
+				{
+					m.addId(child.getId());
+					notAlreadyAdded = false;
+				}
+			}
+			if(notAlreadyAdded)
+			{
+				markers.add(child);
+			}
         }
         this._childCount++;
         

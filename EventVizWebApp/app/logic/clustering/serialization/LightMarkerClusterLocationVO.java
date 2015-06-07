@@ -2,16 +2,14 @@ package logic.clustering.serialization;
 
 import logic.clustering.ILocation;
 
-public class LightLocationVO {
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
+public class LightMarkerClusterLocationVO {
 
 	private final ILocation realLocation;
 
-	public LightLocationVO(ILocation location) {		
+	public LightMarkerClusterLocationVO(ILocation location) {		
 		this.realLocation = location;
-	}
-	
-	public long getId(){
-		return realLocation.getId();
 	}
 	
 	public double getLat()
@@ -24,6 +22,7 @@ public class LightLocationVO {
 		return realLocation.getLongitude();
 	}
 	
+	@JsonIgnore 
 	public String getName()
 	{
 		return realLocation.getName();

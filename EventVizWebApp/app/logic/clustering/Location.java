@@ -15,15 +15,7 @@ public class Location implements ILocation, Serializable{
 		this.lng = lng;
 		this.name = name;
 	}
-	
-	public long getId() {
-		return id;
-	}
 
-	public void setId(long id) {
-		this.id = id;
-	}
-	
 	@Override
 	public double getLatitude() {
 		return lat;
@@ -48,5 +40,13 @@ public class Location implements ILocation, Serializable{
 
 	public void setName(String name) {
 		this.name = name;
+	}
+
+	public long getId() {
+		return id;
+	}
+
+	public void setId(long id) {
+		this.id = id;
 	}
 }
