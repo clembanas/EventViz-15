@@ -4,6 +4,7 @@ package controllers;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import containers.EventVizEventBasics;
 import containers.EventVizModelPopulationObject;
 import database.EventViz15_DB_MySQLAccess;
 import jsonGeneration.JsonResultGenerator;
@@ -18,6 +19,7 @@ import views.html.index;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.LinkedList;
+import java.util.List;
 
 public class Application extends Controller {
 
@@ -49,6 +51,19 @@ public class Application extends Controller {
         JsonObject model_JSON = JsonResultGenerator.getEventById_JSON(model);
         return ok(model_JSON.toString());
     }
+
+    public static Result getEvents() {
+        List<EventVizEventBasics> events = null;
+        try {
+            events = EventViz15_DB_MySQLAccess.getEvents();
+        } catch (SQLException e) {
+            return ok("");
+        }
+        JsonArray events_JSON = JsonResultGenerator.getEvents_JSON(events);
+
+        return ok(ClusteringUtil.getEventJsonNode(events_JSON));
+    }
+
 
     public static Result getSentiment(String terms, String location) {
         JsonArray jso = (JsonArray) new JsonParser().parse(terms);
