@@ -35,7 +35,8 @@ public abstract class JobBasedCrawler extends CrawlerBase {
 	{
 		WorkerJobBase job = null;
 		
-		do {
+		ThreadMonitor.addThread(Thread.currentThread(), getClass().getName() + "::WorkerThd");
+		while (true) {
 			try {
 				job = workerJobs.take();
 				//No further worker jobs exist
@@ -43,6 +44,7 @@ public abstract class JobBasedCrawler extends CrawlerBase {
 					workerJobs.put(job);
 					DebugUtils.printDebugInfo("Worker thread ... Done", 
 						JobBasedCrawler.this.getClass(), JobBasedCrawler.class);
+					return;
 				}
 				else
 					processWorkerJob(job);
@@ -53,7 +55,6 @@ public abstract class JobBasedCrawler extends CrawlerBase {
 					JobBasedCrawler.this.getClass(), JobBasedCrawler.class);
 			}
 		} 
-		while (!job.done);
 	}
 	
 	public void execute()
@@ -66,6 +67,7 @@ public abstract class JobBasedCrawler extends CrawlerBase {
 
 		DebugUtils.printDebugInfo("Crawler started...", getClass(), JobBasedCrawler.class);
 		started();
+		ThreadMonitor.addThread(Thread.currentThread());
 		try {
 			nextJob = getNextWorkerJob(null);
 			//Keep filling queue with worker jobs until no more jobs exist
@@ -84,6 +86,7 @@ public abstract class JobBasedCrawler extends CrawlerBase {
 			exceptionThrown = true;
 		}
 		finally {
+			ThreadMonitor.removeThread(Thread.currentThread());
 			try {
 				workerJobs.put(new WorkerJobBase(true));
 			} catch (InterruptedException e1) {}

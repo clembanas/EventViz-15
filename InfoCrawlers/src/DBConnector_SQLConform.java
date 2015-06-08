@@ -186,7 +186,7 @@ public abstract class DBConnector_SQLConform extends DBConnector {
 	protected String getStmtUpdateCity() 
 	{
 		return "UPDATE Cities " +
-				   "SET region = ?, country = ?, latitude = ?, longitude = ?, " +
+				   "SET region = ?, country = ?, longitude = ?, latitude = ?, " +
 				   "    dbpedia_res_city = ?, dbpedia_res_region = ?, dbpedia_res_country = ?, " +
 				   "    city_crawler_ts = ? WHERE id = ?";
 	}

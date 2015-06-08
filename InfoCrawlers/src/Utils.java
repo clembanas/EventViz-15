@@ -128,7 +128,7 @@ public class Utils {
 	{
 		StringBuilder strBuilder = new StringBuilder(derivedClass.getName());
 		
-		if (baseClass != null && baseClass != derivedClass) {
+		if (baseClass != null && !baseClass.equals(derivedClass)) {
 			strBuilder.append("[~");
 			strBuilder.append(baseClass.getName());
 			strBuilder.append("]");
@@ -136,6 +136,18 @@ public class Utils {
 		if (subClass != null) {
 			strBuilder.append("::");
 			strBuilder.append(subClass.getName());
+		}
+		return strBuilder.toString();
+	}
+	
+	public static String stackTraceToString(StackTraceElement[] stackTraceElems)
+	{
+		StringBuilder strBuilder = new StringBuilder();
+		
+		for (StackTraceElement elem: stackTraceElems) {
+			if (strBuilder.length() > 0)
+				strBuilder.append("\n");
+			strBuilder.append(elem.toString());
 		}
 		return strBuilder.toString();
 	}

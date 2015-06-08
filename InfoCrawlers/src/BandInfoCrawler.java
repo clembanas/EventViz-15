@@ -152,7 +152,7 @@ public class BandInfoCrawler extends SparqlBasedCrawler {
 																	   RESPROP_ALT_ARTIST);
 					
 					if (altName == null)
-						altName = getResourceName(queryContext, 
+						altName = props == null ? null : getResourceName(queryContext, 
 									  props.getHead(RESPROP_ALT_ARTIST));
 					name = props.getHeadAsLiteral(RESPROP_NAME);
 					if (name != null)

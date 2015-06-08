@@ -115,8 +115,8 @@ public class EventfulCrawler extends JobBasedCrawler {
 		if (DebugUtils.canDebug(EventfulCrawler.class)) {
 			dbgInfo = "Processing " + events.size() + " events on page " + srchRes.getPageNumber() + 
 						  " (" + (MAX_PAGE_SIZE * (srchRes.getPageNumber() - 1) + events.size()) + 
-						  "/" + Math.min(srchRes.getTotalItems(), MAX_PAGE_SIZE * MAX_PAGES) + "; ~" + 
-						  srchRes.getTotalItems() + " events on " + srchRes.getPageCount() + 
+						  "/" + Math.min(srchRes.getTotalItems(), MAX_PAGE_SIZE * MAX_PAGES) + 
+						  "; ~" + srchRes.getTotalItems() + " events on " + srchRes.getPageCount() + 
 						  " pages available) ...";
 			DebugUtils.printDebugInfo(dbgInfo, EventfulCrawler.class);
 		}
@@ -149,11 +149,11 @@ public class EventfulCrawler extends JobBasedCrawler {
 	{
 		super.finished(exceptionThrown);
 		DebugUtils.printDebugInfo("\nSummary of added data:\n   Events: " + statistics[0].get() + 
-			"\n   Cities: " + statistics[1].get() + "\n   Locations: " +	statistics[2].get() + 
+			"\n   Cities: " + statistics[2].get() + "\n   Locations: " +	statistics[1].get() + 
 			"\n   Bands: " + statistics[3].get() + "\n", EventfulCrawler.class);
 		dbConnector.logCrawlerFinished(EventfulCrawler.class, "Added events: " + 
-			statistics[0].get() + "; Added cities: " + statistics[1].get() + "; Added locations: " + 
-			statistics[2].get() + "; Added bands: " + statistics[3].get());
+			statistics[0].get() + "; Added cities: " + statistics[2].get() + "; Added locations: " + 
+			statistics[1].get() + "; Added bands: " + statistics[3].get());
 		statistics = null;
 	}
 	

@@ -41,6 +41,21 @@ public class CrawlerConfig {
 	{	
 		return Boolean.valueOf(props.getProperty("debug.database.results"));
 	}
+	
+	public static boolean canDbgRemoteObjMgr()
+	{	
+		return Boolean.valueOf(props.getProperty("debug.remote_obj_mgr"));
+	}
+
+	public static boolean canDbgRemObjMgrConnection()
+	{	
+		return Boolean.valueOf(props.getProperty("debug.remote_obj_mgr.connection"));
+	}
+
+	public static boolean canDbgRemObjMgrRemoteObject()
+	{	
+		return Boolean.valueOf(props.getProperty("debug.remote_obj_mgr.remote_object"));
+	}
 
 	public static boolean canDbgSparql()
 	{	
@@ -106,6 +121,26 @@ public class CrawlerConfig {
 	{	
 		return Boolean.valueOf(props.getProperty("debug.crawler.band_infos"));
 	}
+	
+	public static int getDbgThdMonitorInterval()
+	{
+		return Integer.valueOf(props.getProperty("debug.thread_monitor.interval"));
+	}
+	
+	public static int getDbgWarnNoThdProgressTime()
+	{
+		return Integer.valueOf(props.getProperty("debug.thread_monitor.warn_no_thd_progress"));
+	}
+	
+	public static int getDbgThdLivenessInfoInterval()
+	{
+		return Integer.valueOf(props.getProperty("debug.thread_monitor.thd_liveness_info"));
+	}
+	
+	public static int getDbgRuntimeInfoInterval()
+	{
+		return Integer.valueOf(props.getProperty("debug.thread_monitor.runtime_info"));
+	}
 
 	@SuppressWarnings("deprecation")
 	public static Class<? extends DBConnector> getDBConnectorClass()
@@ -119,6 +154,11 @@ public class CrawlerConfig {
 		if (connClassName.equalsIgnoreCase(DBConnector_Impala.class.getName()))
 			return DBConnector_Impala.class;
 		throw new IllegalArgumentException("Unknown connector class '" + connClassName + "'!");
+	}
+	
+	public static int getRemoteObjMgrPort() 
+	{
+		return Integer.valueOf(props.getProperty("remote_obj_mgr.port"));
 	}
 
 	public static int getEventfulCrawlerMaxDays()
