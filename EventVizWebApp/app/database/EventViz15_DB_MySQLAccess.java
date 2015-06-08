@@ -46,8 +46,8 @@ public class EventViz15_DB_MySQLAccess {
 		String cityName = rs.getString("cityName");
 		String region = rs.getString("region");
 		String country = rs.getString("country");
-		float latitude = rs.getFloat("latitude");
-		float longitude = rs.getFloat("longitude");
+		double latitude = rs.getDouble("latitude");
+		double longitude = rs.getDouble("longitude");
 		String dbpedia_res_city = rs.getString("dbpedia_res_city");
 		String dbpedia_res_region = rs.getString("dbpedia_res_region");
 		String dbpedia_res_country = rs.getString("dbpedia_res_country");
@@ -114,8 +114,8 @@ public class EventViz15_DB_MySQLAccess {
 		while(rs.next()) {
 			long id = rs.getLong("id");
 			String name = rs.getString("name");
-			float latitude = rs.getFloat("latitude");
-			float longitude = rs.getFloat("longitude");
+			double latitude = rs.getDouble("latitude");
+			double longitude = rs.getDouble("longitude");
 			events.add(new EventVizEventBasics(id, name, latitude, longitude));
 		}
 		rs.close();

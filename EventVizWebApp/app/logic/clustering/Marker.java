@@ -1,13 +1,16 @@
 package logic.clustering;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Marker extends LocationProxy implements IMarker, Serializable {
 	private static final long serialVersionUID = -2795057827017912992L;
 	private MarkerCluster parent = null;
-	private long id = -1;
-	private String name = "";
+	private List<Long> ids = new ArrayList<Long>();
 	
+
+
 	// just for serialization
 	public Marker()
 	{
@@ -16,10 +19,17 @@ public class Marker extends LocationProxy implements IMarker, Serializable {
 
 	public Marker(ILocation realSubject) {
 		super(realSubject);
-		id = realSubject.getId();
-		name = realSubject.getName();
+		this.addId(realSubject.getId());
+	}
+	public List<Long> getIds() {
+		return ids;
 	}
 
+	public void setIds(List<Long> ids) {
+		this.ids = ids;
+	}
+	
+	
 	@Override
 	public void setParent(MarkerCluster parent) {
 		this.parent = parent;
@@ -29,13 +39,9 @@ public class Marker extends LocationProxy implements IMarker, Serializable {
 	public MarkerCluster getParent() {
 		return this.parent;
 	}
-
-	@Override
-	public long getId(){
-		return this.id;
-	}
 	
-	public String getName(){
-		return this.name;
+	
+	public void addId(long id) {
+		this.ids.add(id);
 	}
 }

@@ -5,13 +5,13 @@ public class EventVizCity {
 	private String name;
 	private String region;
 	private String country;
-	private float latitude;
-	private float longitude;
+	private double latitude;
+	private double longitude;
 	private String dbpedia_res_city;
 	private String dbpedia_res_region;
 	private String dbpedia_res_country;
 
-    public EventVizCity(int id, String name, String region, String country, float latitude, float longitude, String dbpedia_res_city, String dbpedia_res_region, String dbpedia_res_country) {
+    public EventVizCity(int id, String name, String region, String country, double latitude, double longitude, String dbpedia_res_city, String dbpedia_res_region, String dbpedia_res_country) {
         this.id = id;
         this.name = name;
         this.region = region;
@@ -55,19 +55,19 @@ public class EventVizCity {
         this.country = country;
     }
 
-    public float getLatitude() {
+    public double getLatitude() {
         return latitude;
     }
 
-    public void setLatitude(float latitude) {
+    public void setLatitude(double latitude) {
         this.latitude = latitude;
     }
 
-    public float getLongitude() {
+    public double getLongitude() {
         return longitude;
     }
 
-    public void setLongitude(float longitude) {
+    public void setLongitude(double longitude) {
         this.longitude = longitude;
     }
 
