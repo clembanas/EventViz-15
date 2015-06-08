@@ -322,7 +322,6 @@ function clickMarker(marker){
 	};
 	var loadingDiv = document.getElementById("socialLoading");
 	var spinner = new Spinner(opts).spin(loadingDiv);
-	console.log(options);
 	$("#socialInfoP").html("Sentiment data is processed");
 	$.getJSON( "/getEventById", { id : options.ids[0] }).done(function(result){
 		console.log(result);
@@ -342,73 +341,74 @@ function clickMarker(marker){
 		if($.inArray(word, terms ) == -1){				
 			terms.push(word);
 		}
-		console.log(JSON.stringify(terms));
 		$.getJSON( "/getSentiment", { terms: JSON.stringify(terms), location: replaceCharacters(currentEvent.location.cityName) } ).done(function(result){
 			$("#socialInfoP").html("Sentiment data");
 			$("#socialLoading").css("visibility", "hidden");					
-			$("#socialChart").css("visibility", "visible");			
-			$("#socialResult").css("visibility", "visible");
-			$("#socialResult").empty();
-
-			$("#socialResult").append($("<div class=socialDescBig>").append($("<p>").text("Passion:")));
-			$("#socialResult").append($("<div class=socialEntryBig>").append($("<p id=socialPassion>").text(result.score_passion)));
-
-			$("#socialResult").append($("<div class=socialDescBig>").append($("<p>").text("Reach:")));
-			$("#socialResult").append($("<div class=socialEntryBig>").append($("<p id=socialReach>").text(result.score_reach)));
-
-			$("#socialResult").append($("<div class=socialDescBig>").append($("<p>").text("Sentiment:")));
-			$("#socialResult").append($("<div class=socialEntryBig>").append($("<p id=socialSentiment>").text(result.score_sentiment)));
-
-			$("#socialResult").append($("<div class=socialDescBig>").append($("<p>").text("Strength:")));
-			$("#socialResult").append($("<div class=socialEntryBig>").append($("<p id=socialStrength>").text(result.score_strength)));
-
-			$("#socialResult").append($("<div class=socialDescBig>").append($("<p>").text("Keywords:")));
-			if(result.keywords.length != 0){
-				$("#socialResult").append($("<div class=socialEntryBig>").append($("<p>").text(result.keywords[0].keyword + "\t" + result.keywords[0].occurance)));
-				for(var i = 1; i < result.keywords.length; i++){
-					$("#socialResult").append($("<div class=socialDesc>"));
-					$("#socialResult").append($("<div class=socialEntry>").append($("<p>").text(result.keywords[i].keyword + "\t" + result.keywords[i].occurance)));
+			if(!$.isEmptyObject(result)){
+				$("#socialChart").css("visibility", "visible");			
+				$("#socialResult").css("visibility", "visible");
+				$("#socialResult").empty();
+				
+				$("#socialResult").append($("<div class=socialDescBig>").append($("<p>").text("Passion:")));
+				$("#socialResult").append($("<div class=socialEntryBig>").append($("<p id=socialPassion>").text(result.score_passion)));
+				
+				$("#socialResult").append($("<div class=socialDescBig>").append($("<p>").text("Reach:")));
+				$("#socialResult").append($("<div class=socialEntryBig>").append($("<p id=socialReach>").text(result.score_reach)));
+				
+				$("#socialResult").append($("<div class=socialDescBig>").append($("<p>").text("Sentiment:")));
+				$("#socialResult").append($("<div class=socialEntryBig>").append($("<p id=socialSentiment>").text(result.score_sentiment)));
+				
+				$("#socialResult").append($("<div class=socialDescBig>").append($("<p>").text("Strength:")));
+				$("#socialResult").append($("<div class=socialEntryBig>").append($("<p id=socialStrength>").text(result.score_strength)));
+				
+				$("#socialResult").append($("<div class=socialDescBig>").append($("<p>").text("Keywords:")));
+				if(result.keywords.length != 0){
+					$("#socialResult").append($("<div class=socialEntryBig>").append($("<p>").text(result.keywords[0].keyword + "\t" + result.keywords[0].occurance)));
+					for(var i = 1; i < result.keywords.length; i++){
+						$("#socialResult").append($("<div class=socialDesc>"));
+						$("#socialResult").append($("<div class=socialEntry>").append($("<p>").text(result.keywords[i].keyword + "\t" + result.keywords[i].occurance)));
+					}
+				}else{
+					$("#socialResult").append($("<div class=socialEntryBig>").append($("<p>").text("No keywords found.")));
 				}
-			}else{
-				$("#socialResult").append($("<div class=socialEntryBig>").append($("<p>").text("No keywords found.")));
-			}
-			
-			$("#socialResult").append($("<div class=socialDescBig>").append($("<p>").text("Hashtags:")));
-			if(result.hashtags.length != 0){
-				$("#socialResult").append($("<div class=socialEntryBig>").append($("<p>").text(result.hashtags[0].hashtag + "\t" + result.hashtags[0].occurance)));
-				for(var i = 1; i < result.hashtags.length; i++){
-					$("#socialResult").append($("<div class=socialDesc>"));
-					$("#socialResult").append($("<div class=socialEntry>").append($("<p>").text(result.hashtags[i].hashtag + "\t" + result.hashtags[i].occurance)));
+				
+				$("#socialResult").append($("<div class=socialDescBig>").append($("<p>").text("Hashtags:")));
+				if(result.hashtags.length != 0){
+					$("#socialResult").append($("<div class=socialEntryBig>").append($("<p>").text(result.hashtags[0].hashtag + "\t" + result.hashtags[0].occurance)));
+					for(var i = 1; i < result.hashtags.length; i++){
+						$("#socialResult").append($("<div class=socialDesc>"));
+						$("#socialResult").append($("<div class=socialEntry>").append($("<p>").text(result.hashtags[i].hashtag + "\t" + result.hashtags[i].occurance)));
+					}
+				}else{
+					$("#socialResult").append($("<div class=socialEntryBig>").append($("<p>").text("No hashtags found.")));
 				}
-			}else{
-				$("#socialResult").append($("<div class=socialEntryBig>").append($("<p>").text("No hashtags found.")));
+				
+				var totalSentiment = result.sentiment.positive + result.sentiment.negative;
+				
+				
+				var chart = new Highcharts.Chart({
+					chart: {
+						plotBackgroundColor: null,
+						plotBorderWidth: null,
+						plotShadow: false,
+						renderTo: 'socialChart'
+					},
+					title: {
+						text: 'Sentiment'
+					},
+					tooltip: {
+						pointFormat: '{series.name}: <b>{point.percentage:.1f}%</b>'
+					},
+					series: [{
+						type: 'pie',
+						name: 'Sentiment',
+						data: [
+						       ['positive',   result.sentiment.positive / totalSentiment * 100],
+						       ['negative',       result.sentiment.negative / totalSentiment * 100]
+						       ]
+					}]
+				});
 			}
-			
-			var totalSentiment = result.sentiment.positive + result.sentiment.negative;
-			
-			
-			var chart = new Highcharts.Chart({
-				chart: {
-		            plotBackgroundColor: null,
-		            plotBorderWidth: null,
-		            plotShadow: false,
-		            renderTo: 'socialChart'
-		        },
-		        title: {
-		            text: 'Sentiment'
-		        },
-		        tooltip: {
-		            pointFormat: '{series.name}: <b>{point.percentage:.1f}%</b>'
-		        },
-		        series: [{
-		            type: 'pie',
-		            name: 'Sentiment',
-		            data: [
-			                ['positive',   result.sentiment.positive / totalSentiment * 100],
-			                ['negative',       result.sentiment.negative / totalSentiment * 100]
-			            ]
-		        }]
-			});
 
 		});
 	})

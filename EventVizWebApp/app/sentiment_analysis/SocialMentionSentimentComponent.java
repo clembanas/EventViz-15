@@ -35,7 +35,11 @@ public class SocialMentionSentimentComponent {
 		Document htmlContent = null;
 		while (test_element == null) {
 			htmlContent = Jsoup.connect(url).timeout(100 * 1000).userAgent("Mozilla").ignoreContentType(true).followRedirects(true).get();
-			test_element = htmlContent.getElementById("score_strength");
+			test_element = htmlContent.getElementById("logo");
+		}
+		test_element = htmlContent.getElementById("score_strength");
+		if(test_element == null){
+			return null;
 		}
 		sentimentData = SocialMentionParser.parseHTMLContent(htmlContent);
 		return sentimentData;

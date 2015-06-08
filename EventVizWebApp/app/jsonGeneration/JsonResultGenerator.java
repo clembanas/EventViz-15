@@ -87,6 +87,9 @@ public class JsonResultGenerator {
 
 	public static JsonObject getSocialMentionSentiment_JSON(SocialMentionData sentimentAnalysisResult){
 		JsonObject jsonResult = new JsonObject();
+		if(sentimentAnalysisResult == null){
+			return jsonResult;
+		}
 		jsonResult.addProperty("score_strength", sentimentAnalysisResult.getScore_strength());
 		jsonResult.addProperty("score_sentiment", sentimentAnalysisResult.getScore_sentiment());
 		jsonResult.addProperty("score_passion", sentimentAnalysisResult.getScore_passion());
