@@ -74,7 +74,6 @@ public class Application extends Controller {
 
     public static Result getSentiment(String terms, String location) {
         JsonArray jso = (JsonArray) new JsonParser().parse(terms);
-        System.out.println(jso.get(0));
         LinkedList<String> list = new LinkedList<String>();
         for (int i = 0; i < jso.size(); i++) {
             list.add(jso.get(i).toString());
