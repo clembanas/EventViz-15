@@ -2,6 +2,9 @@ var map;
 var showInfo = false;
 var hoverCountry = null;
 var onGreyLayer = false;
+var markersTree = null;
+var visibleMarkers = [];
+var visibleClusters = [];
 
 //set icons for events
 var redIconHover = L.icon({
@@ -90,6 +93,14 @@ function isMarkerVisible(marker){
 }
 
 function updateFloatingInfobox(){
+	var start =  new Date().getTime();
+	$.when(checkIfMarkersVisible(markersTree)).then(function(){
+		var end =  new Date().getTime();
+		var time = end - start;
+		console.log("Time: " + time);
+		console.log(visibleMarkers.length);
+		console.log(visibleClusters.length);
+	});
 	$("#floatingList").empty();				
 	for(var i = 0; i<currentMarkers.length; i++){
 		if(isMarkerVisible(currentMarkers[i])){
@@ -115,6 +126,35 @@ function updateFloatingInfobox(){
 					}
 				}
 			});
+		}
+	}
+}
+
+function checkIfMarkersVisible(markers){
+	visibleMarkers = [];
+	visibleClusters = [];
+	iterateMarkers(markers);
+}
+
+function iterateMarkers(tmpMarkers){
+	if(tmpMarkers._zoom  < map._zoom){
+		for(var i = 0; i < tmpMarkers._childClusters.length; i++){
+			iterateMarkers(tmpMarkers._childClusters[i]);
+		}
+		for(var i =0; i < tmpMarkers._markers.length; i++){
+			if(isMarkerVisible(tmpMarkers._markers[i])){
+				visibleMarkers.push(tmpMarkers._markers[i]);
+			}
+		}
+	}
+	else{
+		if(isMarkerVisible(tmpMarkers)){
+			visibleClusters.push(tmpMarkers);
+		}
+		for(var i =0; i < tmpMarkers._markers.length; i++){
+			if(isMarkerVisible(tmpMarkers._markers[i])){
+				visibleMarkers.push(tmpMarkers._markers[i]);
+			}
 		}
 	}
 }
@@ -756,11 +796,13 @@ $(document).ready(function(){
 		}
 	});
 	
-	map.on("moveend", function(e){
+	map.on("dragend", function(e){
 		if($("#floatingInfo").css("visibility") == "visible"){
 			updateFloatingInfobox();
 		}
 	});
+	
+	
 	
 	//addCountries();
 	$.ajax({ // ajax call starts
@@ -768,6 +810,7 @@ $(document).ready(function(){
 	    dataType: 'json', // Choosing a JSON datatype
 	}).done(function(data) { // Variable data contains the data we get from serverside
 		console.log(data);
+		markersTree = data;
 		var tree = data;
 		//var tree = tmp;
 		// new 
