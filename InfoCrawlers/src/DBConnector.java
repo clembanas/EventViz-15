@@ -438,7 +438,7 @@ public abstract class DBConnector {
 			insertBandMember(bandID, artistID, memberType);
 	}
 	
-	public void createTables(boolean dropExisting) throws Exception
+	public synchronized void createTables(boolean dropExisting) throws Exception
 	{
 		Statement stmt = dbConn.createStatement();
 		
@@ -489,25 +489,29 @@ public abstract class DBConnector {
 		return queryPagingSupported();
 	}
 	
-	public void logException(final String classPath, final long threadID, final String info, 
-		final Exception e, final String stackTrace) throws Exception
+	public synchronized void logException(final String classPath, final long threadID, 
+		final String info, final Exception e, final String stackTrace) throws Exception
 	{
-		executeUpdate(getStmtLogException(), new Timestamp(System.currentTimeMillis()), 
-			trimAndTrunc(hostname, MAX_LEN_CRAWLER_EXCEPT_LOG_HOST), threadID,
-			trimAndTrunc(classPath, MAX_LEN_CRAWLER_EXCEPT_LOG_CLASS_PATH), 
-			trimAndTrunc(info, MAX_LEN_CRAWLER_EXCEPT_LOG_INFO),
-			trimAndTrunc(e.getMessage(), MAX_LEN_CRAWLER_EXCEPT_LOG_MSG),
-			trimAndTrunc(e.getClass().getName(), MAX_LEN_CRAWLER_EXCEPT_LOG_CLASS),
-			trimAndTrunc(stackTrace, MAX_LEN_CRAWLER_EXCEPT_LOG_STACK));
+		if (isConnected()) {
+			executeUpdate(getStmtLogException(), new Timestamp(System.currentTimeMillis()), 
+				trimAndTrunc(hostname, MAX_LEN_CRAWLER_EXCEPT_LOG_HOST), threadID,
+				trimAndTrunc(classPath, MAX_LEN_CRAWLER_EXCEPT_LOG_CLASS_PATH), 
+				trimAndTrunc(info, MAX_LEN_CRAWLER_EXCEPT_LOG_INFO),
+				trimAndTrunc(e.getMessage(), MAX_LEN_CRAWLER_EXCEPT_LOG_MSG),
+				trimAndTrunc(e.getClass().getName(), MAX_LEN_CRAWLER_EXCEPT_LOG_CLASS),
+				trimAndTrunc(stackTrace, MAX_LEN_CRAWLER_EXCEPT_LOG_STACK));
+		}
 	}
 	
-	public void logDebugInfo(final String classPath, final long threadID, final String info) 
-		throws Exception
+	public synchronized void logDebugInfo(final String classPath, final long threadID, 
+		final String info) throws Exception
 	{
-		executeUpdate(getStmtLogDebugInfo(), new Timestamp(System.currentTimeMillis()), 
-			trimAndTrunc(hostname, MAX_LEN_CRAWLER_DEBUG_LOG_HOST), threadID,
-			trimAndTrunc(classPath, MAX_LEN_CRAWLER_DEBUG_LOG_CLASS_PATH), 
-			trimAndTrunc(info, MAX_LEN_CRAWLER_DEBUG_LOG_INFO));
+		if (isConnected()) {
+			executeUpdate(getStmtLogDebugInfo(), new Timestamp(System.currentTimeMillis()), 
+				trimAndTrunc(hostname, MAX_LEN_CRAWLER_DEBUG_LOG_HOST), threadID,
+				trimAndTrunc(classPath, MAX_LEN_CRAWLER_DEBUG_LOG_CLASS_PATH), 
+				trimAndTrunc(info, MAX_LEN_CRAWLER_DEBUG_LOG_INFO));
+		}
 	}
 	
 	public synchronized void logCrawlerStarted(Class<? extends CrawlerBase> crawlerClass) 
@@ -557,8 +561,9 @@ public abstract class DBConnector {
 		}
 	}
 	
-	public Utils.Pair<PrimaryKey, Boolean> insertEvent(String name, String desc, String type, 
-		Date startTime, Date stopTime, String eventfulID, PrimaryKey locationID) throws Exception
+	public synchronized Utils.Pair<PrimaryKey, Boolean> insertEvent(String name, String desc, 
+		String type, Date startTime, Date stopTime, String eventfulID, PrimaryKey locationID) 
+		throws Exception
 	{
 		try {
 			beginUpdate();
@@ -587,7 +592,8 @@ public abstract class DBConnector {
 		}
 	}
 	
-	public void insertEventPerformer(PrimaryKey eventID, PrimaryKey bandID)	throws Exception
+	public synchronized void insertEventPerformer(PrimaryKey eventID, PrimaryKey bandID)	
+		throws Exception
 	{
 		try {
 			beginUpdate();
@@ -603,15 +609,15 @@ public abstract class DBConnector {
 		}
 	}
 	
-	protected int getIncompleteBandsCount(int dbUpdateInterval) throws Exception
+	public synchronized  int getIncompleteBandsCount(int dbUpdateInterval) throws Exception
 	{
 		ResultSet resSet = executeQuery(getStmtIncompleteBandsCount(), 
 							   new Timestamp(System.currentTimeMillis()), dbUpdateInterval);
 		return resSet.next() ? resSet.getInt(1) : 0; 
 	}
 	
-	public ResultSet getIncompleteBands(int dbUpdateInterval, int pageIdx, int pageSize) 
-		throws Exception
+	public synchronized ResultSet getIncompleteBands(int dbUpdateInterval, int pageIdx, 
+		int pageSize) throws Exception
 	{
 		if (queryPagingSupported())
 			return executeQuery(getStmtIncompleteBands(), new Timestamp(System.currentTimeMillis()),
@@ -620,7 +626,7 @@ public abstract class DBConnector {
 				   dbUpdateInterval);
 	}
 	
-	public Utils.Pair<PrimaryKey, Boolean> insertBand(String name) throws Exception
+	public synchronized Utils.Pair<PrimaryKey, Boolean> insertBand(String name) throws Exception
 	{
 		try {
 			beginUpdate();
@@ -646,7 +652,7 @@ public abstract class DBConnector {
 		}
 	}
 	
-	public void updateBand(PrimaryKey bandID, String bandResID) throws Exception
+	public synchronized void updateBand(PrimaryKey bandID, String bandResID) throws Exception
 	{
 		try {
 			beginUpdate();
@@ -666,13 +672,13 @@ public abstract class DBConnector {
 		}
 	}
 	
-	public void updateBandCrawlerTS()
+	public synchronized void updateBandCrawlerTS()
 	{
 		updateCrawlerTS(getStmtUpdateBandTS());
 	}
 	
-	public void insertBandArtist(PrimaryKey bandID, String name, String altName, char memberType, 
-		String resID) throws Exception
+	public synchronized void insertBandArtist(PrimaryKey bandID, String name, String altName,
+		char memberType, String resID) throws Exception
 	{
 		PrimaryKey artistID;
 		
@@ -698,15 +704,15 @@ public abstract class DBConnector {
 		}
 	}
 	
-	protected int getIncompleteCitiesCount(int dbUpdateInterval) throws Exception
+	public synchronized int getIncompleteCitiesCount(int dbUpdateInterval) throws Exception
 	{
 		ResultSet resSet = executeQuery(getStmtIncompleteCitiesCount(), 
 							   new Timestamp(System.currentTimeMillis()), dbUpdateInterval);
 		return resSet.next() ? resSet.getInt(1) : 0; 
 	}
 	
-	public ResultSet getIncompleteCities(int dbUpdateInterval, int pageIdx, int pageSize) 
-		throws Exception
+	public synchronized ResultSet getIncompleteCities(int dbUpdateInterval, int pageIdx, 
+		int pageSize) throws Exception
 	{
 		if (queryPagingSupported())
 			return executeQuery(getStmtIncompleteCities(),  
@@ -716,8 +722,8 @@ public abstract class DBConnector {
 				   dbUpdateInterval);
 	}
 	
-	public Utils.Pair<PrimaryKey, Boolean> insertCity(String name, String region, String country) 
-		throws Exception
+	public synchronized Utils.Pair<PrimaryKey, Boolean> insertCity(String name, String region, 
+		String country) throws Exception
 	{
 		try {
 			beginUpdate();
@@ -760,8 +766,9 @@ public abstract class DBConnector {
 		}
 	}
 	
-	public void updateCity(PrimaryKey cityID, float latitude, float longitude, String regName,	
-		String ctryName, String cityResID, String regResID, String ctryResID) throws Exception
+	public synchronized void updateCity(PrimaryKey cityID, float latitude, float longitude, 
+		String regName,	String ctryName, String cityResID, String regResID, String ctryResID) 
+		throws Exception
 	{
 		try {
 			beginUpdate();
@@ -779,13 +786,13 @@ public abstract class DBConnector {
 		}
 	}
 	
-	public void updateCityCrawlerTS()
+	public synchronized void updateCityCrawlerTS()
 	{
 		updateCrawlerTS(getStmtUpdateCityTS());
 	}
 
-	public Utils.Pair<PrimaryKey, Boolean> insertLocation(String name, double longitude, 
-		double latitude, PrimaryKey cityID) throws Exception
+	public synchronized Utils.Pair<PrimaryKey, Boolean> insertLocation(String name, 
+		double longitude, double latitude, PrimaryKey cityID) throws Exception
 	{
 		try {
 			beginUpdate();

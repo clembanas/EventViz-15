@@ -267,10 +267,8 @@ public class DebugUtils {
 				Thread.currentThread().getId() + ")]: " + info);
 			if (canLog) {
 				try {
-					DBConnector dbConn = DBConnector.getInstance();
-					
-					if (dbConn.isConnected())
-						dbConn.logDebugInfo(classPath, Thread.currentThread().getId(), info);
+					DBConnector.getInstance().logDebugInfo(classPath, 
+						Thread.currentThread().getId(), info);
 				}
 				catch (Exception e1) {}
 			}

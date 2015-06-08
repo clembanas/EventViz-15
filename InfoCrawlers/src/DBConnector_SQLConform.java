@@ -124,7 +124,7 @@ public abstract class DBConnector_SQLConform extends DBConnector {
 	{
 		if (tsOnly)
 			return "UPDATE Bands SET band_crawler_ts = ? WHERE id = ?";
-		return "UPDATE bands SET dbpedia_resource = ?, band_crawler_ts = ? WHERE id = ?";
+		return "UPDATE Bands SET dbpedia_resource = ?, band_crawler_ts = ? WHERE id = ?";
 	}
 	
 	protected String getStmtBandMemberExists()
