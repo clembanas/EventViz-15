@@ -185,7 +185,6 @@
             } else {
                 this._tree = treeArray;
             }
-
             return this;
         },
 
@@ -230,34 +229,31 @@
         _addRecursiveMarius: function (parent, node) {
             if (node._childClusters.length > 0) {
                 var newCluster = new L.MarkerCluster(this, node._zoom);
-
-                for (var i = 0; i < node._childClusters.length; i++) {
-                    var child = node._childClusters[i];
-                    this._addRecursiveMarius(newCluster, child);
-                }
-
-                parent._addChild(newCluster);
-                newCluster.__parent = parent;
-
-                newCluster._childCount = node._childCount;
-
-                
-                //newCluster._cLatLng = node._cLatLng == undefined ? undefined : new L.LatLng(node._cLatLng.lat, node._cLatLng.lng);
-                newCluster._latlng = node._latlng == undefined ? undefined : new L.LatLng(node._latlng.lat, node._latlng.lng);
-                //newCluster._wLatLang = node._wLatLang == undefined ? undefined : new L.LatLng(node._wLatLang.lat, node._wLatLang.lng);
-                newCluster._zoom = node._zoom;
+            	for (var i = 0; i < node._childClusters.length; i++) {
+            		var child = node._childClusters[i];
+            		this._addRecursiveMarius(newCluster, child);
+            	}
+            	parent._addChild(newCluster);
+            	newCluster.__parent = parent;
+            	
+            	newCluster._childCount = node._childCount;
+            	
+            	
+            	//newCluster._cLatLng = node._cLatLng == undefined ? undefined : new L.LatLng(node._cLatLng.lat, node._cLatLng.lng);
+            	newCluster._latlng = node._latlng == undefined ? undefined : new L.LatLng(node._latlng.lat, node._latlng.lng);
+            	//newCluster._wLatLang = node._wLatLang == undefined ? undefined : new L.LatLng(node._wLatLang.lat, node._wLatLang.lng);
+            	newCluster._zoom = node._zoom;
             }
             
             this._addMarkersMarius(parent, node);
-        }
-        ,
+        },
         
         _addMarkersMarius: function (parent, node) {
         	if (node._markers.length > 0) {
-
+        		
                 for (var i = 0; i < node._markers.length; i++) {
                     var child = node._markers[i];
-                    var marker = L.marker(L.latLng(child._latlng.lat, child._latlng.lng), { ids: child._latlng.ids });
+                    var marker = L.marker(L.latLng(child._latlng.lat, child._latlng.lng), { ids: child._latlng.ids});
                     marker.on('click', clickMarker);
                     
 

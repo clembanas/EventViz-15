@@ -92,6 +92,14 @@ function isMarkerVisible(marker){
 	return isInCoordinates(coordinates, marker._latlng.lng, marker._latlng.lat);
 }
 
+function isOverlapping(bounds){
+	var mapBounds = map.getBounds();
+	
+	return !(bounds._southWest.lat > mapBounds._northEast.lat ||bounds._southWest.lng > mapBounds._northEast.lng ||
+			bounds._northEast.lat < mapBounds._southWest.lat || bounds._northEast.lng < mapBounds._southWest.lng);
+	
+}
+
 function updateFloatingInfobox(){
 	var start =  new Date().getTime();
 	$.when(checkIfMarkersVisible(markersTree)).then(function(){
@@ -139,7 +147,9 @@ function checkIfMarkersVisible(markers){
 function iterateMarkers(tmpMarkers){
 	if(tmpMarkers._zoom  < map._zoom){
 		for(var i = 0; i < tmpMarkers._childClusters.length; i++){
-			iterateMarkers(tmpMarkers._childClusters[i]);
+			if(isOverlapping(tmpMarkers._bounds)){
+				iterateMarkers(tmpMarkers._childClusters[i]);
+			}
 		}
 		for(var i =0; i < tmpMarkers._markers.length; i++){
 			if(isMarkerVisible(tmpMarkers._markers[i])){
@@ -809,15 +819,12 @@ $(document).ready(function(){
 	    url: 'events', // JQuery loads serverside.php
 	    dataType: 'json', // Choosing a JSON datatype
 	}).done(function(data) { // Variable data contains the data we get from serverside
-		console.log(data);
-		markersTree = data;
-		var tree = data;
-		//var tree = tmp;
-		// new 
 		var markers = L.markerClusterGroup();
-		markers.addTree(tree);
+		markers.addTree(data);
+		//markersTree = markersTree._topClusterLevel;
 		//var map = L.map('map', { center: latlng, zoom: 2, layers: [tiles] });
-		map.addLayer(markers);
+		map.addLayer(markers);		
+		markersTree = map._layers[17]._topClusterLevel;
 	});
 	
 	
