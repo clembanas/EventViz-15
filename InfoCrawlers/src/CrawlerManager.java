@@ -137,6 +137,8 @@ public class CrawlerManager {
 	}
 	
 	
+	private static boolean headNodeMode;
+	private static Boolean running = new Boolean(true);
 	private static ExecutorService thdPool = Executors.newCachedThreadPool();
 	private static DBConnector dbConn = null;
 	private static Map<Class<? extends CrawlerBase>, CrawlerCtrlr> crawlerCtrlrs = 
@@ -167,35 +169,70 @@ public class CrawlerManager {
 			dependsOnCrawlers));
 	}
 	
-	public static void executeAll()
+	public static boolean start(boolean headNodeMode) throws Exception
 	{
+		CrawlerManager.headNodeMode = headNodeMode;
 		try {
-			CrawlerConfig.load();
 			dbConn = DBConnector.getInstance();
 			dbConn.connect();
-			for (CrawlerCtrlr crawlerCtrlr: crawlerCtrlrs.values()) 
-				crawlerCtrlr.start();
 		} 
 		catch (Exception e) {
 			ExceptionHandler.handle("Failed to connect to database!\n", e, CrawlerManager.class);
+			return false;
 		}
-		finally {
+		ThreadMonitor.start();
+		RemoteObjectManager.start(thdPool);
+		return true;
+	}
+	
+	public static void run()
+	{
+		//Current host is the distributed crawlers' head node
+		if (headNodeMode) {
+			for (CrawlerCtrlr crawlerCtrlr: crawlerCtrlrs.values()) 
+				crawlerCtrlr.start();
 			for (CrawlerCtrlr crawlerCtrlr: crawlerCtrlrs.values()) 
 				crawlerCtrlr.join();
-			try {
-				if (dbConn != null)
-					dbConn.disconnect();
-				dbConn = null;
-			}
-			catch (Exception e) {
-				ExceptionHandler.handle("Failed to disconnect from database!\n", e, 
-					CrawlerManager.class);
+		}
+		//Current host is a child node
+		else {
+			Runtime.getRuntime().addShutdownHook(new Thread() {
+				
+				public void run()
+				{
+					CrawlerManager.shutdown();
+				}
+			});
+			synchronized (running) {
+				while (running) {
+					try {
+						running.wait();
+					} 
+					catch (InterruptedException e) {}
+				}
 			}
 		}
 	}
 	
 	public static void shutdown()
 	{
+		synchronized (running) {
+			if (!running)
+				return;
+			running = false;
+			running.notifyAll();
+		}
+		try {
+			if (dbConn != null)
+				dbConn.disconnect();
+			dbConn = null;
+		}
+		catch (Exception e) {
+			ExceptionHandler.handle("Failed to disconnect from database!\n", e, 
+				CrawlerManager.class);
+		}
+		RemoteObjectManager.shutdown();
+		ThreadMonitor.shutdown();
 		thdPool.shutdown();
 		try {
 			thdPool.awaitTermination(Long.MAX_VALUE, TimeUnit.MINUTES);

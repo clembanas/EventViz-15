@@ -479,11 +479,6 @@ public abstract class DBConnector {
 		}
 	}
 	
-	public synchronized boolean isConnected() 
-	{
-		return dbConn != null;
-	}
-	
 	public boolean supportsQueryPaging()
 	{
 		return queryPagingSupported();
@@ -492,7 +487,7 @@ public abstract class DBConnector {
 	public synchronized void logException(final String classPath, final long threadID, 
 		final String info, final Exception e, final String stackTrace) throws Exception
 	{
-		if (isConnected()) {
+		if (dbConn != null) {
 			executeUpdate(getStmtLogException(), new Timestamp(System.currentTimeMillis()), 
 				trimAndTrunc(hostname, MAX_LEN_CRAWLER_EXCEPT_LOG_HOST), threadID,
 				trimAndTrunc(classPath, MAX_LEN_CRAWLER_EXCEPT_LOG_CLASS_PATH), 
@@ -506,7 +501,7 @@ public abstract class DBConnector {
 	public synchronized void logDebugInfo(final String classPath, final long threadID, 
 		final String info) throws Exception
 	{
-		if (isConnected()) {
+		if (dbConn != null) {
 			executeUpdate(getStmtLogDebugInfo(), new Timestamp(System.currentTimeMillis()), 
 				trimAndTrunc(hostname, MAX_LEN_CRAWLER_DEBUG_LOG_HOST), threadID,
 				trimAndTrunc(classPath, MAX_LEN_CRAWLER_DEBUG_LOG_CLASS_PATH), 
@@ -609,7 +604,7 @@ public abstract class DBConnector {
 		}
 	}
 	
-	public synchronized  int getIncompleteBandsCount(int dbUpdateInterval) throws Exception
+	public synchronized int getIncompleteBandsCount(int dbUpdateInterval) throws Exception
 	{
 		ResultSet resSet = executeQuery(getStmtIncompleteBandsCount(), 
 							   new Timestamp(System.currentTimeMillis()), dbUpdateInterval);

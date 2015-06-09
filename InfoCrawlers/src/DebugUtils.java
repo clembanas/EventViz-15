@@ -263,7 +263,7 @@ public class DebugUtils {
 		if (canDebug(derivedClass, baseClass, subClass, firstFlag, remainFlags)) {
 			String classPath = Utils.classPathToString(derivedClass, baseClass, subClass);
 			
-			System.out.println(dateFmt.format(new Date()) + " [" + classPath + " (Thread " + 
+			System.out.println(dateFmt.format(new Date()) + "[" + classPath + " (Thread " + 
 				Thread.currentThread().getId() + ")]: " + info);
 			if (canLog) {
 				try {
