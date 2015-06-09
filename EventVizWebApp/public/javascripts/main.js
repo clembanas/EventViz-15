@@ -5,6 +5,7 @@ var onGreyLayer = false;
 var markersTree = null;
 var visibleMarkers = [];
 var visibleClusters = [];
+var visibleEvents = [];
 
 //set icons for events
 var redIconHover = L.icon({
@@ -100,42 +101,66 @@ function isOverlapping(bounds){
 	
 }
 
-function updateFloatingInfobox(){
-	var start =  new Date().getTime();
-	$.when(checkIfMarkersVisible(markersTree)).then(function(){
-		var end =  new Date().getTime();
-		var time = end - start;
-		console.log("Time: " + time);
-		console.log(visibleMarkers.length);
-		console.log(visibleClusters.length);
-	});
-	$("#floatingList").empty();				
-	for(var i = 0; i<currentMarkers.length; i++){
-		if(isMarkerVisible(currentMarkers[i])){
-			$("#floatingList").append($("<li id="+currentMarkers[i]._leaflet_id+">").text(currentMarkers[i].options.name));
-			$("#" + currentMarkers[i]._leaflet_id).click(function(e){
-				for(var j = 0; j < currentMarkers.length; j++){
+function containsEvent(arr, id){
+	var event = null;
+	for(var i = 0; i<arr.length; i++){
+		if(arr[i].event.id == id){
+			event = arr[i];
+			break;
+		}
+	}
+	return event;
+}
+
+function addEventToList(event){
+	$("#floatingList").append($("<li id="+event.event.id+">").text(event.event.eventName));
+	$("#" + event.id).click(function(e){
+		/*for(var j = 0; j < currentMarkers.length; j++){
 					if(currentMarkers[j]._leaflet_id == e.currentTarget.id){
 						clickMarker(currentMarkers[j]);
 					}
-				}
-			}).hover(function(e){
-				$(this).css("background-Color", "#F4FA58");
-				for(var j = 0; j < currentMarkers.length; j++){
-					if(currentMarkers[j]._leaflet_id == e.currentTarget.id){
-						hoverMarker(currentMarkers[j]);
-					}
-				}
-			}).mouseout(function(e){
-				$(this).css("background-Color", "#FFFFFF");
-				for(var j = 0; j < currentMarkers.length; j++){
-					if(currentMarkers[j]._leaflet_id == e.currentTarget.id){
-						hoverExitMarker(currentMarkers[j]);
-					}
-				}
+				}*/
+	}).hover(function(e){
+		$(this).css("background-Color", "#F4FA58");
+		//				for(var j = 0; j < currentMarkers.length; j++){
+		//					if(currentMarkers[j]._leaflet_id == e.currentTarget.id){
+		//						hoverMarker(currentMarkers[j]);
+		//					}
+		//				}
+	}).mouseout(function(e){
+		$(this).css("background-Color", "#FFFFFF");
+		//				for(var j = 0; j < currentMarkers.length; j++){
+		//					if(currentMarkers[j]._leaflet_id == e.currentTarget.id){
+		//						hoverExitMarker(currentMarkers[j]);
+		//					}
+		//				}
+	});
+}
+
+function getAllVisibleEvents(arr){
+	for(var i = 0; i < arr.length; i++){
+		var tmpEvent = containsEvent(visibleEvents, arr[i]);
+		if(tmpEvent != null){
+			addEventToList(tmpEvent);
+		}else{
+			$.getJSON( "/getEventById", { id : arr[i] }).done(function(result){
+				visibleEvents.push(result);
+				addEventToList(result);
 			});
 		}
 	}
+}
+
+function updateFloatingInfobox(){
+	checkIfMarkersVisible(markersTree);
+	$("#floatingList").empty();
+	var markerIds = [];
+	for(var i = 0; i < visibleMarkers.length; i++){
+		for(var j = 0; j < visibleMarkers[i].options.ids.length; j++){
+			markerIds.push(visibleMarkers[i].options.ids[j]);
+		}
+	}
+	getAllVisibleEvents(markerIds);
 }
 
 function checkIfMarkersVisible(markers){
@@ -160,11 +185,6 @@ function iterateMarkers(tmpMarkers){
 	else{
 		if(isMarkerVisible(tmpMarkers)){
 			visibleClusters.push(tmpMarkers);
-		}
-		for(var i =0; i < tmpMarkers._markers.length; i++){
-			if(isMarkerVisible(tmpMarkers._markers[i])){
-				visibleMarkers.push(tmpMarkers._markers[i]);
-			}
 		}
 	}
 }
@@ -763,22 +783,17 @@ $(document).ready(function(){
 		zoom : 2
 	});
 	
-	
 	L.tileLayer('http://{s}.mqcdn.com/tiles/1.0.0/map/{z}/{x}/{y}.png',{
 		subdomains : [ 'otile1', 'otile2', 'otile3', 'otile4' ]
 	}).addTo(map);
 	
-	
-	
-	
-	
 	map.on("zoomend", function(e){
-		if($(this)[0]._zoom < 8 && $("#floatingInfo").css("visibility") == "visible"){
+		if($(this)[0]._zoom < 9 && $("#floatingInfo").css("visibility") == "visible"){
 			$("#floatingInfo").animate({"width": "-=20%" }, 200, function(){
 				$(this).css("visibility", "hidden");
 			});
 		}
-		else if($(this)[0]._zoom >= 8 && $("#infobox").css("visibility") == "hidden" && !showInfo){
+		else if($(this)[0]._zoom >= 9 && $("#infobox").css("visibility") == "hidden" && !showInfo){
 			if($("#floatingInfo").css("visibility") == "hidden"){
 				$("#floatingInfo").css("visibility", "visible");
 				$("#floatingInfo").animate({"width": "+=20%"}, 200);
@@ -812,8 +827,6 @@ $(document).ready(function(){
 		}
 	});
 	
-	
-	
 	//addCountries();
 	$.ajax({ // ajax call starts
 	    url: 'events', // JQuery loads serverside.php
@@ -821,13 +834,9 @@ $(document).ready(function(){
 	}).done(function(data) { // Variable data contains the data we get from serverside
 		var markers = L.markerClusterGroup();
 		markers.addTree(data);
-		//markersTree = markersTree._topClusterLevel;
-		//var map = L.map('map', { center: latlng, zoom: 2, layers: [tiles] });
 		map.addLayer(markers);		
 		markersTree = map._layers[17]._topClusterLevel;
 	});
-	
-	
 	
 	/* Useful to draw borders
 	var borders = [];
@@ -841,8 +850,6 @@ $(document).ready(function(){
 		console.log(string);
 	});
 	*/
-	
-	
 	
 	L.Mask = L.Polygon.extend({
 		options: {
