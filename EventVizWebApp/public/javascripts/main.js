@@ -351,6 +351,10 @@ function hoverExitMarker(marker){
 	}
 }
 
+function addImage(imgURI){
+	$("#img").append($("<img id=image class=image src='" + imgURI + "?width=250'>"));
+}
+
 function replaceCharacters(word){
 	if(word.indexOf(',') != -1){
 		word = word.substring(0, word.indexOf(','));
@@ -541,6 +545,12 @@ function makeCityRequests(){
 		currentCity.area = result.results.bindings[0].res.value;
 		infoboxCity();
 	});
+	
+	sparqlRequest(uri, "http://xmlns.com/foaf/0.1/depiction", false).done(function(result) {
+		if(result.results.bindings[0] != undefined){
+			addImage(result.results.bindings[0].res.value);
+		}
+	});
 }
 
 function makeRegionRequests(){
@@ -552,16 +562,21 @@ function makeRegionRequests(){
 	});
 	
 	sparqlRequest(uri, "http://dbpedia.org/ontology/populationDensity", false).done(function(result) {
-		if(result.results.bindings[0] == undefined){			
+		if(result.results.bindings[0] != undefined){			
 			currentRegion.populationDensity = result.results.bindings[0].res.value;
 			infoboxRegion();
 		}
 	});
 	
 	sparqlRequest(uri, "http://dbpedia.org/ontology/areaLand", false).done(function(result) {
-		if(result.results.bindings[0] == undefined){	
+		if(result.results.bindings[0] != undefined){	
 			currentRegion.area = result.results.bindings[0].res.value;
 			infoboxRegion();
+		}
+	});
+	sparqlRequest(uri, "http://xmlns.com/foaf/0.1/depiction", false).done(function(result) {
+		if(result.results.bindings[0] != undefined){
+			addImage(result.results.bindings[0].res.value);
 		}
 	});
 }
@@ -591,6 +606,13 @@ function makeCountryRequests(){
 		currentCountry.area = result.results.bindings[0].res.value;
 		infoboxCountry();
 	});
+	
+	$("#image").remove();
+	sparqlRequest(uri, "http://xmlns.com/foaf/0.1/depiction", false).done(function(result) {
+		if(result.results.bindings[0] != undefined){
+			addImage(result.results.bindings[0].res.value);
+		}
+	});
 }
 
 function makeBandRequests(band){
@@ -602,6 +624,12 @@ function makeBandRequests(band){
 		currentBand.description = result.results.bindings[0].res.value;
 		infoboxBand();
 	});
+	
+	sparqlRequest(uri, "http://xmlns.com/foaf/0.1/depiction", false).done(function(result) {
+		if(result.results.bindings[0] != undefined){
+			addImage(result.results.bindings[0].res.value);
+		}
+	});
 }
 function makeMemberRequests(member){
 	var uri = member.dbpedia_resource;
@@ -609,6 +637,12 @@ function makeMemberRequests(member){
 	sparqlRequest(uri, "http://dbpedia.org/ontology/abstract", true).done(function(result) {
 		currentMember.description = result.results.bindings[0].res.value;
 		infoboxMember();
+	});
+	
+	sparqlRequest(uri, "http://xmlns.com/foaf/0.1/depiction", false).done(function(result) {
+		if(result.results.bindings[0] != undefined){
+			addImage(result.results.bindings[0].res.value);
+		}
 	});
 }
 
@@ -681,6 +715,7 @@ function infoboxEvent(){
 						$("#navigation").append($("<p class=navElement id=navBand>").text("Band >"));
 					}
 					$("#navBand").click(function(){
+						$("#image").remove();
 						jQuery.each($(this).nextAll(), function(){
 							$(this).remove();
 							infoboxBand();
@@ -709,6 +744,7 @@ function infoboxEvent(){
 			}
 			$("#navigation").append($("<p class=navElement id=navCity>").text("City >"));
 			$("#navCity").click(function(){
+				$("#image").remove();
 				jQuery.each($(this).nextAll(), function(){
 					$(this).remove();
 					infoboxCity();
@@ -732,6 +768,7 @@ function infoboxEvent(){
 			}
 			$("#navigation").append($("<p class=navElement id=navRegion>").text("Region >"));
 			$("#navRegion").click(function(){
+				$("#image").remove();
 				jQuery.each($(this).nextAll(), function(){
 					$(this).remove();
 					infoboxRegion();
@@ -755,6 +792,7 @@ function infoboxEvent(){
 			}
 			$("#navigation").append($("<p class=navElement id=navCountry>").text("Country >"));
 			$("#navCountry").click(function(){
+				$("#image").remove();
 				jQuery.each($(this).nextAll(), function(){
 					$(this).remove();
 					infoboxCountry();
@@ -800,6 +838,7 @@ function infoboxCity(){
 			}
 			$("#navigation").append($("<p class=navElement id=navRegion>").text("Region >"));
 			$("#navRegion").click(function(){
+				$("#image").remove();
 				jQuery.each($(this).nextAll(), function(){
 					$(this).remove();
 				});
@@ -824,6 +863,7 @@ function infoboxCity(){
 			}
 			$("#navigation").append($("<p class=navElement id=navCountry>").text("Country >"));
 			$("#navCountry").click(function(){
+				$("#image").remove();
 				jQuery.each($(this).nextAll(), function(){
 					$(this).remove();
 				});
@@ -861,6 +901,7 @@ function infoboxRegion(){
 			}
 			$("#navigation").append($("<p class=navElement id=navCountry>").text("Country >"));
 			$("#navCountry").click(function(){
+				$("#image").remove();
 				jQuery.each($(this).nextAll(), function(){
 					$(this).remove();
 				});
@@ -906,6 +947,7 @@ function infoboxBand(){
 					makeMemberRequests(data.data.member);
 					$("#navigation").append($("<p class=navElement id=navMember>").text("Member >"));
 					$("#navMember").click(function(){
+						$("#image").remove();
 						jQuery.each($(this).nextAll(), function(){
 							$(this).remove();
 							infoboxMember();
@@ -926,6 +968,7 @@ function infoboxMember(){
 
 $(document).ready(function(){
 	$("#navEvent").click(function(){
+		$("#image").remove();
 		jQuery.each($(this).nextAll(), function(){
 			$(this).remove();
 		});
@@ -963,7 +1006,7 @@ $(document).ready(function(){
 				$("#floatingInfo").css("visibility", "visible");
 				$("#floatingInfo").animate({"width": "+=20%"}, 200);
 			}
-			setTimeout(updateFloatingInfobox, 100);
+			updateFloatingInfobox();
 		}
 		else if($("#infobox").css("visibility") == "visible" && $(this)[0]._zoom < 15){
 			showInfo = false;
@@ -979,7 +1022,7 @@ $(document).ready(function(){
 			$("#socialChart").css("visibility", "hidden");
 			$("#floatingInfo").css("visibility", "visible");
 			$("#floatingInfo").animate({"width": "+=20%"}, 200);
-			setTimeout(updateFloatingInfobox, 100);
+			updateFloatingInfobox();
 			if(hoverCountry != null){
 				countryOver(hoverCountry);
 			}
@@ -988,7 +1031,7 @@ $(document).ready(function(){
 	
 	map.on("dragend", function(e){
 		if($("#floatingInfo").css("visibility") == "visible"){
-			setTimeout(updateFloatingInfobox, 100);
+			updateFloatingInfobox();
 		}
 	});
 	

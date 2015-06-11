@@ -66,7 +66,6 @@
 	right: 0;
 	position: absolute;
 	background-color: white;
-	border: 3px solid blue;
 	font-size: 16pt;
 	padding-left: 10px;
 	overflow-y: scroll;
@@ -83,12 +82,11 @@ li.noNumber {
 }
 
 #infobox {
-	height: calc(100% - 6px);
-	width: calc(50% - 15px);
+	height: 100%;
+	width: 50%;
 	right: 0;
 	position: absolute;
 	background-color: white;
-	border: 3px solid blue;
 	color:#333333;
 	font-size: 16pt;
 	padding-left: 10px;
@@ -124,12 +122,18 @@ li.noNumber {
 	margin-left: 10px;
 }
 
-#image {
+#img {
 	top: 35px;
-	right: 20px;
-	width: 200px;
+	right: 10px;
+	width: 300px;
 	height: 300px;
-	background-color: red;
+	opacity: 1.0;
+	position: absolute;
+}
+
+.image {
+	right: 0;
+	opacity: 1.0;
 	position: absolute;
 }
 
@@ -179,13 +183,12 @@ li.noNumber {
 }
 
 #social {
-	height: calc(50% - 3px);
-	width: calc(50% - 4px);
+	height: 50%;
+	width: 50%;
 	left: 0;
 	bottom: 0;
 	position: absolute;
 	background-color: white;
-	border: 3px solid blue;
 	opacity: 0.8;
 	visibility: hidden;
 }
