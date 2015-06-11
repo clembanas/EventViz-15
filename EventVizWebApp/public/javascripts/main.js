@@ -2,7 +2,6 @@ var map;
 var showInfo = false;
 var hoverCountry = null;
 var onGreyLayer = false;
-var markersTree = null;
 var visibleMarkers = [];
 var visibleClusters = [];
 var visibleEvents = [];
@@ -22,6 +21,7 @@ var redIcon = L.icon({
 var currentEvent = {};
 
 var currentCity = null;
+var currentRegion = null;
 var currentCountry = null;
 var currentBand = {};
 var currentMember = {};
@@ -114,12 +114,15 @@ function containsEvent(arr, id){
 
 function addEventToList(event){
 	$("#floatingList").append($("<li id="+event.event.id+">").text(event.event.eventName));
-	$("#" + event.id).click(function(e){
-		/*for(var j = 0; j < currentMarkers.length; j++){
-					if(currentMarkers[j]._leaflet_id == e.currentTarget.id){
-						clickMarker(currentMarkers[j]);
-					}
-				}*/
+	$("#" + event.event.id).click({event: event}, function(e, data){
+		for(var i = 0; i < visibleMarkers.length; i++){
+			for(var j = 0; j<visibleMarkers[i].options.ids.length; j++){
+				if(visibleMarkers[i].options.ids[j] == event.event.id){
+					clickMarker(visibleMarkers[i], event);
+					break;
+				}
+			}
+		}
 	}).hover(function(e){
 		$(this).css("background-Color", "#F4FA58");
 		//				for(var j = 0; j < currentMarkers.length; j++){
@@ -137,22 +140,35 @@ function addEventToList(event){
 	});
 }
 
-function getAllVisibleEvents(arr){
-	for(var i = 0; i < arr.length; i++){
-		var tmpEvent = containsEvent(visibleEvents, arr[i]);
-		if(tmpEvent != null){
-			addEventToList(tmpEvent);
-		}else{
-			$.getJSON( "/getEventById", { id : arr[i] }).done(function(result){
-				visibleEvents.push(result);
-				addEventToList(result);
-			});
+function getAllVisibleEvents(arr, i, zoom){
+	if(map._zoom == zoom){
+		if(i < arr.length && i < 10){		
+			var tmpEvent = containsEvent(visibleEvents, arr[i]);
+			if(tmpEvent != null){
+				addEventToList(tmpEvent);
+				if(map._zoom == zoom){							
+					getAllVisibleEvents(arr, ++i, zoom);
+				}
+			}else{
+				$.getJSON( "/getEventById", { id : arr[i] }).done(function(result){
+					visibleEvents.push(result);
+					
+					//if zoom level is still correct
+					if(map._zoom == zoom){						
+						addEventToList(result);
+						getAllVisibleEvents(arr, ++i, zoom);
+					}
+				});
+			}
+		}else if(i < arr.length && i == 10){		
+			$("#floatingList").append($("<li class=noNumber >").text("+" + (arr.length - 10) + " other events"));
 		}
 	}
 }
 
 function updateFloatingInfobox(){
-	checkIfMarkersVisible(markersTree);
+	console.log(map);
+	checkIfMarkersVisible();
 	$("#floatingList").empty();
 	var markerIds = [];
 	for(var i = 0; i < visibleMarkers.length; i++){
@@ -160,15 +176,22 @@ function updateFloatingInfobox(){
 			markerIds.push(visibleMarkers[i].options.ids[j]);
 		}
 	}
-	getAllVisibleEvents(markerIds);
+	getAllVisibleEvents(markerIds, 0, map._zoom);
 }
 
-function checkIfMarkersVisible(markers){
+function checkIfMarkersVisible(){
 	visibleMarkers = [];
-	visibleClusters = [];
-	iterateMarkers(markers);
+	for(var i in map._layers){
+		if(map._layers[i]._bounds == undefined && map._layers[i]._latlng != undefined){
+			if(isMarkerVisible(map._layers[i])){
+				visibleMarkers.push(map._layers[i]);
+			}
+		}
+	}
 }
 
+
+//not used
 function iterateMarkers(tmpMarkers){
 	if(tmpMarkers._zoom  < map._zoom){
 		for(var i = 0; i < tmpMarkers._childClusters.length; i++){
@@ -352,7 +375,99 @@ function replaceCharacters(word){
 	return word;
 }
 
-function clickMarker(marker){
+function processEvent(result){
+	console.log(result);
+	currentEvent = result;
+	currentCity = null;
+	currentRegion = null;
+	currentCountry = null;
+	infoboxEvent();
+	var terms = [];
+	terms.push(replaceCharacters(currentEvent.event.eventName));
+	for(var i = 0; i < currentEvent.bands.length; i++){
+		var word = replaceCharacters(currentEvent.bands[i].name);
+		if($.inArray(word, terms ) == -1){				
+			terms.push(word);
+		}
+	}
+	var word = replaceCharacters(currentEvent.location.locationName);
+	if($.inArray(word, terms ) == -1){				
+		terms.push(word);
+	}
+	$.getJSON( "/getSentiment", { terms: JSON.stringify(terms), location: replaceCharacters(currentEvent.location.cityName) } ).done(function(result){
+		$("#socialInfoP").html("Sentiment data");
+		$("#socialLoading").css("visibility", "hidden");					
+		if(!$.isEmptyObject(result) && $("#social").css("visibility") == "visible"){
+			$("#socialChart").css("visibility", "visible");			
+			$("#socialResult").css("visibility", "visible");
+			$("#socialResult").empty();
+			
+			$("#socialResult").append($("<div class=socialDescBig>").append($("<p>").text("Passion:")));
+			$("#socialResult").append($("<div class=socialEntryBig>").append($("<p id=socialPassion>").text(result.score_passion)));
+			
+			$("#socialResult").append($("<div class=socialDescBig>").append($("<p>").text("Reach:")));
+			$("#socialResult").append($("<div class=socialEntryBig>").append($("<p id=socialReach>").text(result.score_reach)));
+			
+			$("#socialResult").append($("<div class=socialDescBig>").append($("<p>").text("Sentiment:")));
+			$("#socialResult").append($("<div class=socialEntryBig>").append($("<p id=socialSentiment>").text(result.score_sentiment)));
+			
+			$("#socialResult").append($("<div class=socialDescBig>").append($("<p>").text("Strength:")));
+			$("#socialResult").append($("<div class=socialEntryBig>").append($("<p id=socialStrength>").text(result.score_strength)));
+			
+			$("#socialResult").append($("<div class=socialDescBig>").append($("<p>").text("Keywords:")));
+			if(result.keywords.length != 0){
+				$("#socialResult").append($("<div class=socialEntryBig>").append($("<p>").text(result.keywords[0].keyword + "\t" + result.keywords[0].occurance)));
+				for(var i = 1; i < result.keywords.length; i++){
+					$("#socialResult").append($("<div class=socialDesc>"));
+					$("#socialResult").append($("<div class=socialEntry>").append($("<p>").text(result.keywords[i].keyword + "\t" + result.keywords[i].occurance)));
+				}
+			}else{
+				$("#socialResult").append($("<div class=socialEntryBig>").append($("<p>").text("No keywords found.")));
+			}
+			
+			$("#socialResult").append($("<div class=socialDescBig>").append($("<p>").text("Hashtags:")));
+			if(result.hashtags.length != 0){
+				$("#socialResult").append($("<div class=socialEntryBig>").append($("<p>").text(result.hashtags[0].hashtag + "\t" + result.hashtags[0].occurance)));
+				for(var i = 1; i < result.hashtags.length; i++){
+					$("#socialResult").append($("<div class=socialDesc>"));
+					$("#socialResult").append($("<div class=socialEntry>").append($("<p>").text(result.hashtags[i].hashtag + "\t" + result.hashtags[i].occurance)));
+				}
+			}else{
+				$("#socialResult").append($("<div class=socialEntryBig>").append($("<p>").text("No hashtags found.")));
+			}
+			
+			var totalSentiment = result.sentiment.positive + result.sentiment.negative;
+			
+			if(totalSentiment){
+				var chart = new Highcharts.Chart({
+					chart: {
+						plotBackgroundColor: null,
+						plotBorderWidth: null,
+						plotShadow: false,
+						renderTo: 'socialChart'
+					},
+					title: {
+						text: 'Sentiment'
+					},
+					tooltip: {
+						pointFormat: '{series.name}: <b>{point.percentage:.1f}%</b>'
+					},
+					series: [{
+						type: 'pie',
+						name: 'Sentiment',
+						data: [
+						       ['positive',   result.sentiment.positive / totalSentiment * 100],
+						       ['negative',       result.sentiment.negative / totalSentiment * 100]
+						       ]
+					}]
+				});
+			}
+		}
+
+	});
+}
+
+function clickMarker(marker, event){
 	showInfo = true;
 	removeCountries();
 	var tmpLatLng = marker.latlng == undefined ?  $.extend( {}, marker._latlng  ): $.extend({}, marker.latlng  );
@@ -393,99 +508,24 @@ function clickMarker(marker){
 	var loadingDiv = document.getElementById("socialLoading");
 	var spinner = new Spinner(opts).spin(loadingDiv);
 	$("#socialInfoP").html("Sentiment data is processed");
-	$.getJSON( "/getEventById", { id : options.ids[0] }).done(function(result){
-		console.log(result);
-		currentEvent = result;
-		currentCity = null;
-		currentCountry = null;
-		infoboxEvent();
-		var terms = [];
-		terms.push(replaceCharacters(currentEvent.event.eventName));
-		for(var i = 0; i < currentEvent.bands.length; i++){
-			var word = replaceCharacters(currentEvent.bands[i].name);
-			if($.inArray(word, terms ) == -1){				
-				terms.push(word);
-			}
+	if(event == undefined){		
+		var tmpEvent = containsEvent(visibleEvents, options.ids[0]);
+		if(tmpEvent != null){
+			processEvent(tmpEvent);
 		}
-		var word = replaceCharacters(currentEvent.location.locationName);
-		if($.inArray(word, terms ) == -1){				
-			terms.push(word);
+		else{		
+			$.getJSON( "/getEventById", { id : options.ids[0] }).done(function(result){
+				processEvent(result);
+			});
 		}
-		$.getJSON( "/getSentiment", { terms: JSON.stringify(terms), location: replaceCharacters(currentEvent.location.cityName) } ).done(function(result){
-			$("#socialInfoP").html("Sentiment data");
-			$("#socialLoading").css("visibility", "hidden");					
-			if(!$.isEmptyObject(result)){
-				$("#socialChart").css("visibility", "visible");			
-				$("#socialResult").css("visibility", "visible");
-				$("#socialResult").empty();
-				
-				$("#socialResult").append($("<div class=socialDescBig>").append($("<p>").text("Passion:")));
-				$("#socialResult").append($("<div class=socialEntryBig>").append($("<p id=socialPassion>").text(result.score_passion)));
-				
-				$("#socialResult").append($("<div class=socialDescBig>").append($("<p>").text("Reach:")));
-				$("#socialResult").append($("<div class=socialEntryBig>").append($("<p id=socialReach>").text(result.score_reach)));
-				
-				$("#socialResult").append($("<div class=socialDescBig>").append($("<p>").text("Sentiment:")));
-				$("#socialResult").append($("<div class=socialEntryBig>").append($("<p id=socialSentiment>").text(result.score_sentiment)));
-				
-				$("#socialResult").append($("<div class=socialDescBig>").append($("<p>").text("Strength:")));
-				$("#socialResult").append($("<div class=socialEntryBig>").append($("<p id=socialStrength>").text(result.score_strength)));
-				
-				$("#socialResult").append($("<div class=socialDescBig>").append($("<p>").text("Keywords:")));
-				if(result.keywords.length != 0){
-					$("#socialResult").append($("<div class=socialEntryBig>").append($("<p>").text(result.keywords[0].keyword + "\t" + result.keywords[0].occurance)));
-					for(var i = 1; i < result.keywords.length; i++){
-						$("#socialResult").append($("<div class=socialDesc>"));
-						$("#socialResult").append($("<div class=socialEntry>").append($("<p>").text(result.keywords[i].keyword + "\t" + result.keywords[i].occurance)));
-					}
-				}else{
-					$("#socialResult").append($("<div class=socialEntryBig>").append($("<p>").text("No keywords found.")));
-				}
-				
-				$("#socialResult").append($("<div class=socialDescBig>").append($("<p>").text("Hashtags:")));
-				if(result.hashtags.length != 0){
-					$("#socialResult").append($("<div class=socialEntryBig>").append($("<p>").text(result.hashtags[0].hashtag + "\t" + result.hashtags[0].occurance)));
-					for(var i = 1; i < result.hashtags.length; i++){
-						$("#socialResult").append($("<div class=socialDesc>"));
-						$("#socialResult").append($("<div class=socialEntry>").append($("<p>").text(result.hashtags[i].hashtag + "\t" + result.hashtags[i].occurance)));
-					}
-				}else{
-					$("#socialResult").append($("<div class=socialEntryBig>").append($("<p>").text("No hashtags found.")));
-				}
-				
-				var totalSentiment = result.sentiment.positive + result.sentiment.negative;
-				
-				
-				var chart = new Highcharts.Chart({
-					chart: {
-						plotBackgroundColor: null,
-						plotBorderWidth: null,
-						plotShadow: false,
-						renderTo: 'socialChart'
-					},
-					title: {
-						text: 'Sentiment'
-					},
-					tooltip: {
-						pointFormat: '{series.name}: <b>{point.percentage:.1f}%</b>'
-					},
-					series: [{
-						type: 'pie',
-						name: 'Sentiment',
-						data: [
-						       ['positive',   result.sentiment.positive / totalSentiment * 100],
-						       ['negative',       result.sentiment.negative / totalSentiment * 100]
-						       ]
-					}]
-				});
-			}
-
-		});
-	})
+	}
+	else{
+		processEvent(event);
+	}
 }
 
 function makeCityRequests(){
-	var uri = currentEvent.location.dbpedia_resource;
+	var uri = currentEvent.location.dbpedia_res_city;
 	currentCity = {};
 	sparqlRequest(uri, "http://dbpedia.org/ontology/abstract", true).done(function(result) {
 		currentCity.description = result.results.bindings[0].res.value;
@@ -503,8 +543,31 @@ function makeCityRequests(){
 	});
 }
 
+function makeRegionRequests(){
+	var uri = currentEvent.location.dbpedia_res_region;
+	currentRegion = {};
+	sparqlRequest(uri, "http://dbpedia.org/ontology/abstract", true).done(function(result) {
+		currentRegion.description = result.results.bindings[0].res.value;
+		infoboxRegion();
+	});
+	
+	sparqlRequest(uri, "http://dbpedia.org/ontology/populationDensity", false).done(function(result) {
+		if(result.results.bindings[0] == undefined){			
+			currentRegion.populationDensity = result.results.bindings[0].res.value;
+			infoboxRegion();
+		}
+	});
+	
+	sparqlRequest(uri, "http://dbpedia.org/ontology/areaLand", false).done(function(result) {
+		if(result.results.bindings[0] == undefined){	
+			currentRegion.area = result.results.bindings[0].res.value;
+			infoboxRegion();
+		}
+	});
+}
+
 function makeCountryRequests(){
-	var uri = "http://dbpedia.org/resource/" + currentEvent.location.country.split(' ').join('_');
+	var uri = currentEvent.location.dbpedia_res_country;
 	currentCountry = {};
 	sparqlRequest(uri, "http://dbpedia.org/ontology/abstract", true).done(function(result) {
 		currentCountry.description = result.results.bindings[0].res.value;
@@ -531,6 +594,7 @@ function makeCountryRequests(){
 }
 
 function makeBandRequests(band){
+	
 	var uri = band.dbpedia_resource;
 	currentBand = { "name" : band.name,
 					"members" : band.members };
@@ -602,74 +666,108 @@ function infoboxEvent(){
 		for(var i = 0; i < bands.length; i++){
 			var idName = "band" + bands[i].name.replace(/[^a-zA-Z0-9]/gmi, "").replace(/\s+/g, "");;
 			$("#info").append($("<p id=" + idName + " class=infoMarginLeft>").text(bands[i].name));
-			$("#" + idName).mouseover(function(){
-				$(this).css("background-Color", "#F4FA58");
-			});
-			$("#" + idName).mouseout(function(){
-				$(this).css("background-Color", "#FFFFFF");
-			});
-			
-			$("#" + idName).click({band: bands[i]}, function(data){
-				makeBandRequests(data.data.band);
-				$("#navigation").append($("<p class=navElement id=navBand>").text("Band >"));
-				$("#navBand").click(function(){
-					jQuery.each($(this).nextAll(), function(){
-						$(this).remove();
-						infoboxBand();
-					});
+			if(bands[i].dbpedia_resource != null){				
+				$("#" + idName).mouseover(function(){
+					$(this).css("background-Color", "#F4FA58");
 				});
-			})
+				$("#" + idName).mouseout(function(){
+					$(this).css("background-Color", "#FFFFFF");
+				});
+				$("#" + idName).click({band: bands[i]}, function(data){
+					makeBandRequests(data.data.band);
+					if(data.data.band.members.length == 1 && data.data.band.members[0].member_type == "A"){						
+						$("#navigation").append($("<p class=navElement id=navBand>").text("Performer >"));
+					}else{
+						$("#navigation").append($("<p class=navElement id=navBand>").text("Band >"));
+					}
+					$("#navBand").click(function(){
+						jQuery.each($(this).nextAll(), function(){
+							$(this).remove();
+							infoboxBand();
+						});
+					});
+				})
+			}
 			
 		}			
 	}else{
 		$("#info").append($("<p>").text("No Performer specified."));
 	}
+	$("#info").append($("<p id=eventDate>").text("Date: " + currentEvent.event.start_date));
+	$("#info").append($("<p id=eventTime>").text("Start time: " + currentEvent.event.start_time));
+	if(currentEvent.event.end_date != "null"){
+		$("#info").append($("<p id=eventEndDate>").text("End date: " + currentEvent.event.end_date));
+	}
+	$("#info").append($("<p id=eventEnd>").text("End time: " + (currentEvent.event.end_time == "null" ? "Not specified" : currentEvent.event.end_time) ));	
 	
-	$("#info").append($("<p id=eventType>").text("Type: " + (currentEvent.event.event_type == null ? "Not specified" : currentEvent.event.event_type)));
-	$("#info").append($("<p id=eventTime>").text("Start time: " + currentEvent.event.date));
-	$("#info").append($("<p id=eventDuration>").text("Duration: " + currentEvent.duration));
-	
-	$("#eventCity").click(function(){
-		if(currentCity == null){					
-			makeCityRequests();
-		}else{
-			infoboxCity();	
-		}
-		$("#navigation").append($("<p class=navElement id=navCity>").text("City >"));
-		$("#navCity").click(function(){
-			jQuery.each($(this).nextAll(), function(){
-				$(this).remove();
-				infoboxCity();
+	if(currentEvent.location.dbpedia_res_city != ""){
+		$("#eventCity").click(function(){
+			if(currentCity == null){					
+				makeCityRequests();
+			}else{
+				infoboxCity();	
+			}
+			$("#navigation").append($("<p class=navElement id=navCity>").text("City >"));
+			$("#navCity").click(function(){
+				jQuery.each($(this).nextAll(), function(){
+					$(this).remove();
+					infoboxCity();
+				});
 			});
+		})
+		$("#eventCity").mouseover(function(){
+			$(this).css("background-Color", "#F4FA58");
 		});
-	})
-	$("#eventCity").mouseover(function(){
-		$(this).css("background-Color", "#F4FA58");
-	});
-	$("#eventCity").mouseout(function(){
-		$(this).css("background-Color", "#FFFFFF");
-	});
+		$("#eventCity").mouseout(function(){
+			$(this).css("background-Color", "#FFFFFF");
+		});
+	}
 	
-	$("#eventCountry").click(function(){
-		if(currentCountry == null){
-			makeCountryRequests();
-		}else{
-			infoboxCountry();
-		}
-		$("#navigation").append($("<p class=navElement id=navCountry>").text("Country >"));
-		$("#navCountry").click(function(){
-			jQuery.each($(this).nextAll(), function(){
-				$(this).remove();
+	if(currentEvent.location.dbpedia_res_region != ""){
+		$("#eventRegion").click(function(){
+			if(currentRegion == null){					
+				makeRegionRequests();
+			}else{
+				infoboxRegion();	
+			}
+			$("#navigation").append($("<p class=navElement id=navRegion>").text("Region >"));
+			$("#navRegion").click(function(){
+				jQuery.each($(this).nextAll(), function(){
+					$(this).remove();
+					infoboxRegion();
+				});
+			});
+		})
+		$("#eventRegion").mouseover(function(){
+			$(this).css("background-Color", "#F4FA58");
+		});
+		$("#eventRegion").mouseout(function(){
+			$(this).css("background-Color", "#FFFFFF");
+		});
+	}
+	
+	if(currentEvent.location.dbpedia_res_country != ""){
+		$("#eventCountry").click(function(){
+			if(currentCountry == null){
+				makeCountryRequests();
+			}else{
 				infoboxCountry();
+			}
+			$("#navigation").append($("<p class=navElement id=navCountry>").text("Country >"));
+			$("#navCountry").click(function(){
+				jQuery.each($(this).nextAll(), function(){
+					$(this).remove();
+					infoboxCountry();
+				});
 			});
+		})
+		$("#eventCountry").mouseover(function(){
+			$(this).css("background-Color", "#F4FA58");
 		});
-	})
-	$("#eventCountry").mouseover(function(){
-		$(this).css("background-Color", "#F4FA58");
-	});
-	$("#eventCountry").mouseout(function(){
-		$(this).css("background-Color", "#FFFFFF");
-	});
+		$("#eventCountry").mouseout(function(){
+			$(this).css("background-Color", "#FFFFFF");
+		});
+	}
 	
 	$("#eventLocation").click(function(){
 		//to-do
@@ -692,22 +790,90 @@ function infoboxCity(){
 	$("#info").append($("<p id=cityPopulation>").text("Population: " + currentCity.population));
 	$("#info").append($("<p id=cityArea>").text("Area: " + currentCity.area));
 	
-	$("#cityCountry").click(function(){
-		makeCountryRequests(currentCity.country);
-		$("#navigation").append($("<p class=navElement id=navCountry>").text("Country >"));
-		$("#navCountry").click(function(){
-			jQuery.each($(this).nextAll(), function(){
-				$(this).remove();
+	if(currentEvent.location.dbpedia_res_region != ""){
+		$("#cityRegion").click(function(){
+			if(currentRegion == null){				
+				makeRegionRequests();
+			}
+			else{
+				infoboxRegion();
+			}
+			$("#navigation").append($("<p class=navElement id=navRegion>").text("Region >"));
+			$("#navRegion").click(function(){
+				jQuery.each($(this).nextAll(), function(){
+					$(this).remove();
+				});
+				infoboxRegion();
 			});
-			infoboxCountry();
+		})
+		$("#cityRegion").mouseover(function(){
+			$(this).css("background-Color", "#F4FA58");
 		});
-	})
-	$("#cityCountry").mouseover(function(){
-		$(this).css("background-Color", "#F4FA58");
-	});
-	$("#cityCountry").mouseout(function(){
-		$(this).css("background-Color", "#FFFFFF");
-	});
+		$("#cityRegion").mouseout(function(){
+			$(this).css("background-Color", "#FFFFFF");
+		});
+	}
+	
+	if(currentEvent.location.dbpedia_res_country != ""){
+		$("#cityCountry").click(function(){
+			if(currentCountry == null){				
+				makeCountryRequests();
+			}
+			else{
+				infoboxCountry();
+			}
+			$("#navigation").append($("<p class=navElement id=navCountry>").text("Country >"));
+			$("#navCountry").click(function(){
+				jQuery.each($(this).nextAll(), function(){
+					$(this).remove();
+				});
+				infoboxCountry();
+			});
+		})
+		$("#cityCountry").mouseover(function(){
+			$(this).css("background-Color", "#F4FA58");
+		});
+		$("#cityCountry").mouseout(function(){
+			$(this).css("background-Color", "#FFFFFF");
+		});
+	}
+}
+
+function infoboxRegion(){
+	$("#info").empty();
+	$("#info").append($("<p id=regionName>").text("Name: " + currentEvent.location.region));
+	$("#info").append($("<p id=regionDescription>").text("Description: " + currentRegion.description));
+	$("#info").append($("<p id=regionCountry>").text("Country: " + currentEvent.location.country));
+	if(currentRegion.populationDensity != undefined){
+		$("#info").append($("<p id=regionPopulation>").text("Population: " + currentRegion.population));
+	}
+	if(currentRegion.area != undefined){		
+		$("#info").append($("<p id=regionArea>").text("Area: " + currentRegion.area));
+	}
+	
+	if(currentEvent.location.dbpedia_res_country != ""){
+		$("#regionCountry").click(function(){
+			if(currentCountry == null){				
+				makeCountryRequests();
+			}
+			else{
+				infoboxCountry();
+			}
+			$("#navigation").append($("<p class=navElement id=navCountry>").text("Country >"));
+			$("#navCountry").click(function(){
+				jQuery.each($(this).nextAll(), function(){
+					$(this).remove();
+				});
+				infoboxCountry();
+			});
+		})
+		$("#regionCountry").mouseover(function(){
+			$(this).css("background-Color", "#F4FA58");
+		});
+		$("#regionCountry").mouseout(function(){
+			$(this).css("background-Color", "#FFFFFF");
+		});
+	}
 }
 
 function infoboxCountry(){
@@ -724,32 +890,31 @@ function infoboxBand(){
 	$("#info").append($("<p id=bandName>").text("Name: " + currentBand.name));
 	$("#info").append($("<p id=bandDescription>").text("Description: " + currentBand.description));
 	var members = currentBand.members;
-	if(members.length != 0){
+	if(members.length != 0 && members[0].member_type != "A"){
 		$("#info").append($("<p>").text("Member:"));
 		for(var i = 0; i < members.length; i++){
 			var idName = "band" + members[i].name.replace(/[^a-z0-9]/gmi, "").replace(/\s+/g, "");;
 			$("#info").append($("<p id=" + idName + " class=infoMarginLeft>").text(members[i].name));
-			$("#" + idName).mouseover(function(){
-				$(this).css("background-Color", "#F4FA58");
-			});
-			$("#" + idName).mouseout(function(){
-				$(this).css("background-Color", "#FFFFFF");
-			});
-			
-			$("#" + idName).click({member : members[i]}, function(data){
-				makeMemberRequests(data.data.member);
-				$("#navigation").append($("<p class=navElement id=navMember>").text("Member >"));
-				$("#navMember").click(function(){
-					jQuery.each($(this).nextAll(), function(){
-						$(this).remove();
-						infoboxMember();
-					});
+			if(members[i].dbpedia_resource != null){				
+				$("#" + idName).mouseover(function(){
+					$(this).css("background-Color", "#F4FA58");
 				});
-			})
+				$("#" + idName).mouseout(function(){
+					$(this).css("background-Color", "#FFFFFF");
+				});
+				$("#" + idName).click({member : members[i]}, function(data){
+					makeMemberRequests(data.data.member);
+					$("#navigation").append($("<p class=navElement id=navMember>").text("Member >"));
+					$("#navMember").click(function(){
+						jQuery.each($(this).nextAll(), function(){
+							$(this).remove();
+							infoboxMember();
+						});
+					});
+				})
+			}
 			
 		}			
-	}else{
-		$("#info").append($("<p>").text("No Performer specified."));
 	}
 }
 
@@ -798,7 +963,7 @@ $(document).ready(function(){
 				$("#floatingInfo").css("visibility", "visible");
 				$("#floatingInfo").animate({"width": "+=20%"}, 200);
 			}
-			updateFloatingInfobox();
+			setTimeout(updateFloatingInfobox, 100);
 		}
 		else if($("#infobox").css("visibility") == "visible" && $(this)[0]._zoom < 15){
 			showInfo = false;
@@ -814,7 +979,7 @@ $(document).ready(function(){
 			$("#socialChart").css("visibility", "hidden");
 			$("#floatingInfo").css("visibility", "visible");
 			$("#floatingInfo").animate({"width": "+=20%"}, 200);
-			updateFloatingInfobox();
+			setTimeout(updateFloatingInfobox, 100);
 			if(hoverCountry != null){
 				countryOver(hoverCountry);
 			}
@@ -823,7 +988,7 @@ $(document).ready(function(){
 	
 	map.on("dragend", function(e){
 		if($("#floatingInfo").css("visibility") == "visible"){
-			updateFloatingInfobox();
+			setTimeout(updateFloatingInfobox, 100);
 		}
 	});
 	
@@ -834,8 +999,7 @@ $(document).ready(function(){
 	}).done(function(data) { // Variable data contains the data we get from serverside
 		var markers = L.markerClusterGroup();
 		markers.addTree(data);
-		map.addLayer(markers);		
-		markersTree = map._layers[17]._topClusterLevel;
+		map.addLayer(markers);
 	});
 	
 	/* Useful to draw borders

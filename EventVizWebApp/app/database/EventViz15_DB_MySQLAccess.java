@@ -11,7 +11,7 @@ public class EventViz15_DB_MySQLAccess {
 	private static MysqlDataSource dataSource = new MysqlDataSource();
 	private static Connection conn;
 
-	private static String db_host = "138.232.65.248";
+	private static String db_host = "localhost";
 	private static String db_name = "EventViz15";
 	private static String db_user = "EventVizUser";
 	private static String db_pword = "e1V2i3Z";
