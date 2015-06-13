@@ -6,12 +6,18 @@ public class ClusteringUtil {
 	
 	private static ClusteringWorker[] createClusteringWorker()
 	{
-		ClusteringWorker[] workers = new ClusteringWorker[2];
+		ClusteringWorker[] workers = new ClusteringWorker[8];
 		
 		try {
 			//workers[0] = new ClusteringNodeClient("localhost", 9999);
 			workers[0] = new LocalClusteringWorker();
 			workers[1] = new LocalClusteringWorker();
+			workers[2] = new LocalClusteringWorker();
+			workers[3] = new LocalClusteringWorker();
+			workers[4] = new LocalClusteringWorker();
+			workers[5] = new LocalClusteringWorker();
+			workers[6] = new LocalClusteringWorker();
+			workers[7] = new LocalClusteringWorker();
 		} catch (Exception e) {
 			throw new RuntimeException("Error creating clusteringworkers: '" + e.getMessage() + "'", e);
 		}
@@ -74,3 +80,5 @@ public class ClusteringUtil {
 		return clusterAtLevel0;*/
 	}
 }
+
+

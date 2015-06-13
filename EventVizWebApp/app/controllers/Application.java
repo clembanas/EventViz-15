@@ -1,14 +1,14 @@
 package controllers;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.sql.SQLException;
+import java.util.LinkedList;
+import java.util.zip.GZIPOutputStream;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-
-import containers.EventVizEventBasics;
-import containers.EventVizModelPopulationObject;
-import database.EventViz15_DB_MySQLAccess;
 import jsonGeneration.JsonResultGenerator;
 import logic.clustering.ClusteringUtil;
 import logic.clustering.ILocation;
@@ -22,10 +22,12 @@ import sentiment_analysis.SocialMentionSentimentComponent;
 import views.html.clusteringtest;
 import views.html.index;
 
-import java.io.IOException;
-import java.sql.SQLException;
-import java.util.LinkedList;
-import java.util.List;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
+import containers.EventVizModelPopulationObject;
+import database.EventViz15_DB_MySQLAccess;
 
 public class Application extends Controller {
 
@@ -58,17 +60,95 @@ public class Application extends Controller {
         return ok(model_JSON.toString());
     }
     
-    private static JsonNode cachedGetEventsJsonNode = null;
-    public static Result getEvents() throws SQLException {
-    	if(cachedGetEventsJsonNode == null)
+    
+    /*private static Iterable<? extends ILocation> events = null;
+    private static Object getEventsLockObj = new Object(); 
+    public static Result getEvents() throws SQLException, IOException {       
+    	
+    	if(events == null)
     	{
-    		Iterable<? extends ILocation> events = EventViz15_DB_MySQLAccess.getEvents();
-    		
-    		MarkerCluster markerCluster = ClusteringUtil.cluster(events);    		
-    		cachedGetEventsJsonNode = Json.toJson(new LightMarkerClusterVO(markerCluster));
+    		synchronized(getEventsLockObj)
+    		{
+    			if(events == null)
+    			{
+    				events = EventViz15_DB_MySQLAccess.getEvents();
+    			}
+    		}
     	}
     	
-    	return ok(cachedGetEventsJsonNode);
+    	MarkerCluster markerCluster = ClusteringUtil.cluster(events);    		
+		String json = Json.stringify(Json.toJson(new LightMarkerClusterVO(markerCluster)));
+		return ok(json);
+    }*/
+    
+    /*private static Iterable<? extends ILocation> events = null;
+    private static Object getEventsLockObj = new Object(); 
+    public static Result getEvents() throws SQLException, IOException {       
+    	
+    	if(events == null)
+    	{
+    		synchronized(getEventsLockObj)
+    		{
+    			if(events == null)
+    			{
+    				events = EventViz15_DB_MySQLAccess.getEvents();    				
+    			}
+    		}
+    	}
+    	
+    	MarkerCluster markerCluster = ClusteringUtil.cluster(events);    		
+		String json = Json.stringify(Json.toJson(new LightMarkerClusterVO(markerCluster)));
+		final ByteArrayOutputStream gzip = gzip(json);
+		byte[] cachedZippedEvents = gzip.toByteArray();
+    	
+    	response().setHeader("Content-Encoding", "gzip");
+        response().setHeader("Content-Length", cachedZippedEvents.length + "");
+        return ok(cachedZippedEvents);
+    }*/
+    
+    private static byte[] cachedZippedEvents = null;
+    private static Object getEventsLockObj = new Object(); 
+    public static Result getEvents() throws SQLException, IOException {       
+    	
+    	if(cachedZippedEvents == null)
+    	{
+    		synchronized(getEventsLockObj)
+    		{
+    			if(cachedZippedEvents == null)
+    			{
+    				Iterable<? extends ILocation> events = EventViz15_DB_MySQLAccess.getEvents();
+    				
+    				MarkerCluster markerCluster = ClusteringUtil.cluster(events);    		
+    				String json = Json.stringify(Json.toJson(new LightMarkerClusterVO(markerCluster)));
+    				final ByteArrayOutputStream gzip = gzip(json);
+    				cachedZippedEvents = gzip.toByteArray();
+    			}
+    		}
+    	}
+    	
+    	response().setHeader("Content-Encoding", "gzip");
+        response().setHeader("Content-Length", cachedZippedEvents.length + "");
+        return ok(cachedZippedEvents);
+    }
+    
+
+    
+    public static ByteArrayOutputStream gzip(final String input)
+            throws IOException {
+        final InputStream inputStream = new ByteArrayInputStream(input.getBytes());
+        final ByteArrayOutputStream stringOutputStream = new ByteArrayOutputStream((int) (input.length() * 0.75));
+        final OutputStream gzipOutputStream = new GZIPOutputStream(stringOutputStream);
+ 
+        final byte[] buf = new byte[5000];
+        int len;
+        while ((len = inputStream.read(buf)) > 0) {
+            gzipOutputStream.write(buf, 0, len);
+        }
+ 
+        inputStream.close();
+        gzipOutputStream.close();
+ 
+        return stringOutputStream;
     }
 
 
