@@ -21,8 +21,6 @@ public class Main_TableCreator {
 					(CrawlerConfig.canDbgDBUpdates() ? DBConnector.DebugFlag.UPDATES.toInt() : 0) | 
 					(CrawlerConfig.canDbgDBResults() ? DBConnector.DebugFlag.QUERY_RESULTS.toInt() : 
 						0));
-			//Setup database connector class
-			DBConnector.DB_CONNECTOR_CLASS = CrawlerConfig.getDBConnectorClass();
 			//Create tables
 			try {
 				dbConn = DBConnector.getInstance();

@@ -14,8 +14,8 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public class DBConnector_Impala extends DBConnector_SQLConform {
 	
-	public static final String DRIVER_NAME = "com.cloudera.impala.jdbc4.Driver";
-	public static final String CONNECTION_STR = "jdbc:impala://138.232.65.251:21050";
+	private final String DRIVER_NAME = "com.cloudera.impala.jdbc4.Driver";
+	private final String CONNECTION_STR = "jdbc:impala://138.232.65.251:21050";
 	
 	
 	/**
@@ -118,8 +118,8 @@ public class DBConnector_Impala extends DBConnector_SQLConform {
 				   "NAME VARCHAR(" + MAX_LEN_CITY_NAME + "), " +
 				   "REGION VARCHAR(" + MAX_LEN_CITY_REGION + "), " +
 				   "COUNTRY VARCHAR(" + MAX_LEN_CITY_COUNTRY + "), " +
-				   "LONGITUDE FLOAT, " +
-				   "LATITUDE FLOAT, " +
+				   "LONGITUDE DOUBLE, " +
+				   "LATITUDE DOUBLE, " +
 				   "CITY_CRAWLER_TS TIMESTAMP, " +
 				   "DBPEDIA_RES_CITY VARCHAR(" + MAX_LEN_CITY_DBPEDIA_RES + ")," +
 				   "DBPEDIA_RES_REGION VARCHAR(" + MAX_LEN_CITY_DBPEDIA_RES + ")," +
@@ -131,8 +131,8 @@ public class DBConnector_Impala extends DBConnector_SQLConform {
 		return "CREATE TABLE Locations(" +
 				   "ID INT," +
 				   "NAME VARCHAR(" + MAX_LEN_LOCATION_NAME + ")," +
-				   "LONGITUDE FLOAT," +
-				   "LATITUDE FLOAT," +
+				   "LONGITUDE DOUBLE," +
+				   "LATITUDE DOUBLE," +
 				   "CITY_ID INT)";
 	}
 	

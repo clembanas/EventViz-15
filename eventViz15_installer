@@ -17,23 +17,37 @@ import getopt
 import urllib
 import math
 import fileinput
+import getpass
+import readline
+import socket
 
 
 # --------------------------------------- Installer classes ---------------------------------------
 # Installer task dependency
 class InstTaskDependencyBase:
-    def __init__(self, depend=None, name=None):
+    def __init__(self, depend=None, orDepend=None, name=None):
         self.depend = depend
+        self.orDepend = orDepend
         self.name = name
 
     def getName(self):
         if self.depend:
+            if self.orDepend:
+                return "('" + replaceWildcards(self.name) + "' and " + self.depend.getName() + \
+                           ") or " + self.orDepend.getName()
             return "'" + replaceWildcards(self.name) + "' and " + self.depend.getName()
+        if self.orDepend:
+            return "'" + replaceWildcards(self.name) + "' or " + self.orDepend.getName()
         return "'" + replaceWildcards(self.name) + "'"
 
     def isFulfilled(self):
         if self.depend:
+            if self.orDepend:
+                return (self.checkDepFulfilled() and self.depend.isFulfilled()) or \
+                           self.orDepend.isFulfilled()
             return self.checkDepFulfilled() and self.depend.isFulfilled()
+        if self.orDepend:
+            return self.checkDepFulfilled() or self.orDepend.isFulfilled()
         return self.checkDepFulfilled()
         
     def checkDepFulfilled(self):
@@ -42,22 +56,28 @@ class InstTaskDependencyBase:
 
 # Installer task dependency: User confirmation
 class InstTaskDep_Confirm(InstTaskDependencyBase):
-    def __init__(self, quest, hint=None, title="", depend=None, name=None, abort=False):
-        InstTaskDependencyBase.__init__(self, depend, name if name else "User confirmation")
+    def __init__(self, quest, hint=None, title="", depend=None, orDepend=None, name=None,
+                 abort=False, fmt="$TITLE$Do you want to $QUEST$? [Y/n]: ",
+                 fmtHint="$TITLE$Do you want to $QUEST$?\nNote: $HINT$ [Y/n]: "):
+        InstTaskDependencyBase.__init__(self, depend, orDepend,
+                                        name if name else "User confirmation")
         self.quest = quest
         self.hint = hint
         self.title = title
         self.abort = abort
+        self.fmt = fmt
+        self.fmtHint = fmtHint
 
     def checkDepFulfilled(self):
         while True:
             if self.hint:
-                choice = raw_input("%sDo you want to %s?\nNote: %s [Y/n]: " %
-                                   (replaceWildcards(self.title), replaceWildcards(self.quest),
-                                    replaceWildcards(self.hint)))
+                msg = self.fmtHint.replace("$TITLE$", replaceWildcards(self.title)). \
+                          replace("$QUEST$", replaceWildcards(self.quest)). \
+                          replace("$HINT$", replaceWildcards(self.hint))
             else:
-                choice = raw_input("%sDo you want to %s? [Y/n]: " %
-                                   (replaceWildcards(self.title), replaceWildcards(self.quest)))
+                msg = self.fmt.replace("$TITLE$", replaceWildcards(self.title)). \
+                          replace("$QUEST$", replaceWildcards(self.quest))
+            choice = raw_input(msg)
             if choice == "" or choice.lower() == "y":
                 print ""
                 return True
@@ -69,10 +89,49 @@ class InstTaskDep_Confirm(InstTaskDependencyBase):
             print "Invalid input '%s'!\n" % choice
 
 
+# Installer task dependency: User input
+class InstTaskDep_UserInput(InstTaskDependencyBase):
+    def __init__(self, quest, varName, hint=None, title="", depend=None, orDepend=None, name=None,
+                 password=False, skipSetVar=True, confirmInput=False, fmt="$TITLE$$QUEST$: ",
+                 fmtHint="$TITLE$$QUEST$\nNote: $HINT$: "):
+        InstTaskDependencyBase.__init__(self, depend, orDepend, name if name else "User input")
+        self.quest = quest
+        self.hint = hint
+        self.title = title
+        self.varName = varName
+        self.password = password
+        self.skipSetVar = skipSetVar
+        self.confirmInput = confirmInput
+        self.fmt = fmt
+        self.fmtHint = fmtHint
+
+    def checkDepFulfilled(self):
+        while True:
+            if self.skipSetVar and self.varName in globals() and \
+               globals()[self.varName] is not None:
+                return True
+            if self.hint:
+                msg = self.fmtHint.replace("$TITLE$", replaceWildcards(self.title)). \
+                          replace("$QUEST$", replaceWildcards(self.quest)). \
+                          replace("$HINT$", replaceWildcards(self.hint))
+            else:
+                msg = self.fmt.replace("$TITLE$", replaceWildcards(self.title)). \
+                          replace("$QUEST$", replaceWildcards(self.quest))
+            userInput = getpass.getpass(msg) if self.password else raw_input(msg)
+            print ""
+            if not self.password and self.confirmInput:
+                choice = raw_input("Is '%s' correct? [Y/n]: " % userInput)
+                print ""
+                if choice != "" and choice.lower() != "y":
+                    continue
+            globals()[self.varName] = userInput
+            return True
+
+
 # Installer task dependency: Directory exists
 class InstTaskDep_DirExists(InstTaskDependencyBase):
-    def __init__(self, dir, depend=None, name=None):
-        InstTaskDependencyBase.__init__(self, depend, name if name else
+    def __init__(self, dir, depend=None, orDepend=None, name=None):
+        InstTaskDependencyBase.__init__(self, depend, orDepend, name if name else
                                         "Directory '%s' exists" % dir)
         self.dir = dir
 
@@ -94,14 +153,98 @@ class InstTaskBase:
         return replaceWildcards(self.desc)
 
     def execute(self, taskIdx, taskCnt):
-        if self.depend and not self.depend.isFulfilled():
+        if not self.checkDependencies():
             return
-        print "Task %d/ %d: %s ..." % (taskIdx + 1, taskCnt, self.getDesc())
+        if self.desc:
+            print "Task %d/ %d: %s ..." % (taskIdx + 1, taskCnt, self.getDesc())
         self.runInstallTask()
-        print "Task %d/ %d: %s ... DONE\n" % (taskIdx + 1, taskCnt, self.getDesc())
+        if self.desc:
+            print "Task %d/ %d: %s ... DONE\n" % (taskIdx + 1, taskCnt, self.getDesc())
+
+    def checkDependencies(self):
+        return not self.depend or self.depend.isFulfilled()
 
     def runInstallTask(self):
         raise Exception("Not implemented!")
+
+
+# Installer task: If-else installer task execution
+class InstTask_IfElse(InstTaskBase):
+    def __init__(self, name, desc, ifDep, ifTask=None, elseTask=None, depend=None):
+        InstTaskBase.__init__(self, name, desc, depend)
+        self.ifDep = ifDep
+        self.ifTask = ifTask
+        self.elseTask = elseTask
+
+    def runInstallTask(self):
+        if self.ifDep.isFulfilled():
+            if self.ifTask:
+                self.ifTask.runInstallTask()
+        elif self.elseTask:
+            self.elseTask.runInstallTask()
+
+
+# Installer task: Wraps multiple tasks into one single installation tasks
+class InstTask_MultiTasks(InstTaskBase):
+    def __init__(self, name, desc, tasks, taskVars=[], taskVarFilter=None, depend=None):
+        InstTaskBase.__init__(self, name, desc, depend)
+        self.tasks = tasks
+        self.taskVars = taskVars
+        self.taskVarFilter = taskVarFilter
+
+    def runInstallTask(self):
+        taskVars = self.taskVars
+        for i in xrange(len(taskVars)):
+            taskVars[i] = replaceWildcards(taskVars[i])
+        if self.taskVarFilter:
+            taskVarCnt = len(taskVars)
+            taskVars = self.taskVarFilter(taskVars)
+            if taskVarCnt > 0 and not taskVars:
+                return
+        taskCnt = len(self.tasks)
+        taskVarCnt = len(taskVars)
+        if taskCnt == 0 and taskVarCnt == 0:
+            return
+        globals()["CURR_TASK_VAR"] = None
+        print "--------------------------------------------------------------------------------"
+        try:
+            cnt = max(taskCnt, taskVarCnt)
+            for i in xrange(cnt):
+                if i < taskVarCnt:
+                    globals()["CURR_TASK_VAR"] = taskVars[i]
+                if i < taskCnt:
+                    self.tasks[i].execute(i, cnt)
+                elif taskCnt > 0:
+                    self.tasks[taskCnt - 1].execute(i, cnt)
+            print "--------------------------------------------------------------------------------"
+        finally:
+            del globals()["CURR_TASK_VAR"]
+
+
+# Installer task: Installer-task wrapper which enables extended exception handling of the wrapped
+#                 installer task
+class InstTask_HandleExcept(InstTaskBase):
+    def __init__(self, task, exceptAction=None, printExcept=True,
+                 printExceptFmt="\nFailed to perform task '%s'!\nError: %s\n",
+                 printEndSecLine=True):
+        InstTaskBase.__init__(self, task.name, task.desc, task.depend)
+        self.task = task
+        self.exceptAction = exceptAction
+        self.printExcept = printExcept
+        self.printExceptFmt = printExceptFmt
+        self.printEndSecLine = printEndSecLine
+
+    def runInstallTask(self):
+        try:
+            self.task.runInstallTask()
+        except Exception, e:
+            if self.printExcept:
+                print self.printExceptFmt % (self.task.getName(), e)
+            if self.printEndSecLine:
+                print "--------------------------------------------------------------------------" \
+                      "------"
+            if self.exceptAction:
+                self.exceptAction(e)
 
 
 # Installer task: Copies the content of a directory to another directory or copies a single file
@@ -139,12 +282,12 @@ class InstTask_Copy(InstTaskBase):
                 os.makedirs(os.path.basename(destFile))
             shutil.copy2(srcFile, destFile)
 
-        self.src = replaceWildcards(self.src)
-        self.dest = replaceWildcards(self.dest)
-        if os.path.isfile(self.src):
-            copyFile(self.src, self.dest)
+        src = replaceWildcards(self.src)
+        dest = replaceWildcards(self.dest)
+        if os.path.isfile(src):
+            copyFile(src, dest)
         else:
-            copyDir(self.src, self.dest)
+            copyDir(src, dest)
         
 
 # Installer task: Create a symbolic link
@@ -156,10 +299,10 @@ class InstTask_CreateLink(InstTaskBase):
         self.overwrite = overwrite
 
     def runInstallTask(self):
-        self.dest = replaceWildcards(self.dest)
-        if os.path.exists(self.dest) and self.overwrite:
-            os.unlink(self.dest)
-        os.symlink(replaceWildcards(self.src), self.dest)
+        dest = replaceWildcards(self.dest)
+        if os.path.exists(dest) and self.overwrite:
+            os.unlink(dest)
+        os.symlink(replaceWildcards(self.src), dest)
 
 
 # Installer task: Create a new file and optionally set its content
@@ -170,31 +313,41 @@ class InstTask_CreateFile(InstTaskBase):
         self.content = content
 
     def runInstallTask(self):
-        self.file = replaceWildcards(self.file)
-        if not os.path.exists(os.path.basename(self.file)):
-            os.makedirs(os.path.basename(self.file))
-        f = open(self.file, "w")
+        filename = replaceWildcards(self.file)
+        if not os.path.exists(os.path.basename(filename)):
+            os.makedirs(os.path.basename(filename))
+        f = open(filename, "w")
         if self.content:
             f.write(replaceWildcards(self.content))
         f.close()
 
 
-# Installer task: Update Java config-file (i.e. *.properties file)
+# Installer task: Write properties to a Java config-file (i.e. *.properties file)
 # Note: Keys must not contain wildcards!
-class InstTask_UpdateJavaConfFile(InstTaskBase):
+class InstTask_WriteJavaConfFile(InstTaskBase):
     def __init__(self, name, desc, file, keyValueDict, depend=None):
         InstTaskBase.__init__(self, name, desc, depend)
         self.file = file
         self.keyValueDict = keyValueDict
 
     def runInstallTask(self):
-        for line in fileinput.input(replaceWildcards(self.file), inplace=1):
+        keyValueDict = self.keyValueDict
+        fileIn = fileinput.input(replaceWildcards(self.file), inplace=1)
+        # Update values
+        for line in fileIn:
             key = line.split("=", 1)[0].strip()
-            if key in self.keyValueDict:
-                print "%s=%s" % (key, replaceWildcards(self.keyValueDict[key]))
+            if key in keyValueDict:
+                print "%s=%s" % (key, replaceWildcards(keyValueDict[key]))
+                del keyValueDict[key]
             else:
                 sys.stdout.write(line)
                 sys.stdout.flush()
+        # Add new values
+        if keyValueDict.items():
+            print ""
+            for key, value in keyValueDict.items():
+                print "%s=%s" % (key, replaceWildcards(value))
+        fileinput.close()
 
 
 # Installer task: Remove a directory
@@ -339,11 +492,11 @@ class InstTask_CloneGitRepo(InstTaskBase):
 
     def runInstallTask(self):
         print "--------------------------------------------------------------------------------"
-        self.destDir = replaceWildcards(self.destDir)
-        if not os.path.exists(self.destDir):
-            os.makedirs(self.destDir)
+        destDir = replaceWildcards(self.destDir)
+        if not os.path.exists(destDir):
+            os.makedirs(destDir)
         lastDir = os.getcwd()
-        os.chdir(self.destDir)
+        os.chdir(destDir)
         subprocess.check_call("git clone %s" % replaceWildcards(self.repoName), shell=True)
         os.chdir(lastDir)
         print "--------------------------------------------------------------------------------"
@@ -377,46 +530,46 @@ class InstTask_InstallJavaApp(InstTaskBase):
         self.destStarterFile = destStarterFile
 
     def runInstallTask(self):
-        self.srcAppFile = replaceWildcards(self.srcAppFile)
-        self.destAppDir = replaceWildcards(self.destAppDir)
-        self.libDir = replaceWildcards(self.libDir)
-        self.destStarterFile = replaceWildcards(self.destStarterFile)
+        srcAppFile = replaceWildcards(self.srcAppFile)
+        destAppDir = replaceWildcards(self.destAppDir)
+        libDir = replaceWildcards(self.libDir)
+        destStarterFile = replaceWildcards(self.destStarterFile)
         print "--------------------------------------------------------------------------------"
-        if not os.path.exists(self.destAppDir):
-            os.makedirs(self.destAppDir)
+        if not os.path.exists(destAppDir):
+            os.makedirs(destAppDir)
         lastDir = os.getcwd()
-        os.chdir(os.path.dirname(self.srcAppFile))
+        os.chdir(os.path.dirname(srcAppFile))
         libs = ""
-        if self.libDir:
-            libFiles = os.listdir(self.libDir)
+        if libDir:
+            libFiles = os.listdir(libDir)
             for libFile in libFiles:
                 if libs:
                     libs += ":"
-                libs += "%s/%s" % (self.libDir, libFile)
+                libs += "%s/%s" % (libDir, libFile)
             libs = "-cp '" + libs + ":.' "
-        subprocess.check_call("javac %s-d %s %s" % (libs, self.destAppDir, self.srcAppFile),
+        subprocess.check_call("javac %s-d %s %s" % (libs, destAppDir, srcAppFile),
                               shell=True)
-        if self.destStarterFile:
-            if not os.path.exists(os.path.dirname(self.destStarterFile)):
-                os.makedirs(os.path.dirname(self.destStarterFile))
-            f = open(self.destStarterFile, "w")
+        if destStarterFile:
+            if not os.path.exists(os.path.dirname(destStarterFile)):
+                os.makedirs(os.path.dirname(destStarterFile))
+            f = open(destStarterFile, "w")
             f.write("#!/usr/bin/env bash\ncd %s\njava %s%s" %
-                    (self.destAppDir, libs, os.path.splitext(os.path.basename(self.srcAppFile))[0]))
+                    (destAppDir, libs, os.path.splitext(os.path.basename(srcAppFile))[0]))
             f.flush()
             f.close()
-            os.chmod(self.destStarterFile, os.stat(self.destStarterFile).st_mode | stat.S_IXUSR)
+            os.chmod(destStarterFile, os.stat(destStarterFile).st_mode | stat.S_IXUSR)
         os.chdir(lastDir)
         print "--------------------------------------------------------------------------------"
 
 
 # ------------------------------------------- Settings --------------------------------------------
 # Command line options
-CMD_LINE_OPTS = "m:t:r:h:u:p:d:x:w:i:"                          # Short command line options
-CMD_LINE_LONG_OPTS = ["show-config", "show-modes",              # Long command line options
+CMD_LINE_OPTS = "m:t:r:h:u:p:d:x:w:i:s:"                         # Short command line options
+CMD_LINE_LONG_OPTS = ["show-config", "show-modes",               # Long command line options
                       "show-task-selection", "mode=",
                       "tasks=", "repo=", "host=", "user=",
                       "password=", "db-name=", "root-dir=",
-                      "temp-dir=", "install-dir=",
+                      "temp-dir=", "install-dir=", "server=",
                       "no-cleanup", "help"]
 # Accepted command line options
 CMD_LINE_OPTS_ACCEPTED = ("   --show-config ........... Show default configuration\n"
@@ -431,6 +584,7 @@ CMD_LINE_OPTS_ACCEPTED = ("   --show-config ........... Show default configurati
                           "   -u (--user=) ............ Set database user name\n"
                           "   -p (--password=) ........ Set database user password\n"
                           "   -d (--db-name=) ......... Set database name\n"
+                          "   -s (--server=) .......... Server IP address\n"
                           "   -x (--root-dir=) ........ Set root directory path of installation\n"
                           "   -w (--temp-dir=) ........ Set root-relative temporary directory "
                           "path\n"
@@ -446,6 +600,8 @@ DB_HOST = "138.232.65.248"
 DB_USER = "EventVizUser"
 DB_PWORD = "e1V2i3Z"
 DB_NAME = "EventViz15"
+DB_ROOT_PWORD = None
+SERVER_IP = None
 ROOT_DIR = "~"
 TEMP_DIR = "eventviz15_installer_temp_%d" % int(time.time())
 DO_CLEANUP = True
@@ -567,11 +723,11 @@ INST_TASKS_SERVER = \
      InstTask_Copy("Install database-config file", "Installing database-config file",
                    "$TEMP_DIR$/EventViz-15/InfoCrawlers/src/db_config.properties",
                    "$INSTALL_DIR$/conf"),
-     InstTask_UpdateJavaConfFile("Update database config-file",
-                                 "Updating database config-file",
-                                 "$INSTALL_DIR$/conf/db_config.properties",
-                                 {"mysql.db_host": "$DB_HOST$", "mysql.db_user": "$DB_USER$",
-                                  "mysql.db_pword": "$DB_PWORD$", "mysql.db_name": "$DB_NAME$"}),
+     InstTask_WriteJavaConfFile("Update database config-file",
+                                "Updating database config-file",
+                                "$INSTALL_DIR$/conf/db_config.properties",
+                                {"mysql.db_host": "$DB_HOST$", "mysql.db_user": "$DB_USER$",
+                                 "mysql.db_pword": "$DB_PWORD$", "mysql.db_name": "$DB_NAME$"}),
      InstTask_Copy("Install crawler-config file", "Installing crawler-config file",
                    "$TEMP_DIR$/EventViz-15/InfoCrawlers/src/crawler_config.properties",
                    "$INSTALL_DIR$/conf"),
@@ -600,8 +756,17 @@ INST_TASKS_SERVER = \
                          "$INSTALL_DIR$/conf/crawler_config.properties",
                          "$INSTALL_DIR$/bin/table_creator_files/crawler_config.properties"),
      InstTask_Exec("Create database '$DB_NAME$'", "Creating database '$DB_NAME$'",
-                   'mysql --host=$DB_HOST$ --user=$DB_USER$ --password=$DB_PWORD$ -e '
-                   '"create database if not exists $DB_NAME$"'),
+                   'mysql --host=$DB_HOST$ --user=root --password=$DB_ROOT_PWORD$ -e '
+                   '"create database if not exists $DB_NAME$"',
+                   depend=InstTaskDep_UserInput("\nEnter database root password", "DB_ROOT_PWORD",
+                                                password=True)),
+     InstTask_Exec("Create database user '$DB_USER$'", "Creating database user '$DB_USER$'",
+                   'mysql --host=$DB_HOST$ --user=root --password=$DB_ROOT_PWORD$ -e '
+                   '"grant alter, create, create temporary tables, create view, delete, drop, '
+                   'index, insert, lock tables, select, show view, update on $DB_NAME$.* to '
+                   '\'$DB_USER$\'@\'%\' identified by \'$DB_PWORD$\'"',
+                   depend=InstTaskDep_UserInput("\nEnter database root password", "DB_ROOT_PWORD",
+                                                password=True)),
      InstTask_Exec("Create tables in database '$DB_NAME$'",
                    "Creating tables in database '$DB_NAME$'", "$INSTALL_DIR$/bin/table_creator",
                    depend=InstTaskDep_Confirm("create the EventViz-15 specific database tables",
@@ -611,6 +776,74 @@ INST_TASKS_SERVER = \
                    "$INSTALL_DIR$/target/universal/stage/bin/eventvizwebapp",
                    "$INSTALL_DIR$", hideOut=True, detach=True,
                    depend=InstTaskDep_Confirm("start the 'EventViz15 play web-server' now")),
+     InstTask_MultiTasks("Validate public server IP", None, [], [],
+                         depend=InstTaskDep_Confirm(
+                             "Is the public server IP '$SERVER_IP$' correct?",
+                             fmt="$QUEST$ [Y/n]: ",
+                             orDepend=InstTaskDep_UserInput("Enter public server IP address",
+                                                            "SERVER_IP", confirmInput=True,
+                                                            skipSetVar=False))),
+     InstTask_MultiTasks("Configure info-crawler slave hosts", None, [],
+                         depend=InstTaskDep_UserInput(
+                            "Host IP addresses (e.g. 192.168.0.1, 192.168.0.2)",
+                            "EVENTFUL_CRAWLER_HOSTS",
+                            hint="The IP address of the local host must not be entered,\n"
+                                 "         because it acts as the crawler-master!\n"
+                                 "         The hosts can also be configured manually via\n"
+                                 "         'conf/crawler_config.properties'",
+                            title="Select the hosts of the Eventful-crawler slaves:\n",
+                            skipSetVar=False,
+                            fmtHint="$TITLE$\n   Note: $HINT$\n\n   $QUEST$:\n      ",
+                            depend=InstTaskDep_UserInput(
+                               "Host IP addresses (e.g. 192.168.0.1, 192.168.0.2)",
+                               "BANDINFO_CRAWLER_HOSTS",
+                               hint="The IP address of the local host must not be entered,\n"
+                                    "         because it acts as the crawler-master!",
+                               title="Select the hosts of the Band-info-crawler slaves:\n",
+                               skipSetVar=False,
+                               fmtHint="$TITLE$\n   Note: $HINT$\n\n   $QUEST$:\n      ",
+                               depend=InstTaskDep_UserInput(
+                                   "Host IP addresses (e.g. 192.168.0.1, 192.168.0.2)",
+                                   "CITYINFO_CRAWLER_HOSTS",
+                                   hint="The IP address of the local host must not be entered,\n"
+                                        "         because it acts as the crawler-master!",
+                                   title="Select the hosts of the City-info-crawler "
+                                         "slaves:\n",
+                                   skipSetVar=False,
+                                   fmtHint="$TITLE$\n   Note: $HINT$\n\n   $QUEST$:\n      ")))),
+     InstTask_HandleExcept(
+        InstTask_MultiTasks("Install info-crawler slaves",
+                            "Installing info-crawler slaves",
+                            [InstTask_Exec("", "Copying installer files to info-crawler slave "
+                                           "'$CURR_TASK_VAR$'",
+                                           "scp -q -C -o StrictHostKeyChecking=no '$SCRIPT_PATH$' "
+                                           "$SLAVE_HOST_USER$@$CURR_TASK_VAR$:~",
+                                           depend=InstTaskDep_UserInput("Enter user name for host "
+                                                                        "'$CURR_TASK_VAR$'",
+                                                                        "SLAVE_HOST_USER",
+                                                                        skipSetVar=True)),
+                             InstTask_Exec("", "Executing info-crawler slave installer on "
+                                           "'$CURR_TASK_VAR$'",
+                                           'ssh -o StrictHostKeyChecking=no '
+                                           '$SLAVE_HOST_USER$@$CURR_TASK_VAR$ '
+                                           '"./eventViz15_installer -m Slave -r $GIT_REPO$ '
+                                           '-h $DB_HOST$ -u $DB_USER$ -p $DB_PWORD$ '
+                                           '-d $DB_NAME$ -i $INSTALL_DIR$" -s $SERVER_IP$')],
+                            ["$EVENTFUL_CRAWLER_HOSTS$", "$BANDINFO_CRAWLER_HOSTS$",
+                             "$CITYINFO_CRAWLER_HOSTS$"],
+                            lambda hosts: [host for host in list(set(map(str.strip,
+                                           hosts[0].split(",") + hosts[1].split(",") +
+                                           hosts[2].split(",")))) if host]),
+        lambda e: globals().update({"currTaskIdx": globals()['currTaskIdx'] - 2}),
+        printExceptFmt="\nFailed to perform task '%s'!\nError: %s\n\nGoing back to slave host "
+                       "selection...\n"),
+     InstTask_WriteJavaConfFile("Store slave host information in info-crawler config-file",
+                                "Storing slave host information in info-crawler config-file",
+                                "$INSTALL_DIR$/conf/crawler_config.properties",
+                                {"crawler.eventful.hosts": "$EVENTFUL_CRAWLER_HOSTS$",
+                                 "crawler.band_info.hosts": "$BANDINFO_CRAWLER_HOSTS$",
+                                 "crawler.city_info.hosts": "$CITYINFO_CRAWLER_HOSTS$",
+                                 "crawler.master.host": ""}),
      InstTask_Exec("Start info-crawlers", "Starting info-crawlers",
                    "$INSTALL_DIR$/bin/info_crawlers", "$INSTALL_DIR$/bin", hideOut=True,
                    detach=True, depend=InstTaskDep_Confirm("execute info-crawlers now"))]
@@ -618,13 +851,78 @@ INST_TASKS_SERVER = \
 registerInstallMode("Server", UNINST_TASKS_SERVER, INST_TASKS_SERVER, isDefaultMode=True)
 
 
+# -------------------------------- Installation mode "Slave"--------------------------------------
+# Uninstaller tasks
+UNINST_TASKS_SLAVE = \
+    [InstTask_Exec("Load version information",
+                   "Loading version information",
+                   "cat $INSTALL_DIR$/eventviz15_version.txt", ignExit=True,
+                   depend=InstTaskDep_DirExists("$INSTALL_DIR$")),
+     InstTask_KillJavaProc("Stop info-crawlers", "Stopping info-crawlers",
+                           "Main_InfoCrawlers", InstTaskDep_DirExists("$INSTALL_DIR$")),
+     InstTask_RemDir("Remove previous installation's directory",
+                     "Removing previous installation's directory", "$INSTALL_DIR$",
+                     InstTaskDep_DirExists("$INSTALL_DIR$"))]
+
+# Installer tasks
+INST_TASKS_SLAVE = \
+    [InstTask_InstallPckg("Install 'git'", "Installing 'git'", "git"),
+     InstTask_InstallPckg("Install 'Java'", "Installing Java",
+                          "java-1.8.0-openjdk.x86_64"),
+     InstTask_InstallPckg("Install 'Java-Development'", "Installing 'Java-Development'",
+                          "java-1.8.0-openjdk-devel.x86_64"),
+     InstTask_CloneGitRepo("Clone git repository '$GIT_REPO$'",
+                           "Cloning git repository '$GIT_REPO$'", "$GIT_REPO$"),
+     InstTask_Copy("Install info-crawler libraries", "Installing info-crawler libraries",
+                   "$TEMP_DIR$/EventViz-15/InfoCrawlers/lib",
+                   "$INSTALL_DIR$/lib", exceptEntries=["log4j-1.2.17.jar"]),
+     InstTask_Copy("Install database-config file", "Installing database-config file",
+                   "$TEMP_DIR$/EventViz-15/InfoCrawlers/src/db_config.properties",
+                   "$INSTALL_DIR$/conf"),
+     InstTask_Exec("Store version information",
+                   "Storing version information",
+                   "git show HEAD | sed -n '/diff/ !p;//q' > $INSTALL_DIR$/eventviz15_version.txt; "
+                   "cat $INSTALL_DIR$/eventviz15_version.txt", "$TEMP_DIR$/EventViz-15"),
+     InstTask_WriteJavaConfFile("Update database config-file",
+                                "Updating database config-file",
+                                "$INSTALL_DIR$/conf/db_config.properties",
+                                {"mysql.db_host": "$DB_HOST$", "mysql.db_user": "$DB_USER$",
+                                 "mysql.db_pword": "$DB_PWORD$", "mysql.db_name": "$DB_NAME$"}),
+     InstTask_Copy("Install crawler-config file", "Installing crawler-config file",
+                   "$TEMP_DIR$/EventViz-15/InfoCrawlers/src/crawler_config.properties",
+                   "$INSTALL_DIR$/conf"),
+     InstTask_InstallJavaApp("Install info-crawlers", "Installing info-crawlers",
+                             "$TEMP_DIR$/EventViz-15/InfoCrawlers/src/Main_InfoCrawlers.java",
+                             "$INSTALL_DIR$/bin/info_crawlers_files", "$INSTALL_DIR$/lib",
+                             "$INSTALL_DIR$/bin/info_crawlers"),
+     InstTask_CreateLink("Configure info-crawler database config-file",
+                         "Configuring info-crawler database config-file",
+                         "$INSTALL_DIR$/conf/db_config.properties",
+                         "$INSTALL_DIR$/bin/info_crawlers_files/db_config.properties"),
+     InstTask_CreateLink("Configure info-crawler config-file",
+                         "Configuring info-crawler config-file",
+                         "$INSTALL_DIR$/conf/crawler_config.properties",
+                         "$INSTALL_DIR$/bin/info_crawlers_files/crawler_config.properties"),
+     InstTask_WriteJavaConfFile("Store slave host information in info-crawler config-file",
+                                "Storing slave host information in info-crawler config-file",
+                                "$INSTALL_DIR$/conf/crawler_config.properties",
+                                {"crawler.eventful.hosts": "",
+                                 "crawler.band_info.hosts": "",
+                                 "crawler.city_info.hosts": "",
+                                 "crawler.master.host": "$SERVER_IP$"}),
+     InstTask_Exec("Start info-crawlers slave", "Starting info-crawlers slave",
+                   "$INSTALL_DIR$/bin/info_crawlers", "$INSTALL_DIR$/bin", hideOut=True,
+                   detach=True)]
+
+registerInstallMode("Slave", UNINST_TASKS_SLAVE, INST_TASKS_SLAVE)
+
+
 # -------------------------------------- Actual installer -----------------------------------------
 def replaceWildcards(s):
-
-    return s.replace("$GIT_REPO$", GIT_REPO).replace("$DB_HOST$", DB_HOST). \
-        replace("$DB_USER$", DB_USER).replace("$DB_PWORD$", DB_PWORD). \
-        replace("$DB_NAME$", DB_NAME).replace("$ROOT_DIR$", ROOT_DIR). \
-        replace("$TEMP_DIR$", TEMP_DIR).replace("$INSTALL_DIR$", INSTALL_DIR)
+    result = s
+    for name, value in globals().items():
+        result = result.replace("$" + name + "$", str(value))
+    return result
 
 
 def formatSize(size, width=2):
@@ -702,7 +1000,7 @@ def processCmdLineOpts(argv):
                     return
             except KeyboardInterrupt:
                 print "\n\nInstallation aborted by user!\n"
-                sys.exit(0)
+                sys.exit(-1)
             except Exception, e:
                 print "\n    Invalid input (%s)!" % e
                 pass
@@ -736,7 +1034,7 @@ def processCmdLineOpts(argv):
         for opt, arg in opts:
             if opt == "--help":
                 print "\nAccepted arguments:\n%s\n" % CMD_LINE_OPTS_ACCEPTED
-                sys.exit()
+                sys.exit(-1)
             elif opt == "--show-config":
                 showConf = True
             elif opt == "--show-modes":
@@ -769,7 +1067,7 @@ def processCmdLineOpts(argv):
             else:
                 print "\nInvalid argument '%s'!\nAccepted arguments:\n%s\n" % \
                       (opt, CMD_LINE_OPTS_ACCEPTED)
-                sys.exit()
+                sys.exit(-1)
         ROOT_DIR = os.path.expanduser(ROOT_DIR)
         TEMP_DIR = os.path.join(ROOT_DIR, TEMP_DIR)
         if TEMP_DIR.endswith("/"):
@@ -787,7 +1085,25 @@ def processCmdLineOpts(argv):
             selectTasks(selTasks)
     except Exception, e:
         print "\nError: %s!\nAccepted arguments:\n%s\n" % (e, CMD_LINE_OPTS_ACCEPTED)
-        sys.exit()
+        sys.exit(-1)
+
+
+def getLocalHostAddr():
+    try:
+        print "\nRetrieving local host's address ..."
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.connect(("google.com", 80))
+        print "Retrieving local host's address ... DONE ('%s')" % sock.getsockname()[0]
+        return sock.getsockname()[0]
+    except Exception, e:
+        print "Retrieving local host's address ... FAILED\nError: '%s'\nUsing '%s' instead" % \
+              (e, socket.gethostbyname(socket.gethostname()))
+        return socket.gethostbyname(socket.gethostname())
+    finally:
+        try:
+            sock.close()
+        except:
+            pass
 
 
 def init():
@@ -801,20 +1117,29 @@ def init():
 
 
 def install():
+    global currTaskIdx
+
     print "\nInstalling 'EventViz-15' (%d tasks)..." % len(INST_TASKS)
+    print "(Use 'Ctrl+C' to abort installation)\n"
     taskCnt = len(INST_TASKS)
-    for i in xrange(taskCnt):
-        INST_TASKS[i].execute(i, taskCnt)
+    currTaskIdx = 0
+    while currTaskIdx < taskCnt:
+        INST_TASKS[currTaskIdx].execute(currTaskIdx, taskCnt)
+        currTaskIdx += 1
     print "Installation completed!\n"
 
 
 def uninstall():
+    global currTaskIdx
+
     if len(UNINST_TASKS) == 0:
         return
     print "\nUninstalling previous 'EventViz-15' installation ... "
     taskCnt = len(UNINST_TASKS)
-    for i in xrange(taskCnt):
-        UNINST_TASKS[i].execute(i, taskCnt)
+    currTaskIdx = 0
+    while currTaskIdx < taskCnt:
+        UNINST_TASKS[currTaskIdx].execute(currTaskIdx, taskCnt)
+        currTaskIdx += 1
     print "Uninstalling previous 'EventViz-15' installation ... DONE"
 
 
@@ -829,8 +1154,12 @@ def cleanup(silent):
 
 
 def main(argv):
-    silentCleanup = False
+    global SCRIPT_PATH, SERVER_IP
+
     print "\n--------------------------- %s -------------------------- " % INSTALLER_INFO
+    SCRIPT_PATH = os.path.realpath(__file__)
+    silentCleanup = False
+    SERVER_IP = getLocalHostAddr()
     processCmdLineOpts(argv)
     try:
         init()

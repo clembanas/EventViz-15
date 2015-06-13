@@ -6,7 +6,6 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import com.evdb.javaapi.APIConfiguration;
@@ -17,7 +16,7 @@ import com.evdb.javaapi.data.request.EventSearchRequest;
 import com.evdb.javaapi.operations.EventOperations;
 
 
-public class EventfulCrawler extends JobBasedCrawler {
+public class EventfulCrawler extends CrawlerBase {
 	
 	//Constants which are loaded from config-file
 	private int WORKER_THD_CNT;
@@ -30,19 +29,77 @@ public class EventfulCrawler extends JobBasedCrawler {
 	private int MAX_PAGES;
 	
 	
-	public class EventWorkerJob extends WorkerJobBase {
+	/**
+	 * Eventful specific job.
+	 */
+	protected static class EventfulJob extends JobBase {
 		
 		public int pageNum;
 		
-		public EventWorkerJob(int pageNum)
+		public EventfulJob(int pageNum)
 		{
 			this.pageNum = pageNum;
 		}
 	}
 	
+	/**
+	 * Eventful specific job controller.
+	 */
+	protected class EventfulJobController implements JobGroupController {
+		
+		private int pageCnt = 0;
+		private AtomicInteger pageIdx = new AtomicInteger(0);
+		private int totalEventCnt = 0;
+		
+		public EventfulJobController()
+		{
+			EventSearchRequest eventSrchReq = new EventSearchRequest();
+			EventOperations eventOps = new EventOperations();
+			SearchResult srchRes;
+			
+			eventSrchReq.setDateRange(dateRange);
+			eventSrchReq.setCategory(EVENTFUL_CATEGORY);
+			eventSrchReq.setPageSize(MAX_PAGE_SIZE);
+			eventSrchReq.setPageNumber(1);
+			try {
+				srchRes = eventOps.search(eventSrchReq);
+				totalEventCnt = srchRes.getTotalItems();
+				pageCnt = Math.min(MAX_PAGES, srchRes.getPageCount());
+				DebugUtils.printDebugInfo("Processing " + Math.min(totalEventCnt, 
+					pageCnt * MAX_PAGE_SIZE) + " events on " + pageCnt + " pages (" +
+					totalEventCnt + " events on " + srchRes.getPageCount() + 
+					" pages available)", EventfulCrawler.class);
+			}
+			catch (Exception e) {
+				ExceptionHandler.handle("Failed to retrieve job size information!", e, 
+					EventfulCrawler.class, null, getClass());
+			}
+		}
+
+		public int getJobGroupCount()
+		{
+			return pageCnt;
+		}
+
+		public int getNextJobGroupIndex() 
+		{
+			return pageIdx.getAndIncrement();
+		}
+		
+		public int getJobsPerGroup() 
+		{
+			return MAX_PAGE_SIZE;
+		}
+
+		public int getTotalJobCount() 
+		{
+			return totalEventCnt;
+		}
+	}
 	
+	
+	private JobGroupController jobController = null;
 	private String dateRange;
-	private AtomicBoolean allPagesDone = new AtomicBoolean(false);
 	private AtomicInteger[] statistics = new AtomicInteger[]{new AtomicInteger(0), 
 															 new AtomicInteger(0), 
 															 new AtomicInteger(0),
@@ -79,52 +136,52 @@ public class EventfulCrawler extends JobBasedCrawler {
 	{
 		return WORKER_THD_CNT;
 	}
-
-	protected Utils.Pair<WorkerJobBase, Object> getNextWorkerJob(Object customData) throws Exception 
+	
+	protected JobGroupProvider getJobGroupProvider()
 	{
-		if (allPagesDone.get())
-			return null;
-		
-		Integer pageNum = (Integer)customData;
-		
-		if (pageNum == null) 
-			pageNum = new Integer(1);
-		else
-			pageNum = pageNum + 1;
-		return Utils.createPair((WorkerJobBase)new EventWorkerJob(pageNum), (Object)pageNum);
+		return new JobGroupProvider() {
+
+			public JobBase[] getJobsOfGroup(int groupIdx, int groupCnt, int jobsPerGroup, 
+				int totalJobCnt) throws Exception 
+			{
+				return new JobBase[]{new EventfulJob(groupIdx + 1)};
+			}
+		};
+	}
+	
+	protected Class<? extends JobGroupController> getJobGroupControllerClass()
+	{
+		return EventfulJobController.class;
+	}
+	
+	protected RemoteObjectManager.RemoteObjectCreator<JobGroupController> 
+		getJobGroupControllerCreator()
+	{
+		return new RemoteObjectManager.RemoteObjectCreator<JobGroupController>() {
+
+			public synchronized JobGroupController createRemoteObject() 
+			{
+				if (jobController == null)
+					jobController = new EventfulJobController();
+				return jobController;
+			}
+		};
 	}
 
-	protected void processWorkerJob(WorkerJobBase job) throws Exception 
+	protected void processJob(JobBase job) throws Exception 
 	{
 		EventSearchRequest eventSrchReq = new EventSearchRequest();
 		EventOperations eventOps = new EventOperations();
 		SearchResult srchRes;
 		List<Event> events;
-		String dbgInfo = "";
 		
 		eventSrchReq.setDateRange(dateRange);
 		eventSrchReq.setCategory(EVENTFUL_CATEGORY);
 		eventSrchReq.setPageSize(MAX_PAGE_SIZE);
-		eventSrchReq.setPageNumber(((EventWorkerJob)job).pageNum);
+		eventSrchReq.setPageNumber(((EventfulJob)job).pageNum);
 		srchRes = eventOps.search(eventSrchReq);
-		if (((EventWorkerJob)job).pageNum > Math.min(MAX_PAGES, srchRes.getPageCount())) {
-			allPagesDone.set(true);
-			return;
-		}
 		events = srchRes.getEvents();
-		if (DebugUtils.canDebug(EventfulCrawler.class)) {
-			dbgInfo = "Processing " + events.size() + " events on page " + srchRes.getPageNumber() + 
-						  " (" + (MAX_PAGE_SIZE * (srchRes.getPageNumber() - 1) + events.size()) + 
-						  "/" + Math.min(srchRes.getTotalItems(), MAX_PAGE_SIZE * MAX_PAGES) + 
-						  "; ~" + srchRes.getTotalItems() + " events on " + srchRes.getPageCount() + 
-						  " pages available) ...";
-			DebugUtils.printDebugInfo(dbgInfo, EventfulCrawler.class);
-		}
 		processEvents(events);
-		dbConnector.logCrawlerProgress(EventfulCrawler.class, (int)(100.0/ 
-			(float)Math.min(srchRes.getTotalItems(), MAX_PAGE_SIZE * MAX_PAGES) * 
-			(float)(MAX_PAGE_SIZE * (srchRes.getPageNumber() - 1) + events.size())));
-		DebugUtils.printDebugInfo(dbgInfo + " Done", EventfulCrawler.class);
 	}
 	
 	protected void started()
@@ -145,16 +202,22 @@ public class EventfulCrawler extends JobBasedCrawler {
 			dateRange + ")...", EventfulCrawler.class);
 	}
 	
-	protected void finished(boolean exceptionThrown)
+	protected void jobStarted(JobBase job, int progress)
 	{
-		super.finished(exceptionThrown);
-		DebugUtils.printDebugInfo("\nSummary of added data:\n   Events: " + statistics[0].get() + 
-			"\n   Cities: " + statistics[2].get() + "\n   Locations: " +	statistics[1].get() + 
-			"\n   Bands: " + statistics[3].get() + "\n", EventfulCrawler.class);
-		dbConnector.logCrawlerFinished(EventfulCrawler.class, "Added events: " + 
-			statistics[0].get() + "; Added cities: " + statistics[2].get() + "; Added locations: " + 
-			statistics[1].get() + "; Added bands: " + statistics[3].get());
-		statistics = null;
+		super.jobStarted(job, progress);
+		DebugUtils.printDebugInfo("Processing " + Math.min(job.getJobsPerGroup(), 
+			job.getTotalJobCount() - job.getGroupIndex() * job.getJobsPerGroup()) + 
+			" events on page " + (job.getGroupIndex() + 1) + " (" +	progress + "%) ...", 
+			EventfulCrawler.class);
+	}
+	
+	protected void jobFinished(JobBase job,	int progress)
+	{
+		super.jobFinished(job, progress);
+		DebugUtils.printDebugInfo("Processing " + Math.min(job.getJobsPerGroup(), 
+			job.getTotalJobCount() - job.getGroupIndex() * job.getJobsPerGroup()) + 
+			" events on page " + (job.getGroupIndex() + 1) + " (" +	progress + "%) ... DONE", 
+			EventfulCrawler.class);
 	}
 	
 	public EventfulCrawler() throws Exception
@@ -167,5 +230,29 @@ public class EventfulCrawler extends JobBasedCrawler {
 		MAX_DAYS = CrawlerConfig.getEventfulCrawlerMaxDays();
 		MAX_PAGE_SIZE = CrawlerConfig.getEventfulCrawlerPageSize();
 		MAX_PAGES = CrawlerConfig.getEventfulCrawlerMaxPages();
+	}
+	
+	public int[] getStatistics()
+	{
+		int[] result = new int[statistics.length];
+		
+		for (int i = 0; i < statistics.length; ++i)
+			result[i] = statistics[i].get();
+		return result;
+	}
+	
+	public String getSummary(int[] crawlerStats)
+	{
+		return "Added events: " + crawlerStats[0] + "; Added cities: " + crawlerStats[2] + 
+					"; Added locations: " + crawlerStats[1] + "; Added bands: " +	crawlerStats[3];
+	}
+	
+	public void allInstancesFinished(boolean exceptionThrown, int[] crawlerStats)
+	{
+		super.allInstancesFinished(exceptionThrown, crawlerStats);
+		if (isMasterNode) 
+			DebugUtils.printDebugInfo("\nSummary of added data:\n   Events: " + 
+				crawlerStats[0] + "\n   Cities: " + crawlerStats[2] + "\n   Locations: " +	
+				crawlerStats[1] + "\n   Bands: " + crawlerStats[3] + "\n", EventfulCrawler.class);
 	}
 }

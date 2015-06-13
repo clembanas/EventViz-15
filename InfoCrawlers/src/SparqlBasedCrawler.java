@@ -177,7 +177,7 @@ public abstract class SparqlBasedCrawler extends DBQueryBasedCrawler {
 		
 		public DBConnector getDBConnector()
 		{
-			return SparqlBasedCrawler.this.dbConnector; 
+			return SparqlBasedCrawler.dbConnector; 
 		}
 		
 		public String[] getDataRow() 

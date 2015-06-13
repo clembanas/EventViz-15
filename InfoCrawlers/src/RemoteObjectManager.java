@@ -15,12 +15,12 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
-
-import org.apache.commons.lang3.ObjectUtils.Null;
 
 
 /**
@@ -28,14 +28,27 @@ import org.apache.commons.lang3.ObjectUtils.Null;
  */
 public class RemoteObjectManager {
 
-	public static int REMOTE_OBJECT_MGR_PORT = 9125;
+	private static InetAddress LOCAL_HOST_ADDR;
+	private static int REMOTE_OBJECT_MGR_PORT = 9125;
+
+	
+	/**
+	 * Server connection listener interface
+	 */
+	public static interface ServerConnectionListener {
+		
+		public void established(InetAddress client);
+		public void closed(InetAddress client);
+	}
+	
 	
 	/**
 	 * Available debug flags
 	 */
 	public static enum DebugFlag implements DebugUtils.DebugFlagBase {
 		CONNECTION(1),
-		REMOTE_OBJECT(2);
+		REMOTE_OBJECT(2),
+		METHOD_ARGUMENTS(4);
 		
 		public final int value;
 		
@@ -49,168 +62,411 @@ public class RemoteObjectManager {
 			return value;
 		}
 	}
+	
+	/**
+	 * Interface used by the RemoteObjectManager to create an instance of a remote object.
+	 * Note: Its up to the implementing class to provide singleton facilities.
+	 */
+	public static interface RemoteObjectCreator<RemObjInterface> {
+		
+		RemObjInterface createRemoteObject() throws Exception;
+	}
+	
+	/**
+	 * Internally used remote object identifier.
+	 */
+	private static class RemoteObjectID {
+		
+		private String remObjClassName;
+		private String remObjContext;
+		
+		public RemoteObjectID(Class<?> remObjClass, String remObjContext)
+		{
+			this.remObjClassName = remObjClass.getName();
+			this.remObjContext = remObjContext;
+		}
+		
+		public RemoteObjectID(String remObjID) throws Exception
+		{
+			if (!remObjID.contains("@")) {
+				this.remObjClassName = remObjID;
+				this.remObjContext = null;
+			}
+			else {
+				String[] parts = remObjID.split("@");
+			
+				if (parts.length != 2)
+					throw new Exception("Invalid remote object identifier!");
+				this.remObjClassName = parts[0];
+				this.remObjContext = parts[1];
+			}
+		}
+		
+		public int hashCode()
+		{
+			return remObjContext == null ? remObjClassName.hashCode() : 
+					   (remObjClassName + "@" + remObjContext).hashCode();
+		}
+		
+		public boolean equals(Object obj)
+		{
+			return obj instanceof RemoteObjectID &&
+					   remObjClassName.equals(((RemoteObjectID)obj).remObjClassName) &&
+					   ((remObjContext != null && 
+					   remObjContext.equals(((RemoteObjectID)obj).remObjContext)) ||
+					   (remObjContext == null && ((RemoteObjectID)obj).remObjContext == null));
+		}
+		
+		public String toString()
+		{
+			return remObjContext == null ? remObjClassName : (remObjClassName + "@" + 
+					   remObjContext);
+		}
+		
+		public static String formatAsID(Class<?> remObjClass, String remObjContext)
+		{
+			return remObjContext == null ? remObjClass.getName() : (remObjClass.getName() + "@" + 
+					   remObjContext);
+		}
+	}
 
 	/**
 	 * Internally used object accessor interface 
 	 */
 	private static interface ObjectAccessor {
 		
-		public void close();
-		
-		public Object getObject();
-		
-		public Class<?> getRemoteObjectInterface();
+		public Object invoke(String mthdName, Object args[]) throws Exception;
+		public Class<?> getRemoteObjectClass();
+		public Object getRemoteObject();
+		public String getRemoteObjectStrID();
+		public InetAddress getHostAddress();
 	}
 	
 	/**
-	 * Utility class to access a local object. 
+	 * Controls the access and lifetime of all remote object instances of one certain remote object 
+	 * class. 
 	 */
-	private static class LocalObjectAccessor implements ObjectAccessor {
+	private static class RemoteObjectController {
 		
-		private Object obj;
-		
-		public LocalObjectAccessor(Object obj)
-		{
-			this.obj = obj;
-		}
-		
-		public synchronized Object invoke(String mthdName, Object args[]) throws Exception
-		{
-			if (obj == null)
-				throw new RemoteObjectException("Access to remote object closed!");
+		/**
+		 * Extension of the ObjectAccessor interface allowing to manage multiple references of the 
+		 * an object accessor. 
+		 */
+		private static interface ObjectAccessorRef extends ObjectAccessor {
 			
-			Class<?>[] argTypes = new Class<?>[args.length];
-			
-			for (int i = 0; i < args.length; ++i) {
-				if (args[i] == null)
-					argTypes[i] = Null.class;
-				else
-					argTypes[i] = args[i].getClass();
-			}
-			return obj.getClass().getMethod(mthdName, argTypes).invoke(obj, args);	
+			public void createRef() throws Exception;
+			public void releaseRef(boolean releaseAllRefs) throws Exception;
+			public int getRefCount();
 		}
 		
-		public synchronized void close() 
-		{
-			obj = null;
-		}
-		
-		public Object getObject()
-		{
-			return obj;
-		}
-
-		public Class<?> getRemoteObjectInterface() 
-		{
-			return obj.getClass();
-		}
-	}
-	
-	/**
-	 * Utility class to access a remote object. 
-	 */
-	private static class RemoteObjectAccessor implements ObjectAccessor, InvocationHandler {
-
-		private Class<?> remObjInterface;
-		private Object proxy; 
-		private RemoteConnection remConnection;
-		
-		private void performHandshake() throws Exception
-		{
-			DebugUtils.printDebugInfo("Performing handshake for remote object '" + 
-				remObjInterface.getName() +	"' with server '" + 
-				remConnection.getSocket().getInetAddress().getHostAddress() + 
-				"' ...", RemoteObjectManager.class, null, getClass(), DebugFlag.REMOTE_OBJECT);
+		/**
+		 * Utility class to access a local object. 
+		 */
+		private class LocalObjectAccessor implements ObjectAccessorRef {
 			
-			remConnection.writeString(remObjInterface.getName());
-			String resp = remConnection.readString();
+			private int refCnt = 1;
+			private Object locObjInst;
 			
-			if (!resp.equalsIgnoreCase("READY")) {
-				RemoteObjectException e = new RemoteObjectException(resp);
-				remConnection.close();
-				ExceptionHandler.handle("Failed to perform handshake for remote object '" + 
-					remObjInterface.getName() + "' with server '" + 
-					remConnection.getSocket().getInetAddress().getHostAddress() + "'!", e, 
-					RemoteObjectManager.class, null, getClass());
-				throw e;
-			}
-			DebugUtils.printDebugInfo("Performing handshake for remote object '" + 
-				remObjInterface.getName() +	"' with server '" + 
-				remConnection.getSocket().getInetAddress().getHostAddress() + 
-				"' ... DONE", RemoteObjectManager.class, null, getClass(), DebugFlag.REMOTE_OBJECT);
-		}
-		
-		public RemoteObjectAccessor(Class<?> remObjInterface, InetAddress remAddr) throws Exception 
-		{
-			this.remObjInterface = remObjInterface;
-			this.proxy = Proxy.newProxyInstance(remObjInterface.getClassLoader(), 
-						     new Class[]{remObjInterface}, this);
-			remConnection = new RemoteConnection(remAddr);
-			performHandshake();
-		}
-		
-		public synchronized Object invoke(Object obj, Method mthd, Object[] args) throws Exception 
-		{
-			DebugUtils.printDebugInfo("Invoking method '" + mthd.getName() + 
-				"' of remote object '" + remObjInterface.getName() + "' on server '" + 
-				remConnection.getSocket().getInetAddress().getHostAddress() + 
-				"' ...", RemoteObjectManager.class, null, getClass(), DebugFlag.REMOTE_OBJECT);
-			
-			remConnection.writeString("FUNC: " + mthd.getName());
-			remConnection.writeObjects(args);
-			
-			String resp = remConnection.readString();
-			if (!resp.toLowerCase().startsWith("RESULT: ")) {
-				RemoteObjectException e = new RemoteObjectException(resp);
-				ExceptionHandler.handle("Failed to invoke method '" + mthd.getName() + 
-					"' of remote object '" + remObjInterface.getName() + 
-					"' on server '" + remConnection.getSocket().getInetAddress().getHostAddress() + 
-					"'!", e, RemoteObjectManager.class, null, getClass());
-				throw e;
-			}
-			Object res = remConnection.readObject();
-			
-			DebugUtils.printDebugInfo("Invoking method '" + mthd.getName() + 
-				"' of remote object '" + remObjInterface.getName() + "' on server '" + 
-				remConnection.getSocket().getInetAddress().getHostAddress() + 
-				"' ... DONE", RemoteObjectManager.class, null, getClass(), DebugFlag.REMOTE_OBJECT);
-			return res;
-		}
-		
-		public synchronized void close()
-		{
-			DebugUtils.printDebugInfo("Closing access to remote object '" + 
-				remObjInterface.getName() + "' on server '" + 
-				remConnection.getSocket().getInetAddress().getHostAddress() + 
-				"' ...", RemoteObjectManager.class, null, getClass(), DebugFlag.REMOTE_OBJECT);
-			try {
-				remConnection.writeString("CLOSE");
-				
-				String resp = remConnection.readString();
-				if (!resp.equalsIgnoreCase("CLOSED"))
-					throw new RemoteObjectException(resp);
-				DebugUtils.printDebugInfo("Closing access to remote object '" + 
-					remObjInterface.getName() + "' on server '" + 
-					remConnection.getSocket().getInetAddress().getHostAddress() + 
-					"' ... DONE", RemoteObjectManager.class, null, getClass(), 
+			public LocalObjectAccessor(Object locObjInst) throws Exception
+			{
+				this.locObjInst = locObjInst;
+				DebugUtils.printDebugInfo("Locale instance of remote object '" + remObjStrID +
+					"' created (References: " + refCnt + ")", RemoteObjectManager.class, 
 					DebugFlag.REMOTE_OBJECT);
 			}
-			catch (Exception e) {
-				ExceptionHandler.handle("Failed to close access to remote object!", e, 
-					RemoteObjectManager.class, null, getClass());
+			
+			public synchronized void createRef() throws Exception
+			{
+				refCnt++;
+				DebugUtils.printDebugInfo("Locale instance of remote object '" + remObjStrID +
+					"' created (References: " + refCnt + ")", RemoteObjectManager.class, 
+					DebugFlag.REMOTE_OBJECT);
 			}
-			remConnection.close();
-			proxy = null;
-		}
 
-		public Object getObject() 
-		{
-			return proxy;
+			public synchronized void releaseRef(boolean releaseAllRefs) throws Exception
+			{
+				if (releaseAllRefs || --refCnt == 0) {
+					refCnt = 0;
+					locObjInst = null;
+					DebugUtils.printDebugInfo("Locale object '" + remObjStrID +	"' closed",	
+						RemoteObjectManager.class, null, getClass(), DebugFlag.REMOTE_OBJECT);
+				}
+			}
+
+			public synchronized int getRefCount()
+			{
+				return refCnt;
+			}
+			
+			public synchronized Object invoke(String mthdName, Object args[]) throws Exception
+			{
+				if (locObjInst == null)
+					throw new RemoteObjectException("Remote object '" + remObjStrID + "' closed!");
+				
+				Class<?>[] argTypes = new Class<?>[args.length];
+				
+				for (int i = 0; i < args.length; ++i) {
+					if (args[i] == null)
+						argTypes[i] = null;
+					else
+						argTypes[i] = args[i].getClass();
+				}
+				return locObjInst.getClass().getMethod(mthdName, argTypes).invoke(locObjInst, args);	
+			}
+			
+			public Class<?> getRemoteObjectClass()
+			{
+				return remObjClass;
+			}
+			
+			public Object getRemoteObject()
+			{
+				return locObjInst;
+			}
+			
+			public String getRemoteObjectStrID()
+			{
+				return remObjStrID;
+			}
+			
+			public InetAddress getHostAddress()
+			{
+				return LOCAL_HOST_ADDR;
+			}
 		}
 		
-		public Class<?> getRemoteObjectInterface() 
+		/**
+		 * Utility class to access a remote object. 
+		 */
+		private class RemoteObjectAccessor implements ObjectAccessorRef, InvocationHandler {
+
+			private Object proxy; 
+			private RemoteConnection remConnection;
+			
+			private void performHandshake() throws Exception
+			{
+				DebugUtils.printDebugInfo("Performing handshake for remote object '" + remObjStrID +
+					"' with server '" +	remConnection.getRemoteIPAddress() + "' ...", 
+					RemoteObjectManager.class, null, getClass(), DebugFlag.REMOTE_OBJECT);
+				
+				remConnection.writeString(remObjStrID);
+				String resp = remConnection.readString();
+				
+				if (!resp.equalsIgnoreCase("READY")) {
+					RemoteObjectException e = new RemoteObjectException(resp);
+					remConnection.close();
+					ExceptionHandler.handle("Failed to perform handshake for remote object '" + 
+						remObjStrID + "' with server '" + remConnection.getRemoteIPAddress() + "'!", 
+						e, RemoteObjectManager.class, null, getClass());
+					throw e;
+				}
+				DebugUtils.printDebugInfo("Performing handshake for remote object '" + remObjStrID +
+					"' with server '" + remConnection.getRemoteIPAddress() + "' ... DONE", 
+					RemoteObjectManager.class, null, getClass(), DebugFlag.REMOTE_OBJECT);
+			}
+
+			public RemoteObjectAccessor(InetAddress remAddr) throws Exception 
+			{
+				this.proxy = Proxy.newProxyInstance(remObjClass.getClassLoader(), 
+							     getRemoteObjectInterfaces(), this);
+				remConnection = new RemoteConnection(remAddr);
+				try {
+					performHandshake();
+					DebugUtils.printDebugInfo("Remote instance of remote object '" + remObjStrID +
+						"' on host '" + remAddr.getHostAddress() + "' created", 
+						RemoteObjectManager.class,	DebugFlag.REMOTE_OBJECT);
+				}
+				catch (Exception e) {
+					remConnection.close();
+					throw e;
+				}
+			}
+			
+			public void createRef() 
+			{
+				throw new UnsupportedOperationException("Can't create multiple references of " + 
+							   "remote object accessor of '" + remObjStrID + "'!");
+			}
+
+			public synchronized void releaseRef(boolean releaseAllRefs) throws Exception
+			{
+				DebugUtils.printDebugInfo("Closing remote object '" + remObjStrID + 
+					"' on server '" + remConnection.getRemoteIPAddress() + "' ...", 
+					RemoteObjectManager.class, null, getClass(), DebugFlag.REMOTE_OBJECT);
+				try {
+					remConnection.writeString("CLOSE");
+					
+					String resp = remConnection.readString();
+					if (!resp.equalsIgnoreCase("CLOSED"))
+						throw new RemoteObjectException(resp);
+					DebugUtils.printDebugInfo("Closing remote object '" + remObjStrID + 
+						"' on server '" + remConnection.getRemoteIPAddress() + "' ... DONE", 
+						RemoteObjectManager.class, null, getClass(), DebugFlag.REMOTE_OBJECT);
+				}
+				catch (Exception e) {
+					ExceptionHandler.handle("Failed to close remote object '" + remObjStrID + "'!", 
+						e, RemoteObjectManager.class, null,	getClass());
+					throw e;
+				}
+				finally {
+					remConnection.close();
+					proxy = null;
+				}
+			}
+			
+			public int getRefCount() 
+			{
+				return 1;
+			}
+			
+			public synchronized Object invoke(String mthdName, Object[] args) throws Exception 
+			{
+				DebugUtils.printDebugInfo("Invoking method '" + mthdName + "(" + 
+					(DebugUtils.canDebug(RemoteObjectManager.class, DebugFlag.METHOD_ARGUMENTS) ? 
+					Utils.objectsToString(args) : "...") + ")' of remote object '" + 
+					remObjStrID + "' on server '" + remConnection.getRemoteIPAddress() + "' ...", 
+					RemoteObjectManager.class, null, getClass(), DebugFlag.REMOTE_OBJECT);
+				
+				remConnection.writeString("FUNC: " + mthdName);
+				remConnection.writeObjects(args);
+				
+				String resp = remConnection.readString();
+				if (!resp.toLowerCase().startsWith("RESULT: ")) {
+					RemoteObjectException e = new RemoteObjectException(resp);
+					ExceptionHandler.handle("Failed to invoke method '" + mthdName + "(" + 
+						(DebugUtils.canDebug(RemoteObjectManager.class, 
+						DebugFlag.METHOD_ARGUMENTS) ? Utils.objectsToString(args) : "...") +
+						")' of remote object '" + remObjStrID + "' on server '" + 
+						remConnection.getRemoteIPAddress() + "'!", e, RemoteObjectManager.class, 
+						null, getClass());
+					throw e;
+				}
+				Object res = remConnection.readObject();
+				
+				if (DebugUtils.canDebug(RemoteObjectManager.class, DebugFlag.METHOD_ARGUMENTS))
+					DebugUtils.printDebugInfo("Invocation of method '" + mthdName + "(" + 
+						Utils.objectsToString(args) + ")' of remote object '" + remObjStrID +
+						"' on server '" + remConnection.getRemoteIPAddress() + "' returned '" + 
+						Utils.objectsToString(res) + "'", RemoteObjectManager.class, null, 
+						getClass(), DebugFlag.REMOTE_OBJECT);
+				else
+					DebugUtils.printDebugInfo("Invoking method '" + mthdName + 
+						"(...)' of remote object '" + remObjStrID + "' on server '" +
+						remConnection.getRemoteIPAddress() + "' ... DONE",
+						RemoteObjectManager.class, null, getClass(), DebugFlag.REMOTE_OBJECT);
+				return res;
+			}
+			
+			public Object invoke(Object obj, Method mthd, Object[] args) throws Throwable 
+			{
+				return invoke(mthd.getName(), args);
+			}
+			
+			public Class<?> getRemoteObjectClass()
+			{
+				return remObjClass;
+			}
+
+			public Object getRemoteObject() 
+			{
+				return proxy;
+			}
+			
+			public String getRemoteObjectStrID()
+			{
+				return remObjStrID;
+			}
+			
+			public InetAddress getHostAddress()
+			{
+				return remConnection.getSocket().getInetAddress();
+			}
+		}
+		
+		private Map<Object, ObjectAccessorRef> objAccessorRefs = 
+			new HashMap<Object, ObjectAccessorRef>();
+		private Class<?> remObjClass;
+		private Set<Class<?>> remObjInterfaces = new HashSet<Class<?>>(1); 
+		private RemoteObjectCreator<?> remObjCreator;
+		private String remObjStrID;
+		
+		private boolean isLocalAddress(InetAddress addr)
 		{
-			return remObjInterface.getClass();
+			return addr == null || LOCAL_HOST_ADDR.equals(addr);
+		}
+		
+		public RemoteObjectController(Class<?> remObjInterface, Class<?> remObjClass, 
+			RemoteObjectCreator<?> remObjCreator, String remObjContext)
+		{
+			remObjInterfaces.add(remObjInterface);
+			this.remObjClass = remObjClass;
+			this.remObjCreator = remObjCreator;
+			remObjStrID = RemoteObjectID.formatAsID(remObjClass, remObjContext);
+		}
+		
+		public synchronized void addRemoteObjectInterface(Class<?> remObjInterface) 
+		{
+			remObjInterfaces.add(remObjInterface);
+		}
+		
+		public synchronized ObjectAccessor getAccessor(InetAddress remAddr) throws Exception
+		{
+			ObjectAccessorRef objAccessorRef;
+			
+			if (isLocalAddress(remAddr)) {
+				Object remObj = remObjCreator == null ? remObjClass.newInstance() : 
+									remObjCreator.createRemoteObject();
+				
+				//Remote object is singleton				
+				if ((objAccessorRef = objAccessorRefs.get(remObj)) != null) {
+					objAccessorRef.createRef();
+					return objAccessorRef;
+				}
+				//First instance of remote object created or multiple instances possible
+				objAccessorRef = new LocalObjectAccessor(remObj);
+			}
+			else
+				objAccessorRef = new RemoteObjectAccessor(remAddr);
+			objAccessorRefs.put(objAccessorRef.getRemoteObject(), objAccessorRef);
+			return objAccessorRef;
+		}
+		
+		public ObjectAccessor getAccessor() throws Exception
+		{
+			return getAccessor(LOCAL_HOST_ADDR);
+		}
+				
+		public synchronized void closeAccessor(Object remObj) throws Exception
+		{
+			ObjectAccessorRef objAccessorRef = objAccessorRefs.get(remObj);
+			
+			if (objAccessorRef != null) {
+				if (objAccessorRef.getRefCount() == 1)
+					objAccessorRefs.remove(remObj);
+				objAccessorRef.releaseRef(false);
+			}
+		}
+		
+		public synchronized void closeAllAccessors() throws Exception
+		{
+			Exception exception = null;
+			
+			for (ObjectAccessorRef objAccessorRef: objAccessorRefs.values()) {
+				try {
+					objAccessorRef.releaseRef(true);
+				}
+				catch (Exception e) {
+					exception = e;
+				}
+			}
+			objAccessorRefs.clear();
+			if (exception != null)
+				throw exception;
+		}
+		
+		public synchronized Class<?>[] getRemoteObjectInterfaces()
+		{
+			return remObjInterfaces.toArray(new Class<?>[remObjInterfaces.size()]);
 		}
 	}
 
@@ -338,132 +594,182 @@ public class RemoteObjectManager {
 		{
 			return sock;
 		}
+		
+		public InetAddress getRemoteAddress()
+		{
+			return sock.getInetAddress();
+		}
+		
+		public String getRemoteIPAddress()
+		{
+			return sock.getInetAddress().getHostAddress();
+		}
 	}
 	
 	/**
-	 * Socket handler thread for incoming/ accepted client connections 
+	 * RemoteObjectManager TCP-Server
 	 */
-	private static class ClientSocketHandler implements Runnable {
+	private static class RemoteObjectMgrServer extends Thread {
+		
+		/**
+		 * Socket handler thread for incoming client TCP connections 
+		 */
+		private class ClientConnectionHandler implements Runnable {
 
-		private RemoteConnection remConnection;
-		private LocalObjectAccessor localObjAccessor;
-		
-		private void performHandshake() throws Exception
-		{
-			String className = remConnection.readString();
+			private RemoteConnection remConnection;
+			private RemoteObjectController remObjCtrlr = null;
+			private ObjectAccessor locObjAccessor = null;
 			
-			DebugUtils.printDebugInfo("Performing handshake for remote object '" + className + 
-				"' with client '" + remConnection.getSocket().getInetAddress().getHostAddress() + 
-				"' ...", RemoteObjectManager.class, null, getClass(), DebugFlag.REMOTE_OBJECT);
-			try {
-				localObjAccessor = getLocalObjectAccessor(Class.forName(className));
-			}
-			catch (Exception e) {
-				remConnection.writeString("ERROR: " + e.getMessage());
-				ExceptionHandler.handle("Failed to perform handshake for remote object '" + 
-					className + "' with client '" + 
-					remConnection.getSocket().getInetAddress().getHostAddress() + "'!", e, 
-					RemoteObjectManager.class, null, getClass());
-				throw e;
-			}
-			remConnection.writeString("READY");
-			DebugUtils.printDebugInfo("Performing handshake for remote object '" + className + 
-				"' with client '" + remConnection.getSocket().getInetAddress().getHostAddress() + 
-				"' ... DONE", RemoteObjectManager.class, null, getClass(), DebugFlag.REMOTE_OBJECT);
-		}
-		
-		private void processMethodInvocation(String mthdName) throws Exception
-		{
-			Object args[] = remConnection.readObjects();
-			
-			DebugUtils.printDebugInfo("Invoking method '" + mthdName + "' of remote object '" + 
-				localObjAccessor.getRemoteObjectInterface().getName() + "' for client '" + 
-				remConnection.getSocket().getInetAddress().getHostAddress() + 
-				"' ...", RemoteObjectManager.class, null, getClass(), DebugFlag.REMOTE_OBJECT);
-			try {
-				Object res = localObjAccessor.invoke(mthdName, args);
-				remConnection.writeString("RESULT: ");
-				remConnection.writeObject(res);
-				DebugUtils.printDebugInfo("Invoking method '" + mthdName + "' of remote object '" + 
-					localObjAccessor.getRemoteObjectInterface().getName() + "' for client '" + 
-					remConnection.getSocket().getInetAddress().getHostAddress() + 
+			private void performHandshake() throws Exception
+			{
+				RemoteObjectID remObjID = new RemoteObjectID(remConnection.readString());
+				
+				DebugUtils.printDebugInfo("Performing handshake for remote object '" + 
+					remObjID.toString() +	"' with client '" + remConnection.getRemoteIPAddress() + 
+					"' ...", RemoteObjectManager.class, null, getClass(), DebugFlag.REMOTE_OBJECT);
+				try {
+					remObjCtrlr = getRemObjController(remObjID);
+					if (remObjCtrlr == null)
+						throw new RemoteObjectException("Unknown remote object '" + 
+									  remObjID.toString() + "'!");
+					locObjAccessor = remObjCtrlr.getAccessor();
+				}
+				catch (Exception e) {
+					remConnection.writeString("ERROR: " + e.getMessage());
+					ExceptionHandler.handle("Failed to perform handshake for remote object '" + 
+						remObjID.toString() + "' with client '" + 
+						remConnection.getRemoteIPAddress() + "'!", e, RemoteObjectManager.class, 
+						null, getClass());
+					throw e;
+				}
+				remConnection.writeString("READY");
+				DebugUtils.printDebugInfo("Performing handshake for remote object '" + 
+					remObjID.toString() +	"' with client '" + remConnection.getRemoteIPAddress() + 
 					"' ... DONE", RemoteObjectManager.class, null, getClass(), 
 					DebugFlag.REMOTE_OBJECT);
 			}
-			catch (Exception e) {
-				remConnection.writeString("ERROR: " + e.getMessage());
-				ExceptionHandler.handle("Failed to invoke method '" + mthdName + 
-					"' of remote object '" + localObjAccessor.getRemoteObjectInterface().getName() + 
-					"' for client '" + remConnection.getSocket().getInetAddress().getHostAddress() + 
-					"'!", e, RemoteObjectManager.class, null, getClass());
-			}
-		}
-		
-		public ClientSocketHandler(Socket clientSock) throws Exception 
-		{
-			remConnection = new RemoteConnection(clientSock);
-		}
-
-		public void run() 
-		{
-			String cmd;
 			
-			try {
-				performHandshake();
-				while (true) {
-					cmd = remConnection.readString();
-					if (cmd.equalsIgnoreCase("close")) {
-						DebugUtils.printDebugInfo("Received close request from client '" + 
-							remConnection.getSocket().getInetAddress().getHostAddress() + 
-							"'", RemoteObjectManager.class, null, getClass(), 
-							DebugFlag.CONNECTION);
-						remConnection.writeString("CLOSED");
-						return;
-					}
-					else if (cmd.toLowerCase().startsWith("func: ")) 
-						processMethodInvocation(cmd.substring(6));
+			private void processMethodInvocation(String mthdName) throws Exception
+			{
+				Object args[] = remConnection.readObjects();
+				
+				DebugUtils.printDebugInfo("Invoking method '" + mthdName + "(" + 
+					(DebugUtils.canDebug(RemoteObjectManager.class, DebugFlag.METHOD_ARGUMENTS) ? 
+					Utils.objectsToString(args) : "...") + ")' of remote object '" + 
+					locObjAccessor.getRemoteObjectStrID() + "' for client '" + 
+					remConnection.getRemoteIPAddress() + "' ...", 
+					RemoteObjectManager.class, null, getClass(), DebugFlag.REMOTE_OBJECT);
+				try {
+					Object res = locObjAccessor.invoke(mthdName, args);
+					
+					remConnection.writeString("RESULT: ");
+					remConnection.writeObject(res);
+					if (DebugUtils.canDebug(RemoteObjectManager.class, DebugFlag.METHOD_ARGUMENTS)) 
+						DebugUtils.printDebugInfo("Invocation of method '" + mthdName + "(" + 
+							Utils.objectsToString(args) + ")' of remote object '" + 
+							locObjAccessor.getRemoteObjectStrID() + "' for client '" + 
+							remConnection.getRemoteIPAddress() + 
+							"' returned '" + Utils.objectsToString(res) + "'", 
+							RemoteObjectManager.class, null, getClass(), DebugFlag.REMOTE_OBJECT);
+					else 
+						DebugUtils.printDebugInfo("Invoking method '" + mthdName + 
+							"(...)' of remote object '" + locObjAccessor.getRemoteObjectStrID() + 
+							"' for client '" + remConnection.getRemoteIPAddress() + "' ... DONE", 
+							RemoteObjectManager.class, null, getClass(), DebugFlag.REMOTE_OBJECT);
+				}
+				catch (Exception e) {
+					remConnection.writeString("ERROR: " + e.getMessage());
+					ExceptionHandler.handle("Failed to invoke method '" + mthdName + "(" + 
+						(DebugUtils.canDebug(RemoteObjectManager.class, 
+						DebugFlag.METHOD_ARGUMENTS) ? Utils.objectsToString(args) : "...") +
+						")' of remote object '" + locObjAccessor.getRemoteObjectStrID() +
+						"' for client '" + remConnection.getRemoteIPAddress() + "'!", e, 
+						RemoteObjectManager.class, null, getClass());
 				}
 			}
-			catch (Exception e) {
-				ExceptionHandler.handle("Failed to handle connection to client '" + 
-					remConnection.getSocket().getInetAddress().getHostAddress() + "'!", e, 
-					RemoteObjectManager.class, null, getClass());
+			
+			public ClientConnectionHandler(Socket clientSock) throws Exception 
+			{
+				remConnection = new RemoteConnection(clientSock);
 			}
-			finally {
-				remConnection.close();
-				DebugUtils.printDebugInfo("Connection to client '" + 
-					remConnection.getSocket().getInetAddress().getHostAddress() + 
-					"' closed", RemoteObjectManager.class, null, getClass(), 
-					DebugFlag.CONNECTION);
+
+			public void run() 
+			{
+				String cmd;
+				
+				try {
+					performHandshake();
+					while (true) {
+						cmd = remConnection.readString();
+						if (cmd.equalsIgnoreCase("close")) {
+							DebugUtils.printDebugInfo("Received close request from client '" + 
+								remConnection.getRemoteIPAddress() + "'", RemoteObjectManager.class, 
+								null, getClass(), DebugFlag.CONNECTION);
+							break;
+						}
+						else if (cmd.toLowerCase().startsWith("func: ")) 
+							processMethodInvocation(cmd.substring(6));
+					}
+				}
+				catch (Exception e) {
+					if (serverSock.isClosed())
+						DebugUtils.printDebugInfo("Closing connection to client '" + 
+							remConnection.getRemoteIPAddress() + 
+							"' because of RemoteObjectManager-Server shutdown!",  
+							RemoteObjectManager.class, null, getClass());
+					else 
+						ExceptionHandler.handle("Failed to handle connection to client '" + 
+							remConnection.getRemoteIPAddress() + "'!", e, RemoteObjectManager.class, 
+							null, getClass());
+				}
+				finally {
+					ServerConnectionListener serverConnListener;
+					
+					try {
+						remConnection.writeString("CLOSED");
+					}
+					catch (Exception e) {};
+					try {
+						if (remObjCtrlr != null)
+							remObjCtrlr.closeAccessor(locObjAccessor.getRemoteObject());
+					}
+					catch (Exception e) {}
+					if ((serverConnListener = getServerConnectionListener()) != null)
+						serverConnListener.closed(remConnection.getRemoteAddress());
+					remConnection.close();
+					DebugUtils.printDebugInfo("Connection to client '" + 
+						remConnection.getRemoteIPAddress() + "' closed", RemoteObjectManager.class, 
+						null, getClass(), DebugFlag.CONNECTION);
+				}
 			}
 		}
-	}
-	
-	/**
-	 * Socket handler thread for server connections 
-	 */
-	private static class ServerSocketHandler extends Thread {
 		
-		private ServerSocket sock;
+		
+		private ServerSocket serverSock;
 		private ExecutorService thdPool;
 		private List<Utils.Pair<Socket, Future<?>>> pendingClientHandlers = 
 			new ArrayList<Utils.Pair<Socket, Future<?>>>();
 		
-		public ServerSocketHandler(int port, ExecutorService thdPool) throws Exception 
+		public RemoteObjectMgrServer(int port, ExecutorService thdPool) throws Exception 
 		{
-			this.sock = new ServerSocket(port);
+			this.serverSock = new ServerSocket(port);
 			this.thdPool = thdPool;
-			DebugUtils.printDebugInfo("Server socket created - waiting for incoming connections...", 
-				RemoteObjectManager.class, null, getClass(), DebugFlag.CONNECTION);
+			DebugUtils.printDebugInfo("RemoteObjectManager-Server started - waiting for incoming " +
+				"connections on port " + port + "...", RemoteObjectManager.class, null, getClass(), 
+				DebugFlag.CONNECTION);
 		}
 		
 		public void run()
 		{
 			Socket newClientConn;
+			ServerConnectionListener serverConnListener;
 			
-			while (!sock.isClosed()) {
+			while (!serverSock.isClosed()) {
 				try {
-					newClientConn = sock.accept();
+					newClientConn = serverSock.accept();
+					serverConnListener = getServerConnectionListener();
+					if (serverConnListener != null)
+						serverConnListener.established(newClientConn.getInetAddress());
 					DebugUtils.printDebugInfo("Accepted client connection from host '" + 
 						newClientConn.getInetAddress().getHostAddress() + "'", 
 						RemoteObjectManager.class, null, getClass(), DebugFlag.CONNECTION);
@@ -477,7 +783,7 @@ public class RemoteObjectManager {
 							}
 							//Reuse existing slot in pendingClientHandlers
 							pendingClientHandlers.set(i, new Utils.Pair<Socket, Future<?>>(
-								newClientConn, thdPool.submit(new ClientSocketHandler(
+								newClientConn, thdPool.submit(new ClientConnectionHandler(
 								newClientConn))));
 							newClientConn = null;
 						}
@@ -486,10 +792,10 @@ public class RemoteObjectManager {
 					//Add new client handler
 					if (newClientConn != null)
 						pendingClientHandlers.add(new Utils.Pair<Socket, Future<?>>(newClientConn, 
-							thdPool.submit(new ClientSocketHandler(newClientConn))));
+							thdPool.submit(new ClientConnectionHandler(newClientConn))));
 				} 
 				catch (Exception e) {
-					if (!sock.isClosed()) 
+					if (!serverSock.isClosed()) 
 						ExceptionHandler.handle("Failed to accept incomming client connection!", e,
 							RemoteObjectManager.class, null, getClass());
 					else
@@ -502,20 +808,21 @@ public class RemoteObjectManager {
 		{
 			try {
 				//Close server socket 
-				sock.close();
+				serverSock.close();
 				join();
-				//Wait for all client handlers to be finished
-				for (Utils.Pair<Socket, Future<?>> pendClientHandler: pendingClientHandlers) {
-					try {
-						pendClientHandler.first.close();
-						pendClientHandler.second.get();
-					}
-					catch (Exception e) {}
-				}
 			}
 			catch (Exception e) {};
-			DebugUtils.printDebugInfo("Server socket shutdown",	RemoteObjectManager.class, null, 
-				getClass(), DebugFlag.CONNECTION);
+			//Stop all client connections handlers
+			for (Utils.Pair<Socket, Future<?>> pendClientHandler: pendingClientHandlers) {
+				try {
+					pendClientHandler.first.close();
+					pendClientHandler.second.get();
+				}
+				catch (Exception e) {}
+			}
+			pendingClientHandlers.clear();
+			DebugUtils.printDebugInfo("RemoteObjectManager-Server shutdown",	
+				RemoteObjectManager.class, null, getClass(), DebugFlag.CONNECTION);
 		}
 	}
 
@@ -546,157 +853,150 @@ public class RemoteObjectManager {
 	}
 
 	
-	private static Map<String, Utils.Pair<LocalObjectAccessor, Map<InetAddress, 
-		RemoteObjectAccessor>>> registeredObjs = 
-			new HashMap<String, Utils.Pair<LocalObjectAccessor, Map<InetAddress, 
-					RemoteObjectAccessor>>>();
-	private static ServerSocketHandler serverSockHandler; 
+	private static Map<RemoteObjectID, RemoteObjectController> registeredRemObjs = 
+		new HashMap<RemoteObjectID, RemoteObjectController>();
+	private static RemoteObjectMgrServer remObjMgrServer; 
+	private static ServerConnectionListener serverConnListener = null;
 	
-	private static synchronized LocalObjectAccessor getLocalObjectAccessor(Class<?> remObjInterface) 
-		throws Exception
+	private static synchronized RemoteObjectController getRemObjController(RemoteObjectID remObjID)
 	{
-		if (!registeredObjs.containsKey(remObjInterface.getName()))
-			throw new RemoteObjectManagerException("Unknown remote object '" + 
-						   remObjInterface.getName() + "'!");
-		
-		Utils.Pair<LocalObjectAccessor, Map<InetAddress, RemoteObjectAccessor>> objAccessors =
-			registeredObjs.get(remObjInterface.getName());
-		
-		if (objAccessors.first == null)
-			objAccessors.first = new LocalObjectAccessor(Class.forName(remObjInterface.getName() + 
-									     "Impl").newInstance());
-		return objAccessors.first;
-	}
-	
-	private static synchronized RemoteObjectAccessor getRemoteObjectAccessor(
-		Class<?> remObjInterface, InetAddress remAddr) throws Exception
-	{
-		if (!registeredObjs.containsKey(remObjInterface.getName()))
-			throw new RemoteObjectManagerException("Unknown remote object '" + 
-						   remObjInterface.getName() + "'!");
-		
-		Utils.Pair<LocalObjectAccessor, Map<InetAddress, RemoteObjectAccessor>> objAccessors =
-			registeredObjs.get(remObjInterface.getName());
-		
-		if (objAccessors.second == null) 
-			objAccessors.second = new HashMap<InetAddress, RemoteObjectAccessor>();
-		
-		RemoteObjectAccessor remObjAccessor = objAccessors.second.get(remAddr);
-		
-		if (remObjAccessor == null) {
-			remObjAccessor = new RemoteObjectAccessor(remObjInterface, remAddr);
-			objAccessors.second.put(remAddr, remObjAccessor);
-		}
-		return remObjAccessor;
+		return registeredRemObjs.get(remObjID);
 	}
 	
 	public static void start(ExecutorService thdPool) throws Exception
 	{
+		LOCAL_HOST_ADDR = InetAddress.getLocalHost();
 		REMOTE_OBJECT_MGR_PORT = CrawlerConfig.getRemoteObjMgrPort();
 		DebugUtils.printDebugInfo("RemoteObjectManager started (Port: " + REMOTE_OBJECT_MGR_PORT + 
 			")", RemoteObjectManager.class);
-		serverSockHandler = new ServerSocketHandler(REMOTE_OBJECT_MGR_PORT, thdPool);
-		serverSockHandler.start();
+		remObjMgrServer = new RemoteObjectMgrServer(REMOTE_OBJECT_MGR_PORT, thdPool);
+		remObjMgrServer.start();
 	}
 	
 	public static void shutdown()
 	{
-		if (serverSockHandler != null) 		
-			serverSockHandler.shutdown();
+		try {
+			closeAllRemoteObjects();
+		} 
+		catch (Exception e) {
+			ExceptionHandler.handle("Failed to close remote objects!", e, 
+				RemoteObjectManager.class);
+		}
+		if (remObjMgrServer != null) 		
+			remObjMgrServer.shutdown();
 		DebugUtils.printDebugInfo("RemoteObjectManager shutdown", RemoteObjectManager.class);
 	}
 	
-	public static synchronized void registerRemoteObject(Class<?> remObjInterface)
+	public static synchronized <RemObjInterface> void registerRemoteObject(
+		Class<RemObjInterface> remObjInterface, Class<? extends RemObjInterface> remObjClass,
+		RemoteObjectCreator<RemObjInterface> remObjCreator, String remObjContext)
 	{
-		registeredObjs.put(remObjInterface.getName(), new Utils.Pair<LocalObjectAccessor, 
-			Map<InetAddress, RemoteObjectAccessor>>(null, null));
+		RemoteObjectID remObjID = new RemoteObjectID(remObjClass, remObjContext);
+		RemoteObjectController remObjCtrlr = registeredRemObjs.get(remObjID);
+		
+		if (remObjCtrlr == null)
+			registeredRemObjs.put(remObjID, new RemoteObjectController(remObjInterface, 
+				remObjClass, remObjCreator, remObjContext));
+		else
+			remObjCtrlr.addRemoteObjectInterface(remObjInterface);
 	}
 	
-	public static synchronized void unregisterRemoteObject(Class<?> remObjInterface)
+	public static <RemObjInterface> void registerRemoteObject(
+		Class<RemObjInterface> remObjInterface, Class<? extends RemObjInterface> remObjClass,
+		RemoteObjectCreator<RemObjInterface> remObjCreator)
 	{
-		registeredObjs.remove(remObjInterface.getName());
+		registerRemoteObject(remObjInterface, remObjClass, remObjCreator, null);
+	}
+	
+	public static <RemObjInterface> void registerRemoteObject(
+		Class<RemObjInterface> remObjInterface, Class<? extends RemObjInterface> remObjClass,
+		String remObjContext)
+	{
+		registerRemoteObject(remObjInterface, remObjClass, null, remObjContext);
+	}
+	
+	public static <RemObjInterface> void registerRemoteObject(
+		Class<RemObjInterface> remObjInterface, Class<? extends RemObjInterface> remObjClass)
+	{
+		registerRemoteObject(remObjInterface, remObjClass, null, null);
 	}
 	
 	@SuppressWarnings("unchecked")
-	public static synchronized <RemoteObject> RemoteObject getRemoteObject(
-		Class<RemoteObject> remObjInterface, InetAddress remAddr) throws Exception
+	public static <RemoteObject> RemoteObject getRemoteObject(Class<RemoteObject> remObjClass, 
+		InetAddress remAddr, String remObjContext) throws Exception
 	{
-		if (remAddr == null || InetAddress.getLocalHost() == remAddr) {
-			DebugUtils.printDebugInfo("Locale host is responsible for remote object '" + 
-				remObjInterface + "'", RemoteObjectManager.class, DebugFlag.REMOTE_OBJECT);
-			return (RemoteObject)getLocalObjectAccessor(remObjInterface).getObject();
-		}
-		DebugUtils.printDebugInfo("Remote host '" + remAddr.getHostAddress() + 
-			"' is responsible for remote object '" + remObjInterface  + "'", 
-			RemoteObjectManager.class, DebugFlag.REMOTE_OBJECT);
-		return (RemoteObject)getRemoteObjectAccessor(remObjInterface, remAddr).getObject();
+		RemoteObjectID remObjID = new RemoteObjectID(remObjClass, remObjContext);
+		RemoteObjectController remObjCtrlr = getRemObjController(remObjID);
+		
+		if (remObjCtrlr == null)
+			throw new RemoteObjectManagerException("Unknown remote object class '" + 
+						  remObjClass.getName() + "' (aka '" + remObjID.toString() + "')!");
+		return (RemoteObject)remObjCtrlr.getAccessor(remAddr).getRemoteObject();
 	}
 	
-	public static synchronized <RemoteObject> RemoteObject getRemoteObject(
-		Class<RemoteObject> remObjInterface) throws Exception
+	public static <RemoteObject> RemoteObject getRemoteObject(Class<RemoteObject> remObjClass, 
+		String remObjContext) throws Exception
 	{
-		return getRemoteObject(remObjInterface, null);
+		return getRemoteObject(remObjClass, LOCAL_HOST_ADDR, remObjContext);
 	}
 	
-	public static synchronized void closeRemoteObject(Class<?> remObjInterface, 
+	public static <RemoteObject> RemoteObject getRemoteObject(Class<RemoteObject> remObjClass,
 		InetAddress remAddr) throws Exception
 	{
-		Utils.Pair<LocalObjectAccessor, Map<InetAddress, RemoteObjectAccessor>> objAccessors =
-			registeredObjs.get(remObjInterface.getName());
+		return getRemoteObject(remObjClass, remAddr, null);
+	}
+	
+	public static <RemoteObject> RemoteObject getRemoteObject(Class<RemoteObject> remObjClass) 
+		throws Exception
+	{
+		return getRemoteObject(remObjClass, LOCAL_HOST_ADDR, null);
+	}
+	
+	public static void closeRemoteObject(Class<?> remObjClass, Object remObj, String remObjContext) 
+		throws Exception
+	{
+		RemoteObjectController remObjCtrlr = getRemObjController(new RemoteObjectID(remObjClass, 
+												 remObjContext));
 		
-		if (remAddr == null || InetAddress.getLocalHost() == remAddr) {
-			if (objAccessors.first != null) {
-				objAccessors.first.close();
-				objAccessors.first = null;
-			}
-		} 
-		else if (objAccessors.second != null) {
-			RemoteObjectAccessor objAccessor = objAccessors.second.get(remAddr);
-			
-			if (objAccessor != null)
-				objAccessor.close();
-			objAccessors.second.remove(remAddr);
-			if (objAccessors.second.isEmpty())
-				objAccessors.second = null;
-		}
+		if (remObjCtrlr != null)
+			remObjCtrlr.closeAccessor(remObj);
 	}
 	
-	public static synchronized void closeRemoteObject(Class<?> remObjInterface) throws Exception
+	public static void closeRemoteObject(Class<?> remObjClass, Object remObj) 
+		throws Exception
 	{
-		closeRemoteObject(remObjInterface, null);
+		closeRemoteObject(remObjClass, remObj, null);
 	}
 	
-	public static synchronized void closeAllRemoteObjects(Class<?> remObjInterface) throws Exception
+	public static void closeAllRemoteObjects() throws Exception
 	{
-		Utils.Pair<LocalObjectAccessor, Map<InetAddress, RemoteObjectAccessor>> objAccessors =
-			registeredObjs.get(remObjInterface.getName());
+		RemoteObjectID[] remObjIDs;
+		Exception exception = null;
 		
-		if (objAccessors.first != null) {
-			objAccessors.first.close();
-			objAccessors.first = null;
+		synchronized (RemoteObjectManager.class) {
+			remObjIDs = registeredRemObjs.keySet().toArray(
+					        new RemoteObjectID[registeredRemObjs.size()]);
 		}
-		if (objAccessors.second != null) {
-			for (ObjectAccessor objAccessor: objAccessors.second.values()) 
-				objAccessor.close();
-			objAccessors.second.clear();
-			objAccessors.second = null;
+		for (RemoteObjectID remObjID: remObjIDs) {
+			try {
+				getRemObjController(remObjID).closeAllAccessors();
+			}
+			catch (Exception e) {
+				exception = e;
+			}
 		}
+		if (exception != null)
+			throw exception;
 	}
 	
-	public static synchronized void closeAllRemoteObjects() throws Exception
+	public synchronized static ServerConnectionListener getServerConnectionListener()
 	{
-		for (Utils.Pair<LocalObjectAccessor, Map<InetAddress, RemoteObjectAccessor>> objAccessors:
-			registeredObjs.values()) {
-			if (objAccessors.first != null) {
-				objAccessors.first.close();
-				objAccessors.first = null;
-			}
-			if (objAccessors.second != null) {
-				for (ObjectAccessor objAccessor: objAccessors.second.values()) 
-					objAccessor.close();
-				objAccessors.second.clear();
-				objAccessors.second = null;
-			}
-		}
+		return serverConnListener;
+	}
+	
+	public synchronized static void setServerConnectionListener(
+		ServerConnectionListener newListener)
+	{
+		serverConnListener = newListener;
 	}
 }

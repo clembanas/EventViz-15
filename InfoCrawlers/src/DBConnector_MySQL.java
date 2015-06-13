@@ -13,9 +13,9 @@ import java.util.concurrent.locks.*;
  */
 public class DBConnector_MySQL extends DBConnector_SQLConform {
 
-	public static String DB_NAME;
-	public static final String DRIVER_NAME = "com.mysql.jdbc.Driver";
-	public static String CONNECTION_STR;
+	private final String DRIVER_NAME = "com.mysql.jdbc.Driver";
+	private String CONNECTION_STR;
+	private String DB_NAME;
 	
 	
 	/**
@@ -86,8 +86,8 @@ public class DBConnector_MySQL extends DBConnector_SQLConform {
 				   "name VARCHAR(" + MAX_LEN_CITY_NAME + ") NOT NULL, " +
 				   "region VARCHAR(" + MAX_LEN_CITY_REGION + "), " +
 				   "country VARCHAR(" + MAX_LEN_CITY_COUNTRY + "), " +
-				   "longitude FLOAT, " +
-				   "latitude FLOAT, " +
+				   "longitude DOUBLE, " +
+				   "latitude DOUBLE, " +
 				   "dbpedia_res_city VARCHAR(" + MAX_LEN_CITY_DBPEDIA_RES + ")," +
 				   "dbpedia_res_region VARCHAR(" + MAX_LEN_CITY_DBPEDIA_RES + ")," +
 				   "dbpedia_res_country VARCHAR(" + MAX_LEN_CITY_DBPEDIA_RES + ")," +
@@ -100,8 +100,8 @@ public class DBConnector_MySQL extends DBConnector_SQLConform {
 		return "CREATE TABLE Locations(" +
 				   "id INT NOT NULL AUTO_INCREMENT," +
 				   "name VARCHAR(" + MAX_LEN_LOCATION_NAME + ") NOT NULL," +
-				   "longitude FLOAT NOT NULL," +
-				   "latitude FLOAT NOT NULL," +
+				   "longitude DOUBLE NOT NULL," +
+				   "latitude DOUBLE NOT NULL," +
 				   "city_id INT NOT NULL," +
 				   "PRIMARY KEY (id), " +
 				   "INDEX (city_id))";

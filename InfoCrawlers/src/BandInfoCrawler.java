@@ -15,7 +15,7 @@ import com.hp.hpl.jena.rdf.model.RDFNode;
  */
 public class BandInfoCrawler extends SparqlBasedCrawler {
 	
-	public static final QueryExecutor[] QUERIES = new QueryExecutor[] {
+	private static final QueryExecutor[] QUERIES = new QueryExecutor[] {
 		//Find city by name, region and (optional) by country
 		new QueryExecutor(
 				"SELECT DISTINCT ?band ?members_curr ?members_past ?members_former ?artist_name " +
@@ -59,7 +59,7 @@ public class BandInfoCrawler extends SparqlBasedCrawler {
 				new BandInfoQPP() 
 		)
 	};
-	public static final String DEBUG_DS_FMT = "Band '%1col_noEsc' (ID: %0col_noEsc)";
+	private static final String DEBUG_DS_FMT = "Band '%1col_noEsc' (ID: %0col_noEsc)";
 	private int PAGE_SIZE;
 	private int WORKER_THD_CNT;
 	private int DB_UPDATE_INTERVAL;
@@ -261,50 +261,25 @@ public class BandInfoCrawler extends SparqlBasedCrawler {
 		}
 	}
 
+	
+	protected int getWorkerThdCount() 
+	{
+		return WORKER_THD_CNT;
+	}
+	
+	protected int getPageSize() 
+	{
+		return PAGE_SIZE;
+	}
 
 	protected int getDatasetCount() throws Exception
 	{
 		return dbConnector.getIncompleteBandsCount(DB_UPDATE_INTERVAL);
 	}
 	
-	protected Utils.Pair<java.sql.ResultSet, Object> getNextDataset(Object customData) 
-		throws Exception 
+	protected java.sql.ResultSet getDataset(int pageIdx, int pageSize) throws Exception 
 	{
-		Integer pageIdx = (Integer)customData;
-		
-		if (pageIdx == null) 
-			pageIdx = new Integer(0);
-		else if (!dbConnector.supportsQueryPaging()) 
-			return null;
-		else
-			pageIdx++;
-		return Utils.createPair(dbConnector.getIncompleteBands(DB_UPDATE_INTERVAL, pageIdx, 
-				   PAGE_SIZE), (Object)pageIdx);
-	}
-
-	protected int getWorkerThdCount() 
-	{
-		return WORKER_THD_CNT;
-	}
-	
-	protected void finished(boolean exceptionThrown)
-	{
-		long cacheLookups = resCache.getLookupCount();
-		long cacheMisses = resCache.getLookupMissCount();
-		int maxCacheLoad = resCache.getMaxLoadInBytes();
-		
-		super.finished(exceptionThrown);
-		if (!exceptionThrown)
-			dbConnector.updateBandCrawlerTS();
-		DebugUtils.printDebugInfo("\n   Summary:\n      Updated bands: " + 
-			BandInfoQPP.getUpdatedBandCount() + "\n      Added artists: " + 
-			BandInfoQPP.getAddedArtistCount() + "\n      " + "Cache misses: " + cacheMisses + 
-			"\n      Cache lookups: " + cacheLookups + "\n      Max cache load: " + maxCacheLoad + 
-			" Bytes\n", BandInfoCrawler.class);
-		dbConnector.logCrawlerFinished(BandInfoCrawler.class, "Updated bands: " + 
-			BandInfoQPP.getUpdatedBandCount() +	"; Added artists: " + 
-			BandInfoQPP.getAddedArtistCount() + "; Cache misses: " + cacheMisses + 
-			"; Cache lookups: " + cacheLookups + "; Max cache load: " +	maxCacheLoad);
+		return dbConnector.getIncompleteBands(DB_UPDATE_INTERVAL, pageIdx, pageSize);
 	}
 
 	public BandInfoCrawler() throws Exception
@@ -313,5 +288,39 @@ public class BandInfoCrawler extends SparqlBasedCrawler {
 		PAGE_SIZE = CrawlerConfig.getBandInfoCrawlerPageSize();
 		WORKER_THD_CNT = CrawlerConfig.getBandInfoCrawlerWorkerThdCount();
 		DB_UPDATE_INTERVAL = CrawlerConfig.getBandInfoCrawlerUpdateInterval();
+	}
+	
+	public int[] getStatistics()
+	{
+		int[] result = new int[5];
+		
+		result[0] = BandInfoQPP.getUpdatedBandCount();
+		result[1] = BandInfoQPP.getAddedArtistCount();
+		if (isMasterNode) {
+			result[2] = (int)resCache.getLookupCount();
+			result[3] = (int)resCache.getLookupMissCount();
+			result[4] = (int)resCache.getMaxLoadInBytes();
+		}
+		return result;
+	}
+
+	public String getSummary(int[] crawlerStats) 
+	{
+		return "Updated bands: " + crawlerStats[0] + "; Added artists: " + crawlerStats[1] + 
+					"; Cache misses: " + crawlerStats[3] + "; Cache lookups: " + crawlerStats[2] + 
+					"; Max cache load: " + crawlerStats[4] + " Bytes";	
+	}
+	
+	public void allInstancesFinished(boolean exceptionThrown, int[] crawlerStats)
+	{
+		super.allInstancesFinished(exceptionThrown, crawlerStats);
+		if (isMasterNode) {
+			if (!exceptionThrown)
+				dbConnector.updateBandCrawlerTS();
+			DebugUtils.printDebugInfo("\n   Summary:\n      Updated bands: " + crawlerStats[0] +
+				"\n      Added artists: " + crawlerStats[1] + "\n      Cache misses: " + 
+				crawlerStats[3] + "\n      Cache lookups: " + crawlerStats[2] + 
+				"\n      Max cache load: " + crawlerStats[4] + " Bytes\n",	BandInfoCrawler.class);
+		}
 	}
 }

@@ -13,7 +13,7 @@ import com.hp.hpl.jena.rdf.model.RDFNode;
 
 public class CityInfoCrawler extends SparqlBasedCrawler {
 	
-	public static final QueryExecutor[] QUERIES = new QueryExecutor[] {
+	private static final QueryExecutor[] QUERIES = new QueryExecutor[] {
 		new QueryExecutor(
 				"SELECT DISTINCT ?city ?geolat ?geolong ?country ?country2 ?region ?subDev " +
 				"?partOf ?prefect WHERE {\n" +
@@ -74,8 +74,8 @@ public class CityInfoCrawler extends SparqlBasedCrawler {
 				CityInfoQPP.getInstance()
 		)
 	};
-	public static final String DEBUG_DS_FMT = "City '%1col_noEsc' ('%3col_noEsc') in " +
-												   "'%2col_noEsc' (ID: %0col_noEsc)";
+	private static final String DEBUG_DS_FMT = "City '%1col_noEsc' ('%3col_noEsc') in " +
+												    "'%2col_noEsc' (ID: %0col_noEsc)";
 	private int PAGE_SIZE;
 	private int WORKER_THD_CNT;
 	private int DB_UPDATE_INTERVAL;
@@ -104,8 +104,8 @@ public class CityInfoCrawler extends SparqlBasedCrawler {
 		public static class CityInfos {
 			
 			public String cityResID = null;
-			public Float longitude = null;
-			public Float latitude = null;
+			public Double longitude = null;
+			public Double latitude = null;
 			public String regionName = null;
 			public String regionResID = null;
 			public String countryName = null;
@@ -272,9 +272,9 @@ public class CityInfoCrawler extends SparqlBasedCrawler {
 					cityInfos.cityResID = querySol.get(RESSET_VAR_CITY).asResource().
 											  getURI();
 					cityInfos.longitude = querySol.get(RESSET_VAR_LONGITUDE).asLiteral().
-											  getFloat();
+											  getDouble();
 					cityInfos.latitude = querySol.get(RESSET_VAR_LATITUDE).asLiteral().
-											 getFloat();
+											 getDouble();
 					return cityInfos;
 				}
 				cityInfos.reset();
@@ -383,55 +383,65 @@ public class CityInfoCrawler extends SparqlBasedCrawler {
 		}
 	}
 
-	
-	protected int getDatasetCount() throws Exception
-	{
-		return dbConnector.getIncompleteCitiesCount(DB_UPDATE_INTERVAL);
-	}
-	
-	protected Utils.Pair<java.sql.ResultSet, Object> getNextDataset(Object customData) 
-		throws Exception 
-	{
-		Integer pageIdx = (Integer)customData;
-		
-		if (pageIdx == null) 
-			pageIdx = new Integer(0);
-		else if (!dbConnector.supportsQueryPaging()) 
-			return null;
-		else
-			pageIdx++;
-		return Utils.createPair(dbConnector.getIncompleteCities(DB_UPDATE_INTERVAL, pageIdx, 
-				   PAGE_SIZE), (Object)pageIdx);
-	}
 
 	protected int getWorkerThdCount() 
 	{
 		return WORKER_THD_CNT;
 	}
 	
-	protected void finished(boolean exceptionThrown)
+	protected int getPageSize() 
 	{
-		long cacheLookups = resCache.getLookupCount();
-		long cacheMisses = resCache.getLookupMissCount();
-		int maxCacheLoad = resCache.getMaxLoadInBytes();
-		
-		super.finished(exceptionThrown);
-		if (!exceptionThrown)
-			dbConnector.updateCityCrawlerTS();
-		DebugUtils.printDebugInfo("\n   Summary:\n      Updated cities: " + 
-			CityInfoQPP.getUpdatedCityCount() +	"\n      Cache misses: " + cacheMisses + 
-			"\n      Cache lookups: " + cacheLookups + "\n      Max cache load: " + maxCacheLoad + 
-			" Bytes\n", CityInfoCrawler.class);
-		dbConnector.logCrawlerFinished(CityInfoCrawler.class, "Updated cities: " + 
-			CityInfoQPP.getUpdatedCityCount() +	"; Cache misses: " + cacheMisses + 
-			"; Cache lookups: " + cacheLookups + "; Max cache load: " +	maxCacheLoad);
+		return PAGE_SIZE;
 	}
-
+	
+	protected int getDatasetCount() throws Exception
+	{
+		return dbConnector.getIncompleteCitiesCount(DB_UPDATE_INTERVAL);
+	}
+	
+	protected java.sql.ResultSet getDataset(int pageIdx, int pageSize) throws Exception
+	{
+		return dbConnector.getIncompleteCities(DB_UPDATE_INTERVAL, pageIdx, pageSize);
+	}
+	
 	public CityInfoCrawler() throws Exception
 	{
 		super(CrawlerConfig.getSparqlBasedCrawlerDBPediaEndpoints(), QUERIES, DEBUG_DS_FMT);
 		PAGE_SIZE = CrawlerConfig.getCityInfoCrawlerPageSize();
 		WORKER_THD_CNT = CrawlerConfig.getCityInfoCrawlerWorkerThdCount();
 		DB_UPDATE_INTERVAL = CrawlerConfig.getCityInfoCrawlerUpdateInterval();
+	}
+	
+	public int[] getStatistics()
+	{
+		int[] result = new int[4];
+		
+		result[0] = CityInfoQPP.getUpdatedCityCount();
+		if (isMasterNode) {
+			result[1] = (int)resCache.getLookupCount();
+			result[2] = (int)resCache.getLookupMissCount();
+			result[3] = (int)resCache.getMaxLoadInBytes();
+		}
+		return result;
+	}
+	
+	public String getSummary(int[] crawlerStats) 
+	{
+		return "Updated cities: " + crawlerStats[0] +	"; Cache misses: " + crawlerStats[2] +
+				   "; Cache lookups: " + crawlerStats[1] + "; Max cache load: " + crawlerStats[3] + 
+				   " Bytes";
+	}
+	
+	public void allInstancesFinished(boolean exceptionThrown, int[] crawlerStats)
+	{
+		super.allInstancesFinished(exceptionThrown, crawlerStats);
+		if (isMasterNode) {
+			if (!exceptionThrown)
+				dbConnector.updateCityCrawlerTS();
+			DebugUtils.printDebugInfo("\n   Summary:\n      Updated cities: " + crawlerStats[0] +
+				"\n      Cache misses: " + crawlerStats[2] + "\n      Cache lookups: " + 
+				crawlerStats[1] +	"\n      Max cache load: " + crawlerStats[3] + " Bytes\n",	
+				CityInfoCrawler.class);
+		}
 	}
 }

@@ -3,22 +3,25 @@
  */
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 
 /**
  * Base class of crawlers which collects information based on the results of a DB query
  */
-public abstract class DBQueryBasedCrawler extends JobBasedCrawler {
+public abstract class DBQueryBasedCrawler extends CrawlerBase {
 	
 	/**
 	 * Job whose associated data row has to be processed by a worker thread
 	 */
-	private class DBWorkerJob extends WorkerJobBase {
+	private class DBQueryBasedJob extends JobBase {
 		
 		public String[] dataRow = null;
 		public int dataRowIdx;
 		
-		DBWorkerJob(ResultSet dataset, ResultSetMetaData datasetMeta) 
+		DBQueryBasedJob(ResultSet dataset, ResultSetMetaData datasetMeta) 
 		{
 			try {
 				int colCount = datasetMeta.getColumnCount();
@@ -29,81 +32,143 @@ public abstract class DBQueryBasedCrawler extends JobBasedCrawler {
 					this.dataRow[i] = dataset.getString(i + 1);
 					//Convert SQL-NULL entries to empty string
 					if (dataRow[i] == null)
-						dataRow[i] = new String("");
+						dataRow[i] = "";
 				}
 			} 
 			catch (Exception e) {
-				ExceptionHandler.handle("Failed to create worker job for crawler '" + 
+				ExceptionHandler.handle("Failed to create database based job for crawler '" + 
 					DBQueryBasedCrawler.this.getClass().getName() + "'!", e, 
 					DBQueryBasedCrawler.this.getClass(), DBQueryBasedCrawler.class, getClass());
 			}
 		}
 	};
 	
-	
-	private int datasetCnt = 0;
-	private int datasetIdx = 0;
-	private int lastEnqueueInfo = 0;
+	/**
+	 * Job controller for database-query based crawlers.
+	 */
+	protected class DBBasedJobGroupController implements JobGroupController {
 
-	protected abstract int getWorkerThdCount();
-	protected abstract int getDatasetCount() throws Exception;
-	protected abstract Utils.Pair<ResultSet, Object> getNextDataset(Object customData) 
-		throws Exception;
-	protected abstract void processDataRow(String[] dataRow, int dataRowIdx) throws Exception;
-	
-	@SuppressWarnings("unchecked")
-	protected Utils.Pair<WorkerJobBase, Object> getNextWorkerJob(Object customData) throws Exception
-	{
-		Utils.Pair<ResultSet, Object> nextDataset = null;
-		ResultSetMetaData datasetMeta = null;
+		private int datasetCnt = 0;
+		private int pageCnt = 0;
+		private AtomicInteger pageIdx = new AtomicInteger(0);
+		private int pageSize = getPageSize();
+		
+		public DBBasedJobGroupController()
+		{
+			try {
+				datasetCnt = getDatasetCount();
+			} 
+			catch (Exception e) {
+				ExceptionHandler.handle("Failed to retrieve dataset size information!", e, 
+						EventfulCrawler.class, null, getClass());
+			}
+			pageCnt = (int)Math.ceil(datasetCnt/ pageSize);
+		}
+		
+		public int getJobGroupCount() 
+		{
+			return pageCnt;
+		}
 
-		if (customData != null) {
-			nextDataset = ((Utils.Pair<Utils.Pair<ResultSet, Object>, ResultSetMetaData>)
-							  customData).first;
-			datasetMeta = ((Utils.Pair<Utils.Pair<ResultSet, Object>, ResultSetMetaData>)
-							  customData).second;
+		public int getNextJobGroupIndex() 
+		{
+			return pageIdx.getAndIncrement();
 		}
-		else
-			datasetCnt = getDatasetCount();
-		try {
-			if (nextDataset == null || !nextDataset.first.next()) {
-				if (nextDataset != null) {
-					try {
-						nextDataset.first.close();
-					}
-					catch (Exception e) {}
-					nextDataset = getNextDataset(nextDataset.second);
-				}
-				else
-					nextDataset = getNextDataset(null);
-				if (nextDataset == null || nextDataset.first == null || !nextDataset.first.next())
-					return null;
-				datasetMeta = nextDataset.first.getMetaData();
-			}
-			datasetIdx++;
-			if (lastEnqueueInfo <= (100.0/ (float)datasetCnt) * (float)datasetIdx - 1.0) {
-				lastEnqueueInfo = (int)Math.ceil((100.0/ (float)datasetCnt) * (float)datasetIdx);
-				DebugUtils.printDebugInfo(lastEnqueueInfo + "% of " + datasetCnt + 
-					" datasets processed...", getClass(), DBQueryBasedCrawler.class);
-				dbConnector.logCrawlerProgress(getClass(), lastEnqueueInfo);
-			}
-			return Utils.createPair((WorkerJobBase)new DBWorkerJob(nextDataset.first, datasetMeta), 
-					   (Object)Utils.createPair(nextDataset, datasetMeta));
+
+		public int getJobsPerGroup() 
+		{
+			return pageSize;
 		}
-		catch (Exception e) {
-			if (nextDataset != null && nextDataset.first != null) {
-				try {
-					nextDataset.first.close();
-				}
-				catch (Exception e1) {}
-			}
-			throw e;
+
+		public int getTotalJobCount() 
+		{
+			return datasetCnt;
 		}
 	}
 	
-	protected void processWorkerJob(WorkerJobBase job) throws Exception
+	
+	private JobGroupController jobController = null;
+	
+	protected abstract int getWorkerThdCount();
+	protected abstract int getPageSize();
+	protected abstract int getDatasetCount() throws Exception;
+	protected abstract ResultSet getDataset(int pageIdx, int pageSize) throws Exception;
+	protected abstract void processDataRow(String[] dataRow, int dataRowIdx) throws Exception;
+	public abstract int[] getStatistics();
+	public abstract String getSummary(int[] crawlerStats);
+	
+	protected JobGroupProvider getJobGroupProvider()
 	{
-		if (((DBWorkerJob)job).dataRow != null)
-			processDataRow(((DBWorkerJob)job).dataRow, ((DBWorkerJob)job).dataRowIdx);
+		return new JobGroupProvider() {
+			
+			public JobBase[] getJobsOfGroup(int groupIdx, int groupCnt, int jobsPerGroup, 
+				int totalJobCnt) throws Exception 
+			{
+				if (groupIdx > 0 && !dbConnector.supportsQueryPaging()) 
+					return null;
+				
+				ResultSet resSet = getDataset(groupIdx, jobsPerGroup);
+				ResultSetMetaData resSetMeta;
+				List<JobBase> jobs = new ArrayList<JobBase>(jobsPerGroup);
+				
+				if (resSet == null)
+					return null;
+				try {
+					resSetMeta = resSet.getMetaData();
+					while (resSet.next())
+						jobs.add(new DBQueryBasedJob(resSet, resSetMeta));
+				}
+				finally {
+					try {
+						resSet.close();
+					}
+					catch (Exception e1) {};
+				}
+				return jobs.toArray(new JobBase[jobs.size()]);
+			}
+		};
+	}
+	
+	protected Class<? extends JobGroupController> getJobGroupControllerClass()
+	{
+		return DBBasedJobGroupController.class;
+	}
+	
+	protected RemoteObjectManager.RemoteObjectCreator<JobGroupController> 
+		getJobGroupControllerCreator()
+	{
+		return new RemoteObjectManager.RemoteObjectCreator<JobGroupController>() {
+
+			public synchronized JobGroupController createRemoteObject() 
+			{
+				if (jobController == null)
+					jobController = new DBBasedJobGroupController();
+				return jobController;
+			}
+		};
+	}
+	
+	protected void processJob(JobBase job) throws Exception
+	{
+		if (((DBQueryBasedJob)job).dataRow != null)
+			processDataRow(((DBQueryBasedJob)job).dataRow, ((DBQueryBasedJob)job).dataRowIdx);
+	}
+	
+	protected void jobStarted(JobBase job, int progress)
+	{
+		super.jobStarted(job, progress);
+		DebugUtils.printDebugInfo("Processing " + Math.min(job.getJobsPerGroup(), 
+			job.getTotalJobCount() - job.getGroupIndex() * job.getJobsPerGroup()) + 
+			" datasets on page " + (job.getGroupIndex() + 1) + " (" + progress + "%) ...", 
+			getClass(), DBQueryBasedCrawler.class);
+	}
+	
+	protected void jobFinished(JobBase job,	int progress)
+	{
+		super.jobFinished(job, progress);
+		DebugUtils.printDebugInfo("Processing " + Math.min(job.getJobsPerGroup(), 
+			job.getTotalJobCount() - job.getGroupIndex() * job.getJobsPerGroup()) + 
+			" datasets on page " + (job.getGroupIndex() + 1) + " (" + progress + "%) ... DONE", 
+			getClass(), DBQueryBasedCrawler.class);
 	}
 }

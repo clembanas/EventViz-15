@@ -16,7 +16,9 @@ public class Main_InfoCrawlers {
 				(CrawlerConfig.canDbgRemObjMgrRemoteObject() ? 
 					RemoteObjectManager.DebugFlag.REMOTE_OBJECT.toInt() : 0) | 
 				(CrawlerConfig.canDbgRemObjMgrConnection() ? 
-					RemoteObjectManager.DebugFlag.CONNECTION.toInt() : 0));
+					RemoteObjectManager.DebugFlag.CONNECTION.toInt() : 0) | 
+				(CrawlerConfig.canDbgRemObjMgrMethodArgs() ? 
+						RemoteObjectManager.DebugFlag.METHOD_ARGUMENTS.toInt() : 0));
 		if (CrawlerConfig.canDbgSparql())
 			DebugUtils.debugClass(SparqlQuery.class, 
 				(CrawlerConfig.canDbgSparqlQueries() ? SparqlQuery.DebugFlag.QUERIES.toInt() : 
@@ -31,8 +33,6 @@ public class Main_InfoCrawlers {
 			DebugUtils.debugClass(CrawlerManager.class);
 		if (CrawlerConfig.canDbgCrawlerBase())
 			DebugUtils.debugClass(CrawlerBase.class);
-		if (CrawlerConfig.canDbgJobBasedCrawler())
-			DebugUtils.debugClass(JobBasedCrawler.class);
 		if (CrawlerConfig.canDbgDBQueryBasedCrawler())
 			DebugUtils.debugClass(DBQueryBasedCrawler.class);
 		if (CrawlerConfig.canDbgSparqlBasedCrawler())
@@ -59,12 +59,13 @@ public class Main_InfoCrawlers {
 			CrawlerConfig.load();
 			//Setup debug settings
 			applyDebugSettings();
-			//Setup database connector class
-			DBConnector.DB_CONNECTOR_CLASS = CrawlerConfig.getDBConnectorClass();
 			//Register crawler classes
-			CrawlerManager.registerCrawler(EventfulCrawler.class);
-			CrawlerManager.registerCrawler(BandInfoCrawler.class, EventfulCrawler.class);
-			CrawlerManager.registerCrawler(CityInfoCrawler.class, EventfulCrawler.class);
+			CrawlerManager.registerCrawler(EventfulCrawler.class, 
+				CrawlerConfig.getCrawlerEventfulHosts());
+			CrawlerManager.registerCrawler(BandInfoCrawler.class, 
+				CrawlerConfig.getBandInfoCrawlerHosts(), EventfulCrawler.class);
+			CrawlerManager.registerCrawler(CityInfoCrawler.class, 
+				CrawlerConfig.getCityInfoCrawlerHosts(), EventfulCrawler.class);
 			//Execute crawlers
 			if (CrawlerManager.start(true)) {
 				CrawlerManager.run();

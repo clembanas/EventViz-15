@@ -1,6 +1,7 @@
 /**
  * @author Bernhard Weber
  */
+import java.net.InetAddress;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -136,6 +137,45 @@ public class Utils {
 		if (subClass != null) {
 			strBuilder.append("::");
 			strBuilder.append(subClass.getName());
+		}
+		return strBuilder.toString();
+	}
+	
+	public static String objectsToString(Object ... args)
+	{
+		StringBuilder strBuilder = new StringBuilder();
+		
+		for (Object arg: args) {
+			if (strBuilder.length() > 1) 
+				strBuilder.append("; ");
+			if (arg == null) 
+				strBuilder.append("null");
+			else {
+				strBuilder.append(args.getClass().getName());
+				strBuilder.append(": '");
+				strBuilder.append(arg.toString());
+				strBuilder.append("'");
+			}
+		}
+		return strBuilder.toString();
+	}
+	
+	public static String inetAddressesToString(InetAddress ... inetAddrs)
+	{
+		StringBuilder strBuilder = new StringBuilder();
+		
+		for (InetAddress inetAddr: inetAddrs) {
+			if (strBuilder.length() > 1) 
+				strBuilder.append("; ");
+			try {
+				strBuilder.append(inetAddr.getHostName());
+				strBuilder.append(" (");
+				strBuilder.append(inetAddr.getHostAddress());
+				strBuilder.append(")");
+			}
+			catch (Exception e) {
+				strBuilder.append(inetAddr.getHostAddress());
+			}
 		}
 		return strBuilder.toString();
 	}

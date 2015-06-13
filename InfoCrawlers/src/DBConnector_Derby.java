@@ -13,8 +13,8 @@ import java.util.concurrent.locks.*;
  */
 public class DBConnector_Derby extends DBConnector_SQLConform {
 	
-	public static final String DRIVER_NAME = "org.apache.derby.jdbc.EmbeddedDriver";
-	public static String CONNECTION_STR = "jdbc:derby:temp/derby/Events/db;create=true";
+	private final String DRIVER_NAME = "org.apache.derby.jdbc.EmbeddedDriver";
+	private String CONNECTION_STR = "jdbc:derby:temp/derby/Events/db;create=true";
 	
 	
 	/**
@@ -137,8 +137,8 @@ public class DBConnector_Derby extends DBConnector_SQLConform {
 				   "NAME VARCHAR(" + MAX_LEN_CITY_NAME + ") NOT NULL, " +
 				   "REGION VARCHAR(" + MAX_LEN_CITY_REGION + "), " +
 				   "COUNTRY VARCHAR(" + MAX_LEN_CITY_COUNTRY + "), " +
-				   "LONGITUDE FLOAT, " +
-				   "LATITUDE FLOAT, " +
+				   "LONGITUDE DOUBLE, " +
+				   "LATITUDE DOUBLE, " +
 				   "CITY_CRAWLER_TS TIMESTAMP, " +
 				   "DBPEDIA_RES_CITY VARCHAR(" + MAX_LEN_CITY_DBPEDIA_RES + ")," +
 				   "DBPEDIA_RES_REGION VARCHAR(" + MAX_LEN_CITY_DBPEDIA_RES + ")," +
@@ -151,8 +151,8 @@ public class DBConnector_Derby extends DBConnector_SQLConform {
 				   "ID INTEGER NOT NULL GENERATED ALWAYS AS IDENTITY (START WITH 1, " +
 				   "INCREMENT BY 1)," +
 				   "NAME VARCHAR(" + MAX_LEN_LOCATION_NAME + ") NOT NULL," +
-				   "LONGITUDE FLOAT NOT NULL," +
-				   "LATITUDE FLOAT NOT NULL," +
+				   "LONGITUDE DOUBLE NOT NULL," +
+				   "LATITUDE DOUBLE NOT NULL," +
 				   "CITY_ID INTEGER NOT NULL)";
 	}
 	

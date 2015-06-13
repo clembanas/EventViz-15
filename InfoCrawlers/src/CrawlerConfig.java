@@ -3,6 +3,7 @@
  */
 import java.io.BufferedInputStream;
 import java.io.FileInputStream;
+import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
@@ -14,6 +15,25 @@ import java.util.Properties;
 public class CrawlerConfig {
 	
 	private static Properties props;
+	
+	private static InetAddress[] loadInetAddresses(String keyName)
+	{
+		try {
+			String hosts = props.getProperty("crawler.eventful.hosts");
+			if (hosts.isEmpty())
+				return new InetAddress[0];
+			
+			String[] hostAddrs = hosts.split(",");
+			InetAddress[] hostInetAddrs = new InetAddress[hostAddrs.length]; 
+			
+			for (int i = 0; i < hostAddrs.length; ++i)
+				hostInetAddrs[i] = InetAddress.getByName(hostAddrs[i].trim());
+			return hostInetAddrs;
+		}
+		catch (Exception e) {
+			throw new IllegalArgumentException(e.getMessage());
+		} 
+	}
 	
 	public static synchronized void load() throws Exception
 	{
@@ -56,6 +76,11 @@ public class CrawlerConfig {
 	{	
 		return Boolean.valueOf(props.getProperty("debug.remote_obj_mgr.remote_object"));
 	}
+	
+	public static boolean canDbgRemObjMgrMethodArgs()
+	{	
+		return Boolean.valueOf(props.getProperty("debug.remote_obj_mgr.method_args"));
+	}
 
 	public static boolean canDbgSparql()
 	{	
@@ -90,11 +115,6 @@ public class CrawlerConfig {
 	public static boolean canDbgCrawlerBase()
 	{	
 		return Boolean.valueOf(props.getProperty("debug.crawler.base"));
-	}
-
-	public static boolean canDbgJobBasedCrawler()
-	{	
-		return Boolean.valueOf(props.getProperty("debug.crawler.job_based"));
 	}
 
 	public static boolean canDbgDBQueryBasedCrawler()
@@ -160,6 +180,28 @@ public class CrawlerConfig {
 	{
 		return Integer.valueOf(props.getProperty("remote_obj_mgr.port"));
 	}
+	
+	public static InetAddress getCrawlerMasterHost()
+	{
+		try {
+			return InetAddress.getByName(props.getProperty("crawler.master.host"));
+		}
+		catch (Exception e) {
+			throw new IllegalArgumentException(e.getMessage());
+		} 
+	}
+	
+	public static InetAddress getCrawlerJobControllerHost() 
+	{
+		try {
+			if (props.containsKey("crawler.job_controller.host"))
+				return InetAddress.getByName(props.getProperty("crawler.job_controller.host"));
+			return getCrawlerMasterHost();
+		}
+		catch (Exception e) {
+			throw new IllegalArgumentException(e.getMessage());
+		}
+	}
 
 	public static int getEventfulCrawlerMaxDays()
 	{	
@@ -199,6 +241,11 @@ public class CrawlerConfig {
 	public static String getEventfulCrawlerCategory()
 	{	
 		return props.getProperty("crawler.eventful.category");
+	}
+	
+	public static InetAddress[] getCrawlerEventfulHosts()
+	{
+		return loadInetAddresses("crawler.eventful.hosts");
 	}
 
 	public static String[] getSparqlBasedCrawlerDBPediaEndpoints()
@@ -246,6 +293,11 @@ public class CrawlerConfig {
 	{	
 		return Integer.valueOf(props.getProperty("crawler.city_info.worker_thd_count"));
 	}
+	
+	public static InetAddress[] getCityInfoCrawlerHosts()
+	{
+		return loadInetAddresses("crawler.city_info.hosts");
+	}
 
 	public static int getBandInfoCrawlerUpdateInterval()
 	{	
@@ -260,5 +312,10 @@ public class CrawlerConfig {
 	public static int getBandInfoCrawlerWorkerThdCount()
 	{	
 		return Integer.valueOf(props.getProperty("crawler.band_info.worker_thd_count"));
+	}
+	
+	public static InetAddress[] getBandInfoCrawlerHosts()
+	{
+		return loadInetAddresses("crawler.band_info.hosts");
 	}
 }

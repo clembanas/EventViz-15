@@ -20,31 +20,31 @@ public abstract class DBConnector {
 	
 	//Constants which are loaded from config-file
 	protected static Class<? extends DBConnector> DB_CONNECTOR_CLASS = null;
-	protected static int MAX_LEN_CRAWLER_DEBUG_LOG_HOST;
-	protected static int MAX_LEN_CRAWLER_DEBUG_LOG_CLASS_PATH;
-	protected static int MAX_LEN_CRAWLER_DEBUG_LOG_INFO;
-	protected static int MAX_LEN_CRAWLER_EXCEPT_LOG_HOST;
-	protected static int MAX_LEN_CRAWLER_EXCEPT_LOG_CLASS_PATH;
-	protected static int MAX_LEN_CRAWLER_EXCEPT_LOG_INFO;
-	protected static int MAX_LEN_CRAWLER_EXCEPT_LOG_MSG;
-	protected static int MAX_LEN_CRAWLER_EXCEPT_LOG_CLASS;
-	protected static int MAX_LEN_CRAWLER_EXCEPT_LOG_STACK;
-	protected static int MAX_LEN_CRAWLER_INFO_CLASS;
-	protected static int MAX_LEN_CRAWLER_INFO_SUMMARY;
-	protected static int MAX_LEN_CITY_NAME;
-	protected static int MAX_LEN_CITY_REGION;
-	protected static int MAX_LEN_CITY_COUNTRY;
-	protected static int MAX_LEN_CITY_DBPEDIA_RES;
-	protected static int MAX_LEN_LOCATION_NAME;
-	protected static int MAX_LEN_EVENT_NAME;
-	protected static int MAX_LEN_EVENT_DESC;
-	protected static int MAX_LEN_EVENT_TYPE;
-	protected static int MAX_LEN_EVENT_EVENTFUL_ID;
-	protected static int MAX_LEN_BAND_NAME;
-	protected static int MAX_LEN_BAND_DBPEDIA_RES;
-	protected static int MAX_LEN_ARTIST_NAME;
-	protected static int MAX_LEN_ARTIST_ALT_NAME;
-	protected static int MAX_LEN_ARTIST_DBPEDIA_RES;
+	protected int MAX_LEN_CRAWLER_DEBUG_LOG_HOST;
+	protected int MAX_LEN_CRAWLER_DEBUG_LOG_CLASS_PATH;
+	protected int MAX_LEN_CRAWLER_DEBUG_LOG_INFO;
+	protected int MAX_LEN_CRAWLER_EXCEPT_LOG_HOST;
+	protected int MAX_LEN_CRAWLER_EXCEPT_LOG_CLASS_PATH;
+	protected int MAX_LEN_CRAWLER_EXCEPT_LOG_INFO;
+	protected int MAX_LEN_CRAWLER_EXCEPT_LOG_MSG;
+	protected int MAX_LEN_CRAWLER_EXCEPT_LOG_CLASS;
+	protected int MAX_LEN_CRAWLER_EXCEPT_LOG_STACK;
+	protected int MAX_LEN_CRAWLER_INFO_CLASS;
+	protected int MAX_LEN_CRAWLER_INFO_SUMMARY;
+	protected int MAX_LEN_CITY_NAME;
+	protected int MAX_LEN_CITY_REGION;
+	protected int MAX_LEN_CITY_COUNTRY;
+	protected int MAX_LEN_CITY_DBPEDIA_RES;
+	protected int MAX_LEN_LOCATION_NAME;
+	protected int MAX_LEN_EVENT_NAME;
+	protected int MAX_LEN_EVENT_DESC;
+	protected int MAX_LEN_EVENT_TYPE;
+	protected int MAX_LEN_EVENT_EVENTFUL_ID;
+	protected int MAX_LEN_BAND_NAME;
+	protected int MAX_LEN_BAND_DBPEDIA_RES;
+	protected int MAX_LEN_ARTIST_NAME;
+	protected int MAX_LEN_ARTIST_ALT_NAME;
+	protected int MAX_LEN_ARTIST_DBPEDIA_RES;
 		
 	
 	/**
@@ -761,7 +761,7 @@ public abstract class DBConnector {
 		}
 	}
 	
-	public synchronized void updateCity(PrimaryKey cityID, float latitude, float longitude, 
+	public synchronized void updateCity(PrimaryKey cityID, double latitude, double longitude, 
 		String regName,	String ctryName, String cityResID, String regResID, String ctryResID) 
 		throws Exception
 	{
@@ -816,8 +816,10 @@ public abstract class DBConnector {
 	
 	public static synchronized DBConnector getInstance() throws Exception 
 	{
-		if (instance == null)
+		if (instance == null) {
+			DB_CONNECTOR_CLASS = CrawlerConfig.getDBConnectorClass();
 			instance = DB_CONNECTOR_CLASS.newInstance();
+		}
 		return instance;
 	}
 }
