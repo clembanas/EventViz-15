@@ -1,4 +1,5 @@
 var map;
+var tree;
 var showInfo = false;
 var hoverCountry = null;
 var onGreyLayer = false;
@@ -140,54 +141,52 @@ function addEventToList(event){
 	});
 }
 
-function getAllVisibleEvents(arr, i, zoom){
-	if(map._zoom == zoom){
-		if(i < arr.length && i < 10){		
-			var tmpEvent = containsEvent(visibleEvents, arr[i]);
-			if(tmpEvent != null){
-				addEventToList(tmpEvent);
-				if(map._zoom == zoom){							
-					getAllVisibleEvents(arr, ++i, zoom);
-				}
-			}else{
-				$.getJSON( "/getEventById", { id : arr[i] }).done(function(result){
-					visibleEvents.push(result);
+function getAllVisibleEvents(zoom){	
+	for(var i = 0; i < visibleMarkers.length; i++){
+		if(visibleMarkers[i].options.markers  == undefined){
+			visibleMarkers[i].options.markers = [];
+			for(var j = 0; j < visibleMarkers[i].options.ids.length; j++){
+				if(map._zoom == zoom){
 					
-					//if zoom level is still correct
-					if(map._zoom == zoom){						
-						addEventToList(result);
-						getAllVisibleEvents(arr, ++i, zoom);
-					}
-				});
+					$.ajax({
+				    	url: "/getEventById",
+				    	async: false,
+				    	data: { id: visibleMarkers[i].options.ids[j]} ,
+				    	dataType: 'json',
+				    	success: function(result) {
+				    		visibleMarkers[i].options.markers.push(result);
+
+							//if zoom level is still correct
+							if(map._zoom == zoom){						
+								addEventToList(result);
+							}
+				    	}
+				    });
+				}
+				else{
+					break;
+				}
 			}
-		}else if(i < arr.length && i == 10){		
-			$("#floatingList").append($("<li class=noNumber >").text("+" + (arr.length - 10) + " other events"));
+		}
+		else{
+			for(var j = 0; j < visibleMarkers[i].options.markers.length; j++){
+				if(map._zoom == zoom){						
+					addEventToList(visibleMarkers[i].options.markers[j]);
+				}
+			}
 		}
 	}
 }
 
 function updateFloatingInfobox(){
-	console.log(map);
 	checkIfMarkersVisible();
 	$("#floatingList").empty();
-	var markerIds = [];
-	for(var i = 0; i < visibleMarkers.length; i++){
-		for(var j = 0; j < visibleMarkers[i].options.ids.length; j++){
-			markerIds.push(visibleMarkers[i].options.ids[j]);
-		}
-	}
-	getAllVisibleEvents(markerIds, 0, map._zoom);
+	getAllVisibleEvents(map._zoom);
 }
 
 function checkIfMarkersVisible(){
 	visibleMarkers = [];
-	for(var i in map._layers){
-		if(map._layers[i]._bounds == undefined && map._layers[i]._latlng != undefined){
-			if(isMarkerVisible(map._layers[i])){
-				visibleMarkers.push(map._layers[i]);
-			}
-		}
-	}
+	iterateMarkers(tree._topClusterLevel);
 }
 
 
@@ -474,57 +473,82 @@ function processEvent(result){
 function clickMarker(marker, event){
 	showInfo = true;
 	removeCountries();
-	var tmpLatLng = marker.latlng == undefined ?  $.extend( {}, marker._latlng  ): $.extend({}, marker.latlng  );
-	tmpLatLng.lng += 0.01021508561708;
-	tmpLatLng.lat -= 0.003382020592895;
 	var options = marker.target == undefined ? marker.options : marker.target.options;
-	map.setView(tmpLatLng, 16);
-	$("#infobox").css("visibility", "visible");
-	if($("#floatingInfo").css("visibility") === "visible"){				
-		$("#floatingInfo").animate({"width": "-=20%" }, 200, function(){
-			$(this).css("visibility", "hidden");
-		});
-	}
-	
-	$("#social").css("visibility", "visible");
-	$("#socialInfo").css("visibility", "visible");
-	$("#socialLoading").empty();
-	$("#socialLoading").css("visibility", "visible");
-	var opts = {
-	  lines: 13, // The number of lines to draw
-	  length: 20, // The length of each line
-	  width: 10, // The line thickness
-	  radius: 20, // The radius of the inner circle
-	  scale: 1, // Scales overall size of the spinner
-	  corners: 1, // Corner roundness (0..1)
-	  rotate: 0, // The rotation offset
-	  direction: 1, // 1: clockwise, -1: counterclockwise
-	  color: '#000', // #rgb or #rrggbb or array of colors
-	  speed: 1, // Rounds per second
-	  trail: 60, // Afterglow percentage
-	  shadow: false, // Whether to render a shadow
-	  hwaccel: false, // Whether to use hardware acceleration
-	  className: 'spinner', // The CSS class to assign to the spinner
-	  zIndex: 2e9, // The z-index (defaults to 2000000000)
-	  top: '50%', // Top position relative to parent
-	  left: '50%' // Left position relative to parent
-	};
-	var loadingDiv = document.getElementById("socialLoading");
-	var spinner = new Spinner(opts).spin(loadingDiv);
-	$("#socialInfoP").html("Sentiment data is processed");
-	if(event == undefined){		
-		var tmpEvent = containsEvent(visibleEvents, options.ids[0]);
-		if(tmpEvent != null){
-			processEvent(tmpEvent);
-		}
-		else{		
-			$.getJSON( "/getEventById", { id : options.ids[0] }).done(function(result){
-				processEvent(result);
+	var tmpLatLng = marker.latlng == undefined ?  $.extend( {}, marker._latlng  ): $.extend({}, marker.latlng  );
+	if(options.ids.length == 1 || event != undefined){
+		tmpLatLng.lng += 0.01021508561708;
+		tmpLatLng.lat -= 0.003382020592895;
+		map.setView(tmpLatLng, 16);
+		map.setView(tmpLatLng, 16);
+		$("#infobox").css("visibility", "visible");
+		if($("#floatingInfo").css("visibility") === "visible"){				
+			$("#floatingInfo").animate({"width": "-=20%" }, 200, function(){
+				$(this).css("visibility", "hidden");
 			});
 		}
-	}
-	else{
-		processEvent(event);
+		
+		$("#social").css("visibility", "visible");
+		$("#socialInfo").css("visibility", "visible");
+		$("#socialLoading").empty();
+		$("#socialLoading").css("visibility", "visible");
+		var opts = {
+				lines: 13, // The number of lines to draw
+				length: 20, // The length of each line
+				width: 10, // The line thickness
+				radius: 20, // The radius of the inner circle
+				scale: 1, // Scales overall size of the spinner
+				corners: 1, // Corner roundness (0..1)
+				rotate: 0, // The rotation offset
+				direction: 1, // 1: clockwise, -1: counterclockwise
+				color: '#000', // #rgb or #rrggbb or array of colors
+				speed: 1, // Rounds per second
+				trail: 60, // Afterglow percentage
+				shadow: false, // Whether to render a shadow
+				hwaccel: false, // Whether to use hardware acceleration
+				className: 'spinner', // The CSS class to assign to the spinner
+				zIndex: 2e9, // The z-index (defaults to 2000000000)
+				top: '50%', // Top position relative to parent
+				left: '50%' // Left position relative to parent
+		};
+		var loadingDiv = document.getElementById("socialLoading");
+		var spinner = new Spinner(opts).spin(loadingDiv);
+		$("#socialInfoP").html("Sentiment data is processed");
+		if(event == undefined){		
+			var tmpEvent = containsEvent(visibleEvents, options.ids[0]);
+			if(options.markers != undefined){
+				processEvent(options.markers[0]);
+			}
+			else{		
+				$.getJSON( "/getEventById", { id : options.ids[0] }).done(function(result){
+					processEvent(result);
+				});
+			}
+		}
+		else{
+			processEvent(event);
+		}
+	}else{
+		map.setView(tmpLatLng, 16);
+		console.log(marker);
+		if(marker.target._popup != undefined){
+			marker.target.unbindPopup();
+		}
+		var string = "<b>Events</b>";
+		for(var i = 0; i < options.markers.length; i++){
+			string += "<p id=" + options.markers[i].event.id + "p>" + options.markers[i].event.eventName + "</p>";
+			var pID = options.markers[i].event.id + "p";
+			$("#map").on("click", "#" + pID, {event: options.markers[i]}, function(e){
+				marker.target.closePopup();
+				clickMarker(marker, e.data.event);
+				
+			}).on("hover", "#" + pID, function(e){
+				$(this).css("background-Color", "#F4FA58");
+			}).on("mouseout", "#" + pID, function(e){
+				$(this).css("background-Color", "#FFFFFF");
+			});
+		}
+		
+		marker.target.bindPopup(string).openPopup();
 	}
 }
 
@@ -557,8 +581,17 @@ function makeRegionRequests(){
 	var uri = currentEvent.location.dbpedia_res_region;
 	currentRegion = {};
 	sparqlRequest(uri, "http://dbpedia.org/ontology/abstract", true).done(function(result) {
-		currentRegion.description = result.results.bindings[0].res.value;
-		infoboxRegion();
+		if(result.results.bindings[0] != undefined){	
+			currentRegion.description = result.results.bindings[0].res.value;
+			infoboxRegion();
+		}else{
+			sparqlRequest(uri, "http://www.w3.org/2000/01/rdf-schema#comment", true).done(function(result) {
+				if(result.results.bindings[0] != undefined){	
+					currentRegion.description = result.results.bindings[0].res.value;
+					infoboxRegion();
+				}
+			});
+		}
 	});
 	
 	sparqlRequest(uri, "http://dbpedia.org/ontology/populationDensity", false).done(function(result) {
@@ -882,7 +915,9 @@ function infoboxCity(){
 function infoboxRegion(){
 	$("#info").empty();
 	$("#info").append($("<p id=regionName>").text("Name: " + currentEvent.location.region));
-	$("#info").append($("<p id=regionDescription>").text("Description: " + currentRegion.description));
+	if(currentRegion.description != undefined){
+		$("#info").append($("<p id=regionDescription>").text("Description: " + currentRegion.description));
+	}
 	$("#info").append($("<p id=regionCountry>").text("Country: " + currentEvent.location.country));
 	if(currentRegion.populationDensity != undefined){
 		$("#info").append($("<p id=regionPopulation>").text("Population: " + currentRegion.population));
@@ -921,7 +956,9 @@ function infoboxCountry(){
 	$("#info").empty();
 	$("#info").append($("<p id=countryName>").text("Name: " + currentEvent.location.country));
 	$("#info").append($("<p id=countryDescription>").text("Description: " + currentCountry.description));
-	$("#info").append($("<p id=countryCapital>").text("Capital: " + currentCountry.capital));
+	if(currentCountry.capital != undefined){		
+		$("#info").append($("<p id=countryCapital>").text("Capital: " + currentCountry.capital));
+	}
 	$("#info").append($("<p id=countryPopulationDensity>").text("Population Density: " + currentCountry.populationDensity));
 	$("#info").append($("<p id=countryArea>").text("Area: " + currentCountry.area));
 }
@@ -1041,7 +1078,7 @@ $(document).ready(function(){
 	    dataType: 'json', // Choosing a JSON datatype
 	}).done(function(data) { // Variable data contains the data we get from serverside
 		var markers = L.markerClusterGroup();
-		markers.addTree(data);
+		tree = markers.addTree(data);
 		map.addLayer(markers);
 	});
 	
