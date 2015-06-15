@@ -326,6 +326,7 @@ function zoom() {
 			}).on("click", function(e) {
 				clickMarker(e);
 			}).on("mouseover", function(e){
+				$(this).css("cursor", "pointer");
 				hoverMarker(e);
 			}).on("mouseout", function(e){
 				hoverExitMarker(e);
@@ -735,6 +736,7 @@ function infoboxEvent(){
 			$("#info").append($("<p id=" + idName + " class=infoMarginLeft>").text(bands[i].name));
 			if(bands[i].dbpedia_resource != null){				
 				$("#" + idName).mouseover(function(){
+					$(this).css("cursor", "pointer");
 					$(this).css("background-Color", "#F4FA58");
 				});
 				$("#" + idName).mouseout(function(){
@@ -785,6 +787,7 @@ function infoboxEvent(){
 			});
 		})
 		$("#eventCity").mouseover(function(){
+			$(this).css("cursor", "pointer");
 			$(this).css("background-Color", "#F4FA58");
 		});
 		$("#eventCity").mouseout(function(){
@@ -809,6 +812,7 @@ function infoboxEvent(){
 			});
 		})
 		$("#eventRegion").mouseover(function(){
+			$(this).css("cursor", "pointer");
 			$(this).css("background-Color", "#F4FA58");
 		});
 		$("#eventRegion").mouseout(function(){
@@ -833,23 +837,13 @@ function infoboxEvent(){
 			});
 		})
 		$("#eventCountry").mouseover(function(){
+			$(this).css("cursor", "pointer");
 			$(this).css("background-Color", "#F4FA58");
 		});
 		$("#eventCountry").mouseout(function(){
 			$(this).css("background-Color", "#FFFFFF");
 		});
-	}
-	
-	$("#eventLocation").click(function(){
-		//to-do
-	})
-	$("#eventLocation").mouseover(function(){
-		$(this).css("background-Color", "#F4FA58");
-	});
-	$("#eventLocation").mouseout(function(){
-		$(this).css("background-Color", "#FFFFFF");
-	});
-	
+	}	
 }
 
 function infoboxCity(){
@@ -879,6 +873,7 @@ function infoboxCity(){
 			});
 		})
 		$("#cityRegion").mouseover(function(){
+			$(this).css("cursor", "pointer");
 			$(this).css("background-Color", "#F4FA58");
 		});
 		$("#cityRegion").mouseout(function(){
@@ -904,6 +899,7 @@ function infoboxCity(){
 			});
 		})
 		$("#cityCountry").mouseover(function(){
+			$(this).css("cursor", "pointer");
 			$(this).css("background-Color", "#F4FA58");
 		});
 		$("#cityCountry").mouseout(function(){
@@ -944,6 +940,7 @@ function infoboxRegion(){
 			});
 		})
 		$("#regionCountry").mouseover(function(){
+			$(this).css("cursor", "pointer");
 			$(this).css("background-Color", "#F4FA58");
 		});
 		$("#regionCountry").mouseout(function(){
@@ -975,6 +972,7 @@ function infoboxBand(){
 			$("#info").append($("<p id=" + idName + " class=infoMarginLeft>").text(members[i].name));
 			if(members[i].dbpedia_resource != null){				
 				$("#" + idName).mouseover(function(){
+					$(this).css("cursor", "pointer");
 					$(this).css("background-Color", "#F4FA58");
 				});
 				$("#" + idName).mouseout(function(){

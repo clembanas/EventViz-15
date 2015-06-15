@@ -16,9 +16,9 @@
 }
 
 #container {
-	height: 800px;
-	width: 100%;
-	position: relative;
+	height: calc(100% - 10px);
+	width: calc(100% - 10px);
+	position: absolute;
 	z-index:0;
 }
 
@@ -83,7 +83,7 @@ li.noNumber {
 
 #infobox {
 	height: 100%;
-	width: 50%;
+	width: 35%;
 	right: 0;
 	position: absolute;
 	background-color: white;
@@ -112,7 +112,7 @@ li.noNumber {
 	left: 10px;
 	margin-top: 25px;
 	width: 60%;
-	font-size: 16pt;
+	font-size: 14pt;
 	height: calc(95% - 25px);
 	position: absolute;
 	overflow-y: scroll;
@@ -183,8 +183,8 @@ li.noNumber {
 }
 
 #social {
-	height: 50%;
-	width: 50%;
+	height: 35%;
+	width: 65%;
 	left: 0;
 	bottom: 0;
 	position: absolute;
@@ -196,16 +196,16 @@ li.noNumber {
 #socialInfo {
 	height: 50px;
 	width: 98%;
-	left: 1%;
-	top: 1%;
-	font-size: 20px;
+	left: 10px;
+	top: 10px;
+	font-size: 18px;
 	color:#333333;
 	position: absolute;
 	visibility: hidden;
 }
 
 #socialResult {
-	height: calc(98% - 70px);
+	height: calc(100% - 80px);
 	width: 48%;
 	left: 1%;
 	top: calc(2% + 50px);
@@ -217,7 +217,7 @@ li.noNumber {
 }
 
 #socialChart {
-	height: calc(98% - 70px);
+	height: calc(100% - 80px);
 	width: 48%;
 	left: 51%;
 	top: calc(2% + 50px);
