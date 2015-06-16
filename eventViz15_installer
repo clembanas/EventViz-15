@@ -385,8 +385,15 @@ class InstTask_Exec(InstTaskBase):
         elif self.hideErr:
             cmd = cmd + " 2>/dev/null"
         if self.detach:
-            cmd = cmd + " & disown"
-        if self.ignExit:
+            proc = subprocess.Popen(cmd, shell=True)
+            if not self.ignExit:
+                retcode = proc.poll()
+                if retcode is None:
+                    time.sleep(1)
+                    retcode = proc.poll()
+                if retcode:
+                    raise CalledProcessError(retcode, cmd)
+        elif self.ignExit:
             subprocess.call(cmd, shell=True)
         else:
             subprocess.check_call(cmd, shell=True)
@@ -522,18 +529,20 @@ class InstTask_InstallPckg(InstTaskBase):
 # Installer task: Compile and install a Java Application and optionally create a starter script
 class InstTask_InstallJavaApp(InstTaskBase):
     def __init__(self, name, desc, srcAppFile, destAppDir, libDir=None,
-                 destStarterFile=None, depend=None):
+                 destStarterFile=None, depend=None, appArgs=[]):
         InstTaskBase.__init__(self, name, desc, depend)
         self.srcAppFile = srcAppFile
         self.destAppDir = destAppDir
         self.libDir = libDir
         self.destStarterFile = destStarterFile
+        self.appArgs = appArgs
 
     def runInstallTask(self):
         srcAppFile = replaceWildcards(self.srcAppFile)
         destAppDir = replaceWildcards(self.destAppDir)
         libDir = replaceWildcards(self.libDir)
         destStarterFile = replaceWildcards(self.destStarterFile)
+        appArgs = " ".join(self.appArgs)
         print "--------------------------------------------------------------------------------"
         if not os.path.exists(destAppDir):
             os.makedirs(destAppDir)
@@ -547,7 +556,7 @@ class InstTask_InstallJavaApp(InstTaskBase):
                     libs += ":"
                 libs += "%s/%s" % (libDir, libFile)
             libs = "-cp '" + libs + ":.' "
-        subprocess.check_call("javac %s-d %s %s" % (libs, destAppDir, srcAppFile),
+        subprocess.check_call("javac %s-d %s %s %s" % (libs, destAppDir, srcAppFile, appArgs),
                               shell=True)
         if destStarterFile:
             if not os.path.exists(os.path.dirname(destStarterFile)):
@@ -903,7 +912,7 @@ INST_TASKS_SLAVE = \
      InstTask_InstallJavaApp("Install info-crawlers", "Installing info-crawlers",
                              "$TEMP_DIR$/EventViz-15/InfoCrawlers/src/Main_InfoCrawlers.java",
                              "$INSTALL_DIR$/bin/info_crawlers_files", "$INSTALL_DIR$/lib",
-                             "$INSTALL_DIR$/bin/info_crawlers"),
+                             "$INSTALL_DIR$/bin/info_crawlers", appArgs=["Slave"]),
      InstTask_CreateLink("Configure info-crawler database config-file",
                          "Configuring info-crawler database config-file",
                          "$INSTALL_DIR$/conf/db_config.properties",

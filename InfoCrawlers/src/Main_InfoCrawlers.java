@@ -56,6 +56,13 @@ public class Main_InfoCrawlers {
 	public static void main(String[] args) 
 	{
 		try {
+			boolean isMasterNode = true;
+			
+			if (args.length > 0) {
+				if (!args[0].equalsIgnoreCase("slave"))
+					throw new Exception("Invalid argument '" + args[0] + "'!");
+				isMasterNode = false;
+			}
 			CrawlerConfig.load();
 			//Setup debug settings
 			applyDebugSettings();
@@ -67,7 +74,7 @@ public class Main_InfoCrawlers {
 			CrawlerManager.registerCrawler(CityInfoCrawler.class, 
 				CrawlerConfig.getCityInfoCrawlerHosts(), EventfulCrawler.class);
 			//Execute crawlers
-			if (CrawlerManager.start(true)) {
+			if (CrawlerManager.start(isMasterNode)) {
 				CrawlerManager.run();
 				CrawlerManager.shutdown();
 			}
