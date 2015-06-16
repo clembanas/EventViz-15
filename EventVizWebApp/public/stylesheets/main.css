@@ -93,6 +93,7 @@ li.noNumber {
 	opacity: 0.8;
 	visibility: hidden;
 	z-index : 1;
+	overflow-y: scroll;
 }
 
 #shadow {
@@ -128,10 +129,9 @@ li.noNumber {
 #info {
 	top: 10px;
 	left: 10px;
-	width: 100%;
+	width: 98%;
 	font-size: 14pt;
 	position: relative;
-	overflow-y: scroll;
 }
 
 .infoDesc {

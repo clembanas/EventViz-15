@@ -357,6 +357,9 @@ function processEvent(result){
 function clickMarker(marker, event){
 	showInfo = true;
 	removeCountries();
+	jQuery.each($("#navEvent").nextAll(), function(){
+		$(this).remove();
+	});
 	var options = marker.target == undefined ? marker.options : marker.target.options;
 	var tmpLatLng = marker.latlng == undefined ?  $.extend( {}, marker._latlng  ): $.extend({}, marker.latlng  );
 	if(options.ids.length == 1 || event != undefined){
