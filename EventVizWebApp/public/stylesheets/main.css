@@ -24,7 +24,7 @@
 
 #map {
 	height: 100%;
-	width: 100%;
+	width: 99%;
 	top: 0;
 	left: 0;
 	position: absolute;
@@ -64,6 +64,7 @@
 	width: 0;
 	top: calc(50% - 250px);
 	right: 0;
+    box-shadow: -9px -5px 7px #888888;
 	position: absolute;
 	background-color: white;
 	font-size: 16pt;
@@ -89,103 +90,88 @@ li.noNumber {
 	background-color: white;
 	color:#333333;
 	font-size: 16pt;
-	padding-left: 10px;
 	opacity: 0.8;
 	visibility: hidden;
 	z-index : 1;
 }
 
+#shadow {
+	bottom: 35%;
+	width: 100%;
+	top: 0;
+    box-shadow: -9px -5px 7px #888888;
+    position: absolute;
+}
+
 #navigation {
-	left: 10px;
-	position: absolute;
+	background-color: black;
+	width: 100%;
+	height: 40px;
+	color: white;
+	position: relative;
+}
+
+.navElementFirst {
+	margin: 0;
+	padding-top: 8px;
+	padding-left: 10px;
+	display: inline-block;
 }
 
 .navElement {
 	margin: 0;
-	padding-top: 5px;
-	padding-right: 5px;
+	padding-top: 8px;
+	padding-left: 5px;
 	display: inline-block;
 }
 
 #info {
-	top: 25px;
+	top: 10px;
 	left: 10px;
-	margin-top: 25px;
-	width: 60%;
+	width: 100%;
 	font-size: 14pt;
-	height: calc(95% - 25px);
-	position: absolute;
+	position: relative;
 	overflow-y: scroll;
 }
 
-.infoMarginLeft {
-	margin-left: 10px;
+.infoDesc {
+	margin: 0;
+	font-weight: bold;
+	display: inline-block;
+}
+
+.infoValue {
+	margin: 0;
+	display: inline-block;
+	padding-left: 5px;	
+}
+
+.infoDiv{
+	padding-top: 15px;
+	padding-bottom: 10px;
+}
+
+.infoDivMarginLeft {
+	margin-left: 20px;
+	padding-top: 10px;
+	padding-bottom: 5px;
 }
 
 #img {
-	top: 35px;
-	right: 10px;
 	width: 300px;
-	height: 300px;
+	height: auto;
+	top: 10px;
+    margin-left: auto;
+    margin-right: auto;
 	opacity: 1.0;
-	position: absolute;
-}
-
-.image {
-	right: 0;
-	opacity: 1.0;
-	position: absolute;
-}
-
-#infobox2 {
-	height: 99%;
-	width: 0%;
-	right: 0;
-	top: 1%;
-	position: absolute;
-	visibility: hidden;
-	z-index : 2;
-}
-
-#info2 {
-	top: 0;
-	right: 0;
-	height: calc(100% - 6px);
-	width: calc(100% - 16px);
-	background-color: white;
-	font-size: 16pt;
-	padding-left: 10px;
-	border: 3px solid blue;
-	position: absolute;
-}
-
-#image2 {
-	top: 20px;
-	right: 20px;
-	width: 200px;
-	height: 300px;
-	background-color: red;
-	position: absolute;
-}
-
-#pullButton {
-	height: 8%;
-	width: 1%;
-	left: 99%;
-	top: 0%;
-	z-index: 2;
-	background-image: url("image/PullButton.png");
-	background-size: contain;
-	background-repeat: no-repeat;
-	transform: rotate(0deg);
-	position: absolute;
-	visibility: hidden;
+	position: relative;
 }
 
 #social {
 	height: 35%;
-	width: 65%;
 	left: 0;
+	right: 35%;
+    box-shadow: -1px -7px 7px #888888;
 	bottom: 0;
 	position: absolute;
 	background-color: white;
@@ -194,21 +180,24 @@ li.noNumber {
 }
 
 #socialInfo {
-	height: 50px;
-	width: 98%;
-	left: 10px;
-	top: 10px;
-	font-size: 18px;
-	color:#333333;
+	height: 40px;
+	width: 100%;
+	background-color: black;
+	color: white;
+	font-size: 16pt;
 	position: absolute;
 	visibility: hidden;
 }
 
+#socialInfoP {
+	margin: 0;
+	padding-top: 8px;
+	padding-left: 10px;
+}
+
 #socialResult {
-	height: calc(100% - 80px);
-	width: 48%;
-	left: 1%;
-	top: calc(2% + 50px);
+	height: calc(100% - 50px);
+	top: 50px;
 	position: absolute;
     overflow: auto;
 	font-size: 16px;
@@ -234,28 +223,26 @@ li.noNumber {
 	visibility: hidden;
 }
 
-.socialDescBig {
-	float: left;
-	height: 25px;
-	padding-top: 5px;
-	width: 30%;
-}
-
-.socialEntryBig {
-	float: left;
-	height: 25px;
-	padding-top: 5px;
-	width: 60%;
-}
-
 .socialDesc {
-	float: left;
-	height: 25px;
-	width: 30%;
+	margin: 0;
+	font-weight: bold;
+	display: inline-block;
 }
 
-.socialEntry {
-	float: left;
-	height: 25px;
-	width: 60%;
+.socialValue {
+	margin: 0;
+	display: inline-block;
+	padding-left: 5px;	
+}
+
+.socialDiv{
+	margin-left: 10px;
+	padding-top: 15px;
+	padding-bottom: 10px;
+}
+
+.socialDivMarginLeft {
+	margin-left: 50px;
+	padding-top: 3px;
+	padding-bottom: 2px;
 }
