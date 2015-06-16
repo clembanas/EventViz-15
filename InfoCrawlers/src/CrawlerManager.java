@@ -139,7 +139,7 @@ public class CrawlerManager {
 					catch (Exception e) {
 						exceptionThrown = true;
 						ExceptionHandler.handle("Failed to await termination of crawler instances" +
-							"of class '" + crawlerClass.getName() + "'!\n", e,
+							" of class '" + crawlerClass.getName() + "'!\n", e,
 							CrawlerManager.class, null, getClass());
 					}
 				}

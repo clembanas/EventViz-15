@@ -151,16 +151,18 @@ public abstract class CrawlerBase implements CrawlerInstance {
 	
 	protected JobGroupController getJobGroupController() throws Exception
 	{
+		Class<? extends JobGroupController> jobGroupCtrlrClass = getJobGroupControllerClass();
+		
 		RemoteObjectManager.registerRemoteObject(JobGroupController.class, 
-			getJobGroupControllerClass(), getJobGroupControllerCreator(), getClass().getName());
-		return RemoteObjectManager.getRemoteObject(JobGroupController.class, 
-				   JOB_CONTROLLER_HOST_ADDR, getClass().getName());
+			jobGroupCtrlrClass, getJobGroupControllerCreator(), getClass().getName());
+		return RemoteObjectManager.getRemoteObject(jobGroupCtrlrClass, JOB_CONTROLLER_HOST_ADDR, 
+				   getClass().getName());
 	}
 	
 	protected void releaseJobGroupController(JobGroupController jobCtrlr)
 	{
 		try {
-			RemoteObjectManager.closeRemoteObject(JobGroupController.class, jobCtrlr, 
+			RemoteObjectManager.closeRemoteObject(getJobGroupControllerClass(), jobCtrlr, 
 				getClass().getName());
 		} 
 		catch (Exception e) {

@@ -193,7 +193,7 @@ class InstTask_MultiTasks(InstTaskBase):
         self.taskVarFilter = taskVarFilter
 
     def runInstallTask(self):
-        taskVars = self.taskVars
+        taskVars = self.taskVars[:]
         for i in xrange(len(taskVars)):
             taskVars[i] = replaceWildcards(taskVars[i])
         if self.taskVarFilter:
@@ -331,7 +331,7 @@ class InstTask_WriteJavaConfFile(InstTaskBase):
         self.keyValueDict = keyValueDict
 
     def runInstallTask(self):
-        keyValueDict = self.keyValueDict
+        keyValueDict = self.keyValueDict.copy()
         fileIn = fileinput.input(replaceWildcards(self.file), inplace=1)
         # Update values
         for line in fileIn:
@@ -830,7 +830,7 @@ INST_TASKS_SERVER = \
                                            depend=InstTaskDep_UserInput("Enter user name for host "
                                                                         "'$CURR_TASK_VAR$'",
                                                                         "SLAVE_HOST_USER",
-                                                                        skipSetVar=True)),
+                                                                        skipSetVar=False)),
                              InstTask_Exec("", "Executing info-crawler slave installer on "
                                            "'$CURR_TASK_VAR$'",
                                            'ssh -o StrictHostKeyChecking=no '
