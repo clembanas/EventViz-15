@@ -391,11 +391,13 @@ public class CrawlerManager {
 	
 	public static void shutdown()
 	{
-		synchronized (running) {
-			if (!running)
-				return;
-			running = false;
-			running.notifyAll();
+		if (!isMasterNode) {
+			synchronized (running) {
+				if (!running)
+					return;
+				running = false;
+				running.notifyAll();
+			}
 		}
 		try {
 			if (dbConn != null)

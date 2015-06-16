@@ -49,7 +49,7 @@ class InstTaskDependencyBase:
         if self.orDepend:
             return self.checkDepFulfilled() or self.orDepend.isFulfilled()
         return self.checkDepFulfilled()
-        
+
     def checkDepFulfilled(self):
         raise Exception("Not implemented")
 
@@ -278,8 +278,8 @@ class InstTask_Copy(InstTaskBase):
         def copyFile(srcFile, destFile):
             if os.path.isfile(destFile) and not self.overwrite:
                 raise Exception("File '%s' already exists!" % destFile)
-            if not os.path.exists(os.path.basename(destFile)):
-                os.makedirs(os.path.basename(destFile))
+            if not os.path.exists(os.path.dirname(destFile)):
+                os.makedirs(os.path.dirname(destFile))
             shutil.copy2(srcFile, destFile)
 
         src = replaceWildcards(self.src)
@@ -288,7 +288,7 @@ class InstTask_Copy(InstTaskBase):
             copyFile(src, dest)
         else:
             copyDir(src, dest)
-        
+
 
 # Installer task: Create a symbolic link
 class InstTask_CreateLink(InstTaskBase):
@@ -314,8 +314,8 @@ class InstTask_CreateFile(InstTaskBase):
 
     def runInstallTask(self):
         filename = replaceWildcards(self.file)
-        if not os.path.exists(os.path.basename(filename)):
-            os.makedirs(os.path.basename(filename))
+        if not os.path.exists(os.path.dirname(filename)):
+            os.makedirs(os.path.dirname(filename))
         f = open(filename, "w")
         if self.content:
             f.write(replaceWildcards(self.content))
@@ -570,7 +570,7 @@ CMD_LINE_LONG_OPTS = ["show-config", "show-modes",               # Long command 
                       "tasks=", "repo=", "host=", "user=",
                       "password=", "db-name=", "root-dir=",
                       "temp-dir=", "install-dir=", "server=",
-                      "no-cleanup", "help"]
+                      "slave-tasks=", "no-cleanup", "help"]
 # Accepted command line options
 CMD_LINE_OPTS_ACCEPTED = ("   --show-config ........... Show default configuration\n"
                           "   --show-modes ............ Show installation modes\n"
@@ -590,6 +590,9 @@ CMD_LINE_OPTS_ACCEPTED = ("   --show-config ........... Show default configurati
                           "path\n"
                           "   -i (--install-dir=) ..... Set root-relative installation directory "
                           "path\n"
+                          "   --slave-tasks= .......... Tasks to be executed by info-crawler "
+                          "slave host installer\n"
+                          "                             (e.g. \"u1, u2, i4 - i8\")\n"
                           "   --no-cleanup ............ Skip removing temporary directory\n"
                           "   --help .................. Show this help")
 
@@ -602,6 +605,7 @@ DB_PWORD = "e1V2i3Z"
 DB_NAME = "EventViz15"
 DB_ROOT_PWORD = None
 SERVER_IP = None
+SLAVE_TASKS = ""
 ROOT_DIR = "~"
 TEMP_DIR = "eventviz15_installer_temp_%d" % int(time.time())
 DO_CLEANUP = True
@@ -722,7 +726,7 @@ INST_TASKS_SERVER = \
                    "$INSTALL_DIR$/lib", exceptEntries=["log4j-1.2.17.jar"]),
      InstTask_Copy("Install database-config file", "Installing database-config file",
                    "$TEMP_DIR$/EventViz-15/InfoCrawlers/src/db_config.properties",
-                   "$INSTALL_DIR$/conf"),
+                   "$INSTALL_DIR$/conf/db_config.properties"),
      InstTask_WriteJavaConfFile("Update database config-file",
                                 "Updating database config-file",
                                 "$INSTALL_DIR$/conf/db_config.properties",
@@ -730,7 +734,7 @@ INST_TASKS_SERVER = \
                                  "mysql.db_pword": "$DB_PWORD$", "mysql.db_name": "$DB_NAME$"}),
      InstTask_Copy("Install crawler-config file", "Installing crawler-config file",
                    "$TEMP_DIR$/EventViz-15/InfoCrawlers/src/crawler_config.properties",
-                   "$INSTALL_DIR$/conf"),
+                   "$INSTALL_DIR$/conf/crawler_config.properties"),
      InstTask_InstallJavaApp("Install info-crawlers", "Installing info-crawlers",
                              "$TEMP_DIR$/EventViz-15/InfoCrawlers/src/Main_InfoCrawlers.java",
                              "$INSTALL_DIR$/bin/info_crawlers_files", "$INSTALL_DIR$/lib",
@@ -755,7 +759,8 @@ INST_TASKS_SERVER = \
                          "Configuring table-creator config-file",
                          "$INSTALL_DIR$/conf/crawler_config.properties",
                          "$INSTALL_DIR$/bin/table_creator_files/crawler_config.properties"),
-     InstTask_Exec("Create database '$DB_NAME$'", "Creating database '$DB_NAME$'",
+     InstTask_Exec("Create database '$DB_NAME$' on host '$DB_HOST$'",
+                   "Creating database '$DB_NAME$' on host '$DB_HOST$'",
                    'mysql --host=$DB_HOST$ --user=root --password=$DB_ROOT_PWORD$ -e '
                    '"create database if not exists $DB_NAME$"',
                    depend=InstTaskDep_UserInput("\nEnter database root password", "DB_ROOT_PWORD",
@@ -788,7 +793,8 @@ INST_TASKS_SERVER = \
                             "Host IP addresses (e.g. 192.168.0.1, 192.168.0.2)",
                             "EVENTFUL_CRAWLER_HOSTS",
                             hint="The IP address of the local host must not be entered,\n"
-                                 "         because it acts as the crawler-master!\n"
+                                 "         because it acts as the crawler-master host!\n"
+                                 "         If no address is entered no crawler slave is used!\n"
                                  "         The hosts can also be configured manually via\n"
                                  "         'conf/crawler_config.properties'",
                             title="Select the hosts of the Eventful-crawler slaves:\n",
@@ -798,7 +804,8 @@ INST_TASKS_SERVER = \
                                "Host IP addresses (e.g. 192.168.0.1, 192.168.0.2)",
                                "BANDINFO_CRAWLER_HOSTS",
                                hint="The IP address of the local host must not be entered,\n"
-                                    "         because it acts as the crawler-master!",
+                                    "         because it acts as the crawler-master host!\n"
+                                    "         If no address is entered no crawler slave is used!",
                                title="Select the hosts of the Band-info-crawler slaves:\n",
                                skipSetVar=False,
                                fmtHint="$TITLE$\n   Note: $HINT$\n\n   $QUEST$:\n      ",
@@ -806,7 +813,9 @@ INST_TASKS_SERVER = \
                                    "Host IP addresses (e.g. 192.168.0.1, 192.168.0.2)",
                                    "CITYINFO_CRAWLER_HOSTS",
                                    hint="The IP address of the local host must not be entered,\n"
-                                        "         because it acts as the crawler-master!",
+                                        "         because it acts as the crawler-master host!\n"
+                                        "         If no address is entered no crawler slave is "
+                                        "used!",
                                    title="Select the hosts of the City-info-crawler "
                                          "slaves:\n",
                                    skipSetVar=False,
@@ -826,9 +835,9 @@ INST_TASKS_SERVER = \
                                            "'$CURR_TASK_VAR$'",
                                            'ssh -o StrictHostKeyChecking=no '
                                            '$SLAVE_HOST_USER$@$CURR_TASK_VAR$ '
-                                           '"./eventViz15_installer -m Slave -r $GIT_REPO$ '
+                                           '"python -u eventViz15_installer -m Slave -r $GIT_REPO$ '
                                            '-h $DB_HOST$ -u $DB_USER$ -p $DB_PWORD$ '
-                                           '-d $DB_NAME$ -i $INSTALL_DIR$" -s $SERVER_IP$')],
+                                           '-d $DB_NAME$ -s $SERVER_IP$ $SLAVE_TASKS$"')],
                             ["$EVENTFUL_CRAWLER_HOSTS$", "$BANDINFO_CRAWLER_HOSTS$",
                              "$CITYINFO_CRAWLER_HOSTS$"],
                             lambda hosts: [host for host in list(set(map(str.strip,
@@ -878,7 +887,7 @@ INST_TASKS_SLAVE = \
                    "$INSTALL_DIR$/lib", exceptEntries=["log4j-1.2.17.jar"]),
      InstTask_Copy("Install database-config file", "Installing database-config file",
                    "$TEMP_DIR$/EventViz-15/InfoCrawlers/src/db_config.properties",
-                   "$INSTALL_DIR$/conf"),
+                   "$INSTALL_DIR$/conf/db_config.properties"),
      InstTask_Exec("Store version information",
                    "Storing version information",
                    "git show HEAD | sed -n '/diff/ !p;//q' > $INSTALL_DIR$/eventviz15_version.txt; "
@@ -890,7 +899,7 @@ INST_TASKS_SLAVE = \
                                  "mysql.db_pword": "$DB_PWORD$", "mysql.db_name": "$DB_NAME$"}),
      InstTask_Copy("Install crawler-config file", "Installing crawler-config file",
                    "$TEMP_DIR$/EventViz-15/InfoCrawlers/src/crawler_config.properties",
-                   "$INSTALL_DIR$/conf"),
+                   "$INSTALL_DIR$/conf/crawler_config.properties"),
      InstTask_InstallJavaApp("Install info-crawlers", "Installing info-crawlers",
                              "$TEMP_DIR$/EventViz-15/InfoCrawlers/src/Main_InfoCrawlers.java",
                              "$INSTALL_DIR$/bin/info_crawlers_files", "$INSTALL_DIR$/lib",
@@ -1017,8 +1026,8 @@ def processCmdLineOpts(argv):
               (INST_MODE_CURR, GIT_REPO, DB_HOST, DB_USER, DB_PWORD, DB_NAME, ROOT_DIR, TEMP_DIR,
                INSTALL_DIR, INST_MODE_DEF, DO_CLEANUP)
 
-    global GIT_REPO, DB_HOST, DB_USER, DB_PWORD, DB_NAME, ROOT_DIR, TEMP_DIR, INSTALL_DIR
-    global DO_CLEANUP
+    global GIT_REPO, DB_HOST, DB_USER, DB_PWORD, DB_NAME, SERVER_IP, ROOT_DIR, TEMP_DIR, INSTALL_DIR
+    global SLAVE_TASKS, DO_CLEANUP
 
     showConf = False
     showInstModes = False
@@ -1056,12 +1065,16 @@ def processCmdLineOpts(argv):
                 DB_PWORD = arg
             elif opt in ("-d", "--db-name"):
                 DB_NAME = arg
+            elif opt in ("-s", "--server"):
+                SERVER_IP = arg
             elif opt in ("-x", "--root-dir"):
                 ROOT_DIR = arg
             elif opt in ("-w", "--temp-dir"):
                 TEMP_DIR = arg
             elif opt in ("-i", "--install-dir"):
                 INSTALL_DIR = arg
+            elif opt == "--slave-tasks":
+                SLAVE_TASKS = '-t "%s"' % arg
             elif opt == "--no-cleanup":
                 DO_CLEANUP = False
             else:
@@ -1093,10 +1106,10 @@ def getLocalHostAddr():
         print "\nRetrieving local host's address ..."
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.connect(("google.com", 80))
-        print "Retrieving local host's address ... DONE ('%s')" % sock.getsockname()[0]
+        print "Retrieving local host's address ... DONE ('%s')\n" % sock.getsockname()[0]
         return sock.getsockname()[0]
     except Exception, e:
-        print "Retrieving local host's address ... FAILED\nError: '%s'\nUsing '%s' instead" % \
+        print "Retrieving local host's address ... FAILED\nError: '%s'\nUsing '%s' instead\n" % \
               (e, socket.gethostbyname(socket.gethostname()))
         return socket.gethostbyname(socket.gethostname())
     finally:
@@ -1108,12 +1121,12 @@ def getLocalHostAddr():
 
 def init():
     print "Installation mode '%s' loaded" % INST_MODE_CURR
-    sys.stdout.write("\nCreating temporary directory '%s' ... " % TEMP_DIR)
+    print "\nCreating temporary directory '%s' ... " % TEMP_DIR
     sys.stdout.flush()
     if not os.path.isdir(TEMP_DIR):
         os.makedirs(TEMP_DIR)
     os.chdir(TEMP_DIR)
-    print "DONE"
+    print "Creating temporary directory '%s' ... DONE" % TEMP_DIR
 
 
 def install():
