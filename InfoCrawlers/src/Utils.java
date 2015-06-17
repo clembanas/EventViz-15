@@ -146,9 +146,9 @@ public class Utils {
 		StringBuilder strBuilder = new StringBuilder();
 		
 		if (args == null)
-			return "objs null";
+			return "objs is null";
 		if (args.length == 0)
-			return "objs empty";
+			return "objs is empty";
 		for (Object arg: args) {
 			if (strBuilder.length() > 1) 
 				strBuilder.append("; ");

@@ -479,7 +479,7 @@ public class RemoteObjectManager {
 				remConnection.writeObjects(args);
 				
 				String resp = remConnection.readString();
-				if (!resp.toLowerCase().startsWith("RESULT: ")) {
+				if (!resp.toLowerCase().startsWith("result: ")) {
 					RemoteObjectException e = new RemoteObjectException(resp);
 					ExceptionHandler.handle("Failed to invoke method '" + mthdName + "(" + 
 						(DebugUtils.canDebug(RemoteObjectManager.class, 
