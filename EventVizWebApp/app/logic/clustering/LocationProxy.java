@@ -1,7 +1,6 @@
 package logic.clustering;
 
 import java.io.Serializable;
-import java.util.List;
 
 public class LocationProxy implements ILocation, Serializable {
 	private static final long serialVersionUID = 6182147865946165933L;

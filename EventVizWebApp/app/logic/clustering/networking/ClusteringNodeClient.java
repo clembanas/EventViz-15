@@ -6,6 +6,8 @@ import java.io.IOException;
 import java.net.Socket;
 import java.net.UnknownHostException;
 
+import net.sf.ehcache.terracotta.SerializationHelper;
+
 import org.apache.commons.lang3.SerializationUtils;
 
 import logic.clustering.ClusteringWorker;
@@ -66,10 +68,10 @@ public class ClusteringNodeClient implements ClusteringWorker {
 			case Exception:
 				String message = inputStream.readUTF();
 				throw new Exception(message);
-			case WaitForResultResponse:
-				return (MarkerCluster)SerializationUtils.deserialize(inputStream);
+			case WaitForResultResponse:				
+				return (MarkerCluster)MySerializationHelper.deserialize(inputStream);
 			default:
-				throw new RuntimeException("Not implemented yet");
+				throw new RuntimeException("Not implemented yet: " + cMessageType);
 		}
 	}
 

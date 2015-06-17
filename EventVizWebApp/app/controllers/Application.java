@@ -106,30 +106,64 @@ public class Application extends Controller {
         return ok(cachedZippedEvents);
     }*/
     
+    
+    
+    public static void refreshEventsCaching() throws SQLException, IOException
+    {
+    	refreshEventsCaching(true, true);
+    }
     private static byte[] cachedZippedEvents = null;
-    private static Object getEventsLockObj = new Object(); 
-    public static Result getEvents() throws SQLException, IOException {       
+    private static Object getEventsLockObj = new Object();
+    private static boolean cacheClusteredEvents = false;
+	private static Iterable<? extends ILocation> cachedEventsFromDB = null;
+    public static void refreshEventsCaching(boolean cacheEventsFromDB, boolean cacheClusteredEvents) throws SQLException, IOException {
+    	Application.cacheClusteredEvents = cacheClusteredEvents;
     	
-    	if(cachedZippedEvents == null)
+    	if(cacheEventsFromDB)
     	{
-    		synchronized(getEventsLockObj)
+	    	if(cachedEventsFromDB == null)
+	    	{
+	    		synchronized(getEventsLockObj)
+	    		{
+	    			if(cachedEventsFromDB == null)
+	    			{
+	    				cachedEventsFromDB = EventViz15_DB_MySQLAccess.getEvents();
+	    				
+	    				if(cacheClusteredEvents)
+	    				{
+	    					cachedZippedEvents = clusterEventsAndZip(cachedEventsFromDB);
+	    				}
+	    			}
+	    		}
+	    	}
+    	}
+	}
+    
+    Iterable<? extends ILocation> events = null;
+    public static Result getEvents() throws SQLException, IOException {
+    	
+    	if(!cacheClusteredEvents)
+    	{
+    		Iterable<? extends ILocation> eventsFromDB = cachedEventsFromDB; 
+    		if(eventsFromDB == null)
     		{
-    			if(cachedZippedEvents == null)
-    			{
-    				Iterable<? extends ILocation> events = EventViz15_DB_MySQLAccess.getEvents();
-    				
-    				MarkerCluster markerCluster = ClusteringUtil.cluster(events);    		
-    				String json = Json.stringify(Json.toJson(new LightMarkerClusterVO(markerCluster)));
-    				final ByteArrayOutputStream gzip = gzip(json);
-    				cachedZippedEvents = gzip.toByteArray();
-    			}
+    			eventsFromDB = EventViz15_DB_MySQLAccess.getEvents();
     		}
+    		
+    		cachedZippedEvents = clusterEventsAndZip(eventsFromDB);
     	}
     	
     	response().setHeader("Content-Encoding", "gzip");
         response().setHeader("Content-Length", cachedZippedEvents.length + "");
         return ok(cachedZippedEvents);
     }
+
+	private static byte[] clusterEventsAndZip(Iterable<? extends ILocation> eventsFromDB) throws IOException {
+		MarkerCluster markerCluster = ClusteringUtil.cluster(eventsFromDB);    		
+		String json = Json.stringify(Json.toJson(new LightMarkerClusterVO(markerCluster)));
+		final ByteArrayOutputStream gzip = gzip(json);
+		return gzip.toByteArray();
+	}
     
 
     
@@ -167,4 +201,6 @@ public class Application extends Controller {
         }
         return ok(JsonResultGenerator.getSocialMentionSentiment_JSON(data).toString());
     }
+
+	
 }

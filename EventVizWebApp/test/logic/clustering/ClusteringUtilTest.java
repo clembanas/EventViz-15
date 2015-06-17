@@ -38,6 +38,8 @@ public class ClusteringUtilTest {
 			}
 		}).start();
 		
+		// use just one thread for clustering..
+		ClusteringUtil.initialize(null, 1);
 		
 		markerCluster32000Points = ClusteringUtil.cluster(createLocationsTestCluster32000Points());
 	}
@@ -250,12 +252,31 @@ public class ClusteringUtilTest {
 		
 		MarkerCluster clusterZoom0 = ClusteringUtil.cluster(locations, workers);
 	}
+	
+	@Test
+	public void testCluster106000Points1NetworkWorker() throws FileNotFoundException, IOException {		
+		List<ILocation> locations = createLocationsTestCluster106000Points();
+		
+		ClusteringWorker[] workers = new ClusteringWorker[1];
+		workers[0] = new ClusteringNodeClient("localhost", 9999);
+		
+		MarkerCluster clusterZoom0 = ClusteringUtil.cluster(locations, workers);
+	}
 
 	private static List<ILocation> createLocationsTestCluster32000Points() throws IOException {
+		return createLocationsTestCluster("/ClusterPoints32000.txt");
+	}
+	
+	private static List<ILocation> createLocationsTestCluster106000Points() throws IOException {
+		return createLocationsTestCluster("/ClusterPoints106744.txt");
+	}
+
+	private static List<ILocation> createLocationsTestCluster(String fileName)
+			throws IOException {
 		List<ILocation> locations = new ArrayList<ILocation>();		
 		
 		int i = 0;
-		try (BufferedReader br = new BufferedReader(new InputStreamReader(ClusteringUtilTest.class.getResourceAsStream("/ClusterPoints32000.txt")))) {
+		try (BufferedReader br = new BufferedReader(new InputStreamReader(ClusteringUtilTest.class.getResourceAsStream(fileName)))) {
 		    String line;
 		    while ((line = br.readLine()) != null) {
 		    	if(line.isEmpty())

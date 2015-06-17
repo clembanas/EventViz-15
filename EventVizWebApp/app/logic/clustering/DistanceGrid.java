@@ -24,12 +24,6 @@ public class DistanceGrid<T> {
 		int x = this._getCoord(point.x);
 		int y = this._getCoord(point.y);
 		// int stamp = L.Util.stamp(obj);
-		
-		if(point == null)
-		{
-			String test = "";
-			test+="";
-		}
 
 		this._objectPoint.put(location, point);
 
@@ -70,10 +64,6 @@ public class DistanceGrid<T> {
 				if (cell != null) {
 					for (T obj : cell) {
 						Point p = _objectPoint.get(obj);
-						if(p == null){
-							String test = "";
-							test+="";
-						}
 						dist = this._sqDist(p, point);
 						if (dist < closestDistSq) {
 							closestDistSq = dist;

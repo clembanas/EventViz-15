@@ -5,7 +5,11 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
 
+import net.sf.ehcache.terracotta.SerializationHelper;
+
 import org.springframework.util.SerializationUtils;
+
+import com.esotericsoftware.kryo.Kryo;
 
 import logic.clustering.ClusteringWorker;
 import logic.clustering.ILocation;
@@ -68,7 +72,7 @@ public class ClusteringNodeServer {
 	}
 
 	private void writeResult(MarkerCluster result) throws IOException {
-		byte[] bytes = SerializationUtils.serialize(result);
+		byte[] bytes = MySerializationHelper.serialize(result);
 		outputStream.writeByte(ClusteringMessageType.WaitForResultResponse.getVal());
 		outputStream.write(bytes);
 	}

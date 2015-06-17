@@ -8,6 +8,12 @@ public class Location implements ILocation, Serializable{
 	private double lat;
 	private double lng;
 	private String name;
+	
+
+	public Location()
+	{
+		// just for serialization		
+	}
 
 	public Location(long id, double lat, double lng, String name) {
 		this.id = id;

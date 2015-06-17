@@ -25,6 +25,6 @@ public enum ClusteringMessageType {
         case 3:
             return WaitForResultResponse;
         }
-        throw new RuntimeException("not implemented yet");
+        throw new RuntimeException("not implemented yet " + x);
     }
 }

@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Marker extends LocationProxy implements IMarker, Serializable {
-	private static final long serialVersionUID = -2795057827017912992L;
+	private static final long serialVersionUID = -2795057827017912993L;
 	private MarkerCluster parent = null;
 	private List<Long> ids = new ArrayList<Long>();
 	

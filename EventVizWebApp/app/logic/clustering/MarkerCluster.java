@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class MarkerCluster implements IMarker, Serializable {
-	private static final long serialVersionUID = 6837877666870874516L;
+	private static final long serialVersionUID = 6837877666870874517L;
 	private final List<MarkerCluster> childClusters = new ArrayList<MarkerCluster>();
 	private final List<Marker> markers = new ArrayList<Marker>();
 	public List<Marker> getMarkers() {

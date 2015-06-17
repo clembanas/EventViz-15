@@ -1,23 +1,52 @@
 package logic.clustering;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+import logic.clustering.networking.ClusteringNodeClient;
+import play.Logger;
+
 
 
 public class ClusteringUtil {	
+	private static int localWorkers = -1;
+	private static List<String> externalWorkers = new ArrayList<String>();
+	private static int clusteringWorkerCount = -1;
+	
+	public static void initialize(List<String> externalWorkerNames, int localWorkerCount)
+	{
+		if(externalWorkerNames != null)
+		{
+			externalWorkers = externalWorkerNames;
+		}
+		
+		
+		localWorkers = localWorkerCount;
+    	clusteringWorkerCount = externalWorkers.size() + localWorkers;
+    	
+    	Logger.info("clustering.externalWorkers: " + Arrays.toString(externalWorkers.toArray()));
+      	Logger.info("clustering.localWorkers: " + localWorkers);
+	}
 	
 	private static ClusteringWorker[] createClusteringWorker()
-	{
-		ClusteringWorker[] workers = new ClusteringWorker[8];
+	{		
+		ClusteringWorker[] workers = new ClusteringWorker[clusteringWorkerCount];
 		
 		try {
-			//workers[0] = new ClusteringNodeClient("localhost", 9999);
-			workers[0] = new LocalClusteringWorker();
-			workers[1] = new LocalClusteringWorker();
-			workers[2] = new LocalClusteringWorker();
-			workers[3] = new LocalClusteringWorker();
-			workers[4] = new LocalClusteringWorker();
-			workers[5] = new LocalClusteringWorker();
-			workers[6] = new LocalClusteringWorker();
-			workers[7] = new LocalClusteringWorker();
+			
+			int i = 0;
+			for(; i < localWorkers;i++)
+			{
+				workers[i] = new LocalClusteringWorker();
+			}
+			
+			for(String externalWorker : externalWorkers)
+			{
+				workers[i] = new ClusteringNodeClient(externalWorker, 9999);
+				i++;
+			}			
+			
 		} catch (Exception e) {
 			throw new RuntimeException("Error creating clusteringworkers: '" + e.getMessage() + "'", e);
 		}
@@ -39,7 +68,7 @@ public class ClusteringUtil {
 			int workerId = ((int)(location.getLongitude() + 180) / stripeSize) % workers.length;
 			workers[workerId].addLocation(location);
 		}
-		
+
 		MarkerCluster resultTop = new MarkerCluster(-1);
 		
 		for(ClusteringWorker worker : workers)
