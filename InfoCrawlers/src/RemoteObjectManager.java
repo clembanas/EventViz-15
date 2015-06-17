@@ -223,6 +223,7 @@ public class RemoteObjectManager {
 				sockOut.writeInt(0);
 			else {
 				objOut.writeObject(obj);
+				objOut.flush();
 				sockOut.writeInt(byteOut.size());
 				sockOut.write(byteOut.toByteArray());
 			}
@@ -244,6 +245,7 @@ public class RemoteObjectManager {
 						byteOut = new ByteArrayOutputStream();
 						objOut = new ObjectOutputStream(byteOut);
 						objOut.writeObject(obj);
+						objOut.flush();
 						sockOut.writeInt(byteOut.size());
 						sockOut.write(byteOut.toByteArray());
 					}
