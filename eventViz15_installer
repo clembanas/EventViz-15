@@ -385,14 +385,7 @@ class InstTask_Exec(InstTaskBase):
         elif self.hideErr:
             cmd = cmd + " 2>/dev/null"
         if self.detach:
-            proc = subprocess.Popen(cmd, shell=True)
-            if not self.ignExit:
-                retcode = proc.poll()
-                if retcode is None:
-                    time.sleep(1)
-                    retcode = proc.poll()
-                if retcode:
-                    raise CalledProcessError(retcode, cmd)
+            cmd = "nohup " + cmd + " &"
         elif self.ignExit:
             subprocess.call(cmd, shell=True)
         else:
@@ -542,7 +535,6 @@ class InstTask_InstallJavaApp(InstTaskBase):
         destAppDir = replaceWildcards(self.destAppDir)
         libDir = replaceWildcards(self.libDir)
         destStarterFile = replaceWildcards(self.destStarterFile)
-        appArgs = " ".join(self.appArgs)
         print "--------------------------------------------------------------------------------"
         if not os.path.exists(destAppDir):
             os.makedirs(destAppDir)
@@ -556,14 +548,14 @@ class InstTask_InstallJavaApp(InstTaskBase):
                     libs += ":"
                 libs += "%s/%s" % (libDir, libFile)
             libs = "-cp '" + libs + ":.' "
-        subprocess.check_call("javac %s-d %s %s %s" % (libs, destAppDir, srcAppFile, appArgs),
-                              shell=True)
+        subprocess.check_call("javac %s-d %s %s" % (libs, destAppDir, srcAppFile), shell=True)
         if destStarterFile:
+            appArgs = replaceWildcards(" ".join(self.appArgs))
             if not os.path.exists(os.path.dirname(destStarterFile)):
                 os.makedirs(os.path.dirname(destStarterFile))
             f = open(destStarterFile, "w")
-            f.write("#!/usr/bin/env bash\ncd %s\njava %s%s" %
-                    (destAppDir, libs, os.path.splitext(os.path.basename(srcAppFile))[0]))
+            f.write("#!/usr/bin/env bash\ncd %s\njava %s%s %s" %
+                    (destAppDir, libs, os.path.splitext(os.path.basename(srcAppFile))[0], appArgs))
             f.flush()
             f.close()
             os.chmod(destStarterFile, os.stat(destStarterFile).st_mode | stat.S_IXUSR)

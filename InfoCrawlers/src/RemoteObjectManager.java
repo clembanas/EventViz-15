@@ -392,7 +392,8 @@ public class RemoteObjectManager {
 		
 		private boolean isLocalAddress(InetAddress addr)
 		{
-			return addr == null || LOCAL_HOST_ADDR.equals(addr);
+			return addr == null || LOCAL_HOST_ADDR.equals(addr) || addr.isAnyLocalAddress() ||
+					   addr.isLoopbackAddress();
 		}
 		
 		public RemoteObjectController(Class<?> remObjInterface, Class<?> remObjClass, 
