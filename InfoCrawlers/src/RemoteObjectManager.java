@@ -161,8 +161,13 @@ public class RemoteObjectManager {
 			
 			if (dataLen == 0)
 				return "";
-			if (sockIn.read(data) != dataLen)
-				throw new RemoteObjectException("Incomplete data transmission!");
+			try {
+				sockIn.readFully(data);
+			}
+			catch (EOFException e) {
+				throw new RemoteObjectException("Incomplete data transmission (Expected " + 
+							  dataLen + " Bytes)!", e);
+			}
 			return new String(data);
 		}
 		

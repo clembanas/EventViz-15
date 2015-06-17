@@ -154,9 +154,12 @@ public class Utils {
 			if (arg == null) 
 				strBuilder.append("null");
 			else {
-				strBuilder.append(args.getClass().getName());
+				strBuilder.append(arg.getClass().getName());
 				strBuilder.append(": '");
-				strBuilder.append(arg.toString());
+				if (arg.getClass().isArray())
+					strBuilder.append(objectsToString(arg));
+				else
+					strBuilder.append(arg.toString());
 				strBuilder.append("'");
 			}
 		}
