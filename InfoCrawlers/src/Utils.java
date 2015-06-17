@@ -145,6 +145,10 @@ public class Utils {
 	{
 		StringBuilder strBuilder = new StringBuilder();
 		
+		if (args == null)
+			return "objs null";
+		if (args.length == 0)
+			return "objs empty";
 		for (Object arg: args) {
 			if (strBuilder.length() > 1) 
 				strBuilder.append("; ");

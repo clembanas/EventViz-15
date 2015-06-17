@@ -361,6 +361,7 @@ class InstTask_RemDir(InstTaskBase):
 
 
 # Installer task: Execute an application
+# Note: Detaching will always cause the stdout and stderr to be hidden
 class InstTask_Exec(InstTaskBase):
     def __init__(self, name, desc, cmd, workDir=None, ignExit=False, hideOut=False,
                  hideErr=False, detach=False, depend=None):
@@ -378,15 +379,15 @@ class InstTask_Exec(InstTaskBase):
         cmd = replaceWildcards(self.cmd)
         if self.workDir:
             os.chdir(replaceWildcards(self.workDir))
-        if self.hideOut and self.hideErr:
+        if self.detach:
+            cmd = "nohup " + cmd + " >/dev/null 2>&1 &"
+        elif self.hideOut and self.hideErr:
             cmd = cmd + " 2&>1>/dev/null"
         elif self.hideOut:
             cmd = cmd + " 1>/dev/null"
         elif self.hideErr:
             cmd = cmd + " 2>/dev/null"
-        if self.detach:
-            cmd = "nohup " + cmd + " &"
-        elif self.ignExit:
+        if self.ignExit:
             subprocess.call(cmd, shell=True)
         else:
             subprocess.check_call(cmd, shell=True)
