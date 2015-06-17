@@ -5,6 +5,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.EOFException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.lang.reflect.InvocationHandler;
@@ -139,14 +140,14 @@ public class RemoteObjectManager {
 		private DataInputStream sockIn;
 		private DataOutputStream sockOut;
 		
-		RemoteConnection(Socket sock) throws Exception
+		public RemoteConnection(Socket sock) throws Exception
 		{
 			this.sock = sock;
 			sockIn = new DataInputStream(sock.getInputStream());
 			sockOut = new DataOutputStream(sock.getOutputStream());
 		}
 		
-		RemoteConnection(InetAddress remAddr) throws Exception
+		public RemoteConnection(InetAddress remAddr) throws Exception
 		{
 			this.sock = new Socket(remAddr, REMOTE_OBJECT_MGR_PORT);
 			sockIn = new DataInputStream(sock.getInputStream());
@@ -168,13 +169,17 @@ public class RemoteObjectManager {
 		public Object readObject() throws Exception
 		{
 			int dataLen = sockIn.readInt(); 
-			byte[] data = new byte[dataLen];
-			
-			dataLen = sockIn.readInt();
 			if (dataLen == 0)
 				return null;
-			if (sockIn.read(data) != dataLen)
-				throw new RemoteObjectException("Incomplete data transmission!");
+			
+			byte[] data = new byte[dataLen];
+			try {
+				sockIn.readFully(data);
+			}
+			catch (EOFException e) {
+				throw new RemoteObjectException("Incomplete data transmission (Expected " + 
+							  dataLen + " Bytes)!", e);
+			}
 			return (new ObjectInputStream(new ByteArrayInputStream(data))).readObject();
 		}
 		
@@ -191,8 +196,13 @@ public class RemoteObjectManager {
 					continue;
 				if (data == null || data.length < dataLen)
 					data = new byte[dataLen];
-				if (sockIn.read(data) != dataLen)
-					throw new RemoteObjectException("Incomplete data transmission!");
+				try {
+					sockIn.readFully(data, 0, dataLen);
+				}
+				catch (EOFException e) {
+					throw new RemoteObjectException("Incomplete data transmission (Expected " + 
+								  dataLen + " Bytes)!", e);
+				}
 				objs[i] = (new ObjectInputStream(new ByteArrayInputStream(data))).readObject();
 			}
 			return objs;
