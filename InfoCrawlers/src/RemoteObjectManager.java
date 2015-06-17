@@ -194,10 +194,10 @@ public class RemoteObjectManager {
 				dataLen = sockIn.readInt();
 				if (dataLen == 0)
 					continue;
-				if (data == null || data.length < dataLen)
+				if (data == null || data.length != dataLen)
 					data = new byte[dataLen];
 				try {
-					sockIn.readFully(data, 0, dataLen);
+					sockIn.readFully(data);
 				}
 				catch (EOFException e) {
 					throw new RemoteObjectException("Incomplete data transmission (Expected " + 

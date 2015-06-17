@@ -198,13 +198,17 @@ public class CityInfoCrawler extends SparqlBasedCrawler {
 			typePropVals = propVals.get(RESPROP_TYPE);
 			if (resName == null || typePropVals == null)
 				return;
-			if (cityInfos.countryName == null && isValidCountry(queryContext, typePropVals)) {
-				cityInfos.countryName = resName;
-				cityInfos.countryResID = resID;
+			if (isValidCountry(queryContext, typePropVals)) {
+				if (resName != null)
+					cityInfos.countryName = resName;
+				if (resID != null)
+					cityInfos.countryResID = resID;
 			}
-			else if (cityInfos.regionName == null && isValidRegion(queryContext, typePropVals)) {
-				cityInfos.regionName = resName;
-				cityInfos.regionResID = resID;
+			else if (isValidRegion(queryContext, typePropVals)) {
+				if (resName != null)
+					cityInfos.regionName = resName;
+				if (resID != null)
+					cityInfos.regionResID = resID;
 			}
 		}
 		
@@ -417,11 +421,10 @@ public class CityInfoCrawler extends SparqlBasedCrawler {
 		int[] result = new int[4];
 		
 		result[0] = CityInfoQPP.getUpdatedCityCount();
-		if (isMasterNode) {
-			result[1] = (int)resCache.getLookupCount();
-			result[2] = (int)resCache.getLookupMissCount();
+		result[1] = (int)resCache.getLookupCount();
+		result[2] = (int)resCache.getLookupMissCount();
+		if (isMasterNode) 
 			result[3] = (int)resCache.getMaxLoadInBytes();
-		}
 		return result;
 	}
 	

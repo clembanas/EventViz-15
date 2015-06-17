@@ -296,11 +296,10 @@ public class BandInfoCrawler extends SparqlBasedCrawler {
 		
 		result[0] = BandInfoQPP.getUpdatedBandCount();
 		result[1] = BandInfoQPP.getAddedArtistCount();
-		if (isMasterNode) {
-			result[2] = (int)resCache.getLookupCount();
-			result[3] = (int)resCache.getLookupMissCount();
+		result[2] = (int)resCache.getLookupCount();
+		result[3] = (int)resCache.getLookupMissCount();
+		if (isMasterNode) 
 			result[4] = (int)resCache.getMaxLoadInBytes();
-		}
 		return result;
 	}
 

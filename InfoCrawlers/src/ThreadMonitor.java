@@ -205,7 +205,7 @@ public class ThreadMonitor {
 	
 	private static MonitoringThread monitoringThd = new MonitoringThread();
 	private static Map<Thread, ThreadInfo> monitoredThds = new HashMap<Thread, ThreadInfo>();
-	
+	private static boolean monitoringThdStarted = false;
 	
 	public static void start()
 	{
@@ -233,8 +233,10 @@ public class ThreadMonitor {
 			DebugFlag.THD_LIVENESS_INFO, DebugFlag.RUNTIME_INFO)) {
 			synchronized (monitoredThds) {
 				monitoredThds.put(thd, new ThreadInfo(thd, thdDesc));
-				if (!monitoringThd.isAlive()) 
+				if (!monitoringThdStarted) {
+					monitoringThdStarted = true;
 					monitoringThd.start();
+				}
 			}
 		}
 	}
