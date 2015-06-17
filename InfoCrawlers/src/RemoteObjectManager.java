@@ -238,7 +238,7 @@ public class RemoteObjectManager {
 		/**
 		 * Utility class to access a remote object. 
 		 */
-		private class RemoteObjectAccessor implements ObjectAccessorRef, InvocationHandler {
+		private class RemoteObjectAccessor implements ObjectAccessorRef {
 
 			private Object proxy; 
 			private RemoteConnection remConnection;
@@ -268,7 +268,15 @@ public class RemoteObjectManager {
 			public RemoteObjectAccessor(InetAddress remAddr) throws Exception 
 			{
 				this.proxy = Proxy.newProxyInstance(remObjClass.getClassLoader(), 
-							     getRemoteObjectInterfaces(), this);
+							     getRemoteObjectInterfaces(), new InvocationHandler() {
+									
+									public Object invoke(Object proxy, Method method, Object[] args)
+										throws Throwable 
+									{
+										return RemoteObjectAccessor.this.invoke(method.getName(), 
+												   args);
+									}
+								});
 				remConnection = new RemoteConnection(remAddr);
 				try {
 					performHandshake();
@@ -356,12 +364,7 @@ public class RemoteObjectManager {
 						RemoteObjectManager.class, null, getClass(), DebugFlag.REMOTE_OBJECT);
 				return res;
 			}
-			
-			public Object invoke(Object obj, Method mthd, Object[] args) throws Throwable 
-			{
-				return invoke(mthd.getName(), args);
-			}
-			
+
 			public Class<?> getRemoteObjectClass()
 			{
 				return remObjClass;

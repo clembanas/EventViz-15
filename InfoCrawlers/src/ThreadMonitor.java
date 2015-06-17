@@ -233,7 +233,7 @@ public class ThreadMonitor {
 			DebugFlag.THD_LIVENESS_INFO, DebugFlag.RUNTIME_INFO)) {
 			synchronized (monitoredThds) {
 				monitoredThds.put(thd, new ThreadInfo(thd, thdDesc));
-				if (monitoredThds.size() == 1 && !monitoringThd.isAlive()) 
+				if (!monitoringThd.isAlive()) 
 					monitoringThd.start();
 			}
 		}
