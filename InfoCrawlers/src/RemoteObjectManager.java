@@ -129,6 +129,146 @@ public class RemoteObjectManager {
 					   remObjContext);
 		}
 	}
+	
+	/**
+	 * Utility class which encapsulates a TCP connection to a remote host. 
+	 */
+	private static class RemoteConnection
+	{
+		private Socket sock;
+		private DataInputStream sockIn;
+		private DataOutputStream sockOut;
+		
+		RemoteConnection(Socket sock) throws Exception
+		{
+			this.sock = sock;
+			sockIn = new DataInputStream(sock.getInputStream());
+			sockOut = new DataOutputStream(sock.getOutputStream());
+		}
+		
+		RemoteConnection(InetAddress remAddr) throws Exception
+		{
+			this.sock = new Socket(remAddr, REMOTE_OBJECT_MGR_PORT);
+			sockIn = new DataInputStream(sock.getInputStream());
+			sockOut = new DataOutputStream(sock.getOutputStream());
+		}
+		
+		public String readString() throws Exception
+		{
+			int dataLen = sockIn.readInt();
+			byte[] data = new byte[dataLen];
+			
+			if (dataLen == 0)
+				return "";
+			if (sockIn.read(data) != dataLen)
+				throw new RemoteObjectException("Incomplete data transmission!");
+			return new String(data);
+		}
+		
+		public Object readObject() throws Exception
+		{
+			int dataLen = sockIn.readInt(); 
+			byte[] data = new byte[dataLen];
+			
+			dataLen = sockIn.readInt();
+			if (dataLen == 0)
+				return null;
+			if (sockIn.read(data) != dataLen)
+				throw new RemoteObjectException("Incomplete data transmission!");
+			return (new ObjectInputStream(new ByteArrayInputStream(data))).readObject();
+		}
+		
+		public Object[] readObjects() throws Exception
+		{
+			int objCnt = sockIn.readInt();
+			Object[] objs = new Object[objCnt];
+			int dataLen;
+			byte[] data = null;
+			
+			for (int i = 0; i < objCnt; ++i) {
+				dataLen = sockIn.readInt();
+				if (dataLen == 0)
+					continue;
+				if (data == null || data.length < dataLen)
+					data = new byte[dataLen];
+				if (sockIn.read(data) != dataLen)
+					throw new RemoteObjectException("Incomplete data transmission!");
+				objs[i] = (new ObjectInputStream(new ByteArrayInputStream(data))).readObject();
+			}
+			return new Object[]{};
+		}
+		
+		public void writeString(String strData) throws Exception
+		{
+			sockOut.writeInt(strData.getBytes().length);
+			sockOut.write(strData.getBytes());
+		}
+		
+		public void writeObject(Object obj) throws Exception
+		{
+			ByteArrayOutputStream byteOut = new ByteArrayOutputStream();
+			ObjectOutputStream objOut = new ObjectOutputStream(byteOut);
+			
+			if (obj == null) 
+				sockOut.writeInt(0);
+			else {
+				objOut.writeObject(obj);
+				sockOut.writeInt(byteOut.size());
+				sockOut.write(byteOut.toByteArray());
+			}
+		}
+		
+		public void writeObjects(Object ... objs) throws Exception
+		{
+			ByteArrayOutputStream byteOut = new ByteArrayOutputStream();
+			ObjectOutputStream objOut = new ObjectOutputStream(byteOut);
+			
+			if (objs == null)
+				sockOut.writeInt(0);
+			else {
+				sockOut.writeInt(objs.length);
+				for (Object obj: objs) {
+					if (obj == null) 
+						sockOut.writeInt(0);
+					else {
+						byteOut.reset();
+						objOut.reset();
+						objOut.writeObject(obj);
+						sockOut.writeInt(byteOut.size());
+						sockOut.write(byteOut.toByteArray());
+					}
+				}
+			}
+		}
+		
+		public void close()
+		{
+			try {
+				sockIn.close();
+				sockOut.close();
+			}
+			catch (Exception e) {}
+			try {
+				sock.close();
+			}
+			catch (Exception e) {}
+		}
+		
+		public Socket getSocket()
+		{
+			return sock;
+		}
+		
+		public InetAddress getRemoteAddress()
+		{
+			return sock.getInetAddress();
+		}
+		
+		public String getRemoteIPAddress()
+		{
+			return sock.getInetAddress().getHostAddress();
+		}
+	}
 
 	/**
 	 * Internally used object accessor interface 
@@ -474,142 +614,6 @@ public class RemoteObjectManager {
 		}
 	}
 
-	/**
-	 * Utility class which encapsulates a TCP connection to a remote host. 
-	 */
-	private static class RemoteConnection
-	{
-		private Socket sock;
-		private DataInputStream sockIn;
-		private DataOutputStream sockOut;
-		
-		RemoteConnection(Socket sock) throws Exception
-		{
-			this.sock = sock;
-			sockIn = new DataInputStream(sock.getInputStream());
-			sockOut = new DataOutputStream(sock.getOutputStream());
-		}
-		
-		RemoteConnection(InetAddress remAddr) throws Exception
-		{
-			this.sock = new Socket(remAddr, REMOTE_OBJECT_MGR_PORT);
-			sockIn = new DataInputStream(sock.getInputStream());
-			sockOut = new DataOutputStream(sock.getOutputStream());
-		}
-		
-		public String readString() throws Exception
-		{
-			int dataLen = sockIn.readInt();
-			byte[] data = new byte[dataLen];
-			
-			if (dataLen == 0)
-				return "";
-			if (sockIn.read(data) != dataLen)
-				throw new RemoteObjectException("Incomplete data transmission!");
-			return new String(data);
-		}
-		
-		public Object readObject() throws Exception
-		{
-			int dataLen = sockIn.readInt(); 
-			byte[] data = new byte[dataLen];
-			
-			dataLen = sockIn.readInt();
-			if (dataLen == 0)
-				return null;
-			if (sockIn.read(data) != dataLen)
-				throw new RemoteObjectException("Incomplete data transmission!");
-			return (new ObjectInputStream(new ByteArrayInputStream(data))).readObject();
-		}
-		
-		public Object[] readObjects() throws Exception
-		{
-			int objCnt = sockIn.readInt();
-			Object[] objs = new Object[objCnt];
-			int dataLen;
-			byte[] data = null;
-			
-			for (int i = 0; i < objCnt; ++i) {
-				dataLen = sockIn.readInt();
-				if (dataLen == 0)
-					continue;
-				if (data == null || data.length < dataLen)
-					data = new byte[dataLen];
-				if (sockIn.read(data) != dataLen)
-					throw new RemoteObjectException("Incomplete data transmission!");
-				objs[i] = (new ObjectInputStream(new ByteArrayInputStream(data))).readObject();
-			}
-			return new Object[]{};
-		}
-		
-		public void writeString(String strData) throws Exception
-		{
-			sockOut.writeInt(strData.getBytes().length);
-			sockOut.write(strData.getBytes());
-		}
-		
-		public void writeObject(Object obj) throws Exception
-		{
-			ByteArrayOutputStream byteOut = new ByteArrayOutputStream();
-			ObjectOutputStream objOut = new ObjectOutputStream(byteOut);
-			
-			if (obj == null) 
-				sockOut.writeInt(0);
-			else {
-				objOut.writeObject(obj);
-				sockOut.writeInt(byteOut.size());
-				sockOut.write(byteOut.toByteArray());
-			}
-		}
-		
-		public void writeObjects(Object ... objs) throws Exception
-		{
-			ByteArrayOutputStream byteOut = new ByteArrayOutputStream();
-			ObjectOutputStream objOut = new ObjectOutputStream(byteOut);
-			
-			sockOut.writeInt(objs.length);
-			for (Object obj: objs) {
-				if (obj == null) 
-					sockOut.writeInt(0);
-				else {
-					byteOut.reset();
-					objOut.reset();
-					objOut.writeObject(obj);
-					sockOut.writeInt(byteOut.size());
-					sockOut.write(byteOut.toByteArray());
-				}
-			}
-		}
-		
-		public void close()
-		{
-			try {
-				sockIn.close();
-				sockOut.close();
-			}
-			catch (Exception e) {}
-			try {
-				sock.close();
-			}
-			catch (Exception e) {}
-		}
-		
-		public Socket getSocket()
-		{
-			return sock;
-		}
-		
-		public InetAddress getRemoteAddress()
-		{
-			return sock.getInetAddress();
-		}
-		
-		public String getRemoteIPAddress()
-		{
-			return sock.getInetAddress().getHostAddress();
-		}
-	}
-	
 	/**
 	 * RemoteObjectManager TCP-Server
 	 */
