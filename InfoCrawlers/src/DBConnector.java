@@ -492,7 +492,9 @@ public abstract class DBConnector {
 				trimAndTrunc(hostname, MAX_LEN_CRAWLER_EXCEPT_LOG_HOST), threadID,
 				trimAndTrunc(classPath, MAX_LEN_CRAWLER_EXCEPT_LOG_CLASS_PATH), 
 				trimAndTrunc(info, MAX_LEN_CRAWLER_EXCEPT_LOG_INFO),
-				trimAndTrunc(e.getMessage(), MAX_LEN_CRAWLER_EXCEPT_LOG_MSG),
+				trimAndTrunc(e.getMessage() + (e.getCause() != null ? " (cause: " + 
+					e.getCause().getMessage() + " [" + e.getCause().getClass().getName() + 
+					"])" : ""), MAX_LEN_CRAWLER_EXCEPT_LOG_MSG),
 				trimAndTrunc(e.getClass().getName(), MAX_LEN_CRAWLER_EXCEPT_LOG_CLASS),
 				trimAndTrunc(stackTrace, MAX_LEN_CRAWLER_EXCEPT_LOG_STACK));
 		}

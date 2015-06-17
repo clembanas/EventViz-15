@@ -195,7 +195,7 @@ public class RemoteObjectManager {
 					throw new RemoteObjectException("Incomplete data transmission!");
 				objs[i] = (new ObjectInputStream(new ByteArrayInputStream(data))).readObject();
 			}
-			return new Object[]{};
+			return objs;
 		}
 		
 		public void writeString(String strData) throws Exception
@@ -489,8 +489,8 @@ public class RemoteObjectManager {
 						null, getClass());
 					throw e;
 				}
-				Object res = remConnection.readObject();
 				
+				Object res = remConnection.readObject();
 				if (DebugUtils.canDebug(RemoteObjectManager.class, DebugFlag.METHOD_ARGUMENTS))
 					DebugUtils.printDebugInfo("Invocation of method '" + mthdName + "(" + 
 						Utils.objectsToString(args) + ")' of remote object '" + remObjStrID +
@@ -840,10 +840,20 @@ public class RemoteObjectManager {
 	public static class RemoteObjectManagerException extends Exception {
 		
 		private static final long serialVersionUID = -9194732425281074132L;
+		
+		public RemoteObjectManagerException() 
+		{
+			super();
+		}
 
 		public RemoteObjectManagerException(String exception)
 		{
 			super(exception);
+		}
+		
+		public RemoteObjectManagerException(String exception, Throwable cause)
+		{
+			super(exception, cause);
 		}
 	}
 	
@@ -854,9 +864,19 @@ public class RemoteObjectManager {
 		
 		private static final long serialVersionUID = 5777065625112497706L;
 
+		public RemoteObjectException() 
+		{
+			super();
+		}
+		
 		public RemoteObjectException(String exception)
 		{
 			super(exception);
+		}
+		
+		public RemoteObjectException(String exception, Throwable cause)
+		{
+			super(exception, cause);
 		}
 	}
 

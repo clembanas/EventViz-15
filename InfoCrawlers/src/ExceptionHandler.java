@@ -17,7 +17,9 @@ public class ExceptionHandler {
 		System.err.println("\n-------------------------- Exception --------------------------\n" +
 			dateFmt.format(new Date()) + "[" + classPath + " (Thread " + 
 			Thread.currentThread().getId() + ")]: " + info + " Error: '" + e.getMessage() + "' [" + 
-			e.getClass().getName() + "] in " + e.getStackTrace()[0] + "!");
+			e.getClass().getName() + "] " + (e.getCause() != null ? "(caused by: " + 
+			e.getCause().getMessage() + " [" + e.getCause().getClass().getName() + "]) in " : 
+			"in ") + e.getStackTrace()[0] + "!");
 		if (printTrace) {
 			System.err.println();
 			e.printStackTrace();
