@@ -207,7 +207,8 @@ public abstract class CrawlerBase implements CrawlerInstance {
 	
 	protected void started()
 	{
-		dbConnector.logCrawlerStarted(getClass());
+		if (isMasterNode)
+			dbConnector.logCrawlerStarted(getClass());
 	}
 	
 	protected void finished(boolean exceptionThrown)
