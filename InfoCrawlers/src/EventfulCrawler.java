@@ -53,19 +53,10 @@ public class EventfulCrawler extends CrawlerBase {
 		
 		public EventfulJobController()
 		{
-			SimpleDateFormat dateFmt = new SimpleDateFormat("yyyyMMdd00");
-			Date now = new Date();
-			Calendar calendar = Calendar.getInstance();
 			EventSearchRequest eventSrchReq = new EventSearchRequest();
 			EventOperations eventOps = new EventOperations();
 			SearchResult srchRes;
 			
-			APIConfiguration.setEvdbUser(EVENTFUL_UNAME);
-			APIConfiguration.setEvdbPassword(EVENTFUL_PWORD);
-			APIConfiguration.setApiKey(EVENTFUL_APIKEY);
-			calendar.setTime(now);
-			calendar.add(Calendar.DATE, MAX_DAYS);
-			dateRange = dateFmt.format(now) + "-" + dateFmt.format(calendar.getTime());
 			eventSrchReq.setDateRange(dateRange);
 			eventSrchReq.setCategory(EVENTFUL_CATEGORY);
 			eventSrchReq.setPageSize(MAX_PAGE_SIZE);
@@ -196,7 +187,6 @@ public class EventfulCrawler extends CrawlerBase {
 	protected void started()
 	{
 		super.started();
-		
 		DebugUtils.printDebugInfo("Processing events for the next " + MAX_DAYS + " days (" + 
 			dateRange + ")...", EventfulCrawler.class);
 	}
@@ -229,6 +219,18 @@ public class EventfulCrawler extends CrawlerBase {
 		MAX_DAYS = CrawlerConfig.getEventfulCrawlerMaxDays();
 		MAX_PAGE_SIZE = CrawlerConfig.getEventfulCrawlerPageSize();
 		MAX_PAGES = CrawlerConfig.getEventfulCrawlerMaxPages();
+		
+		
+		SimpleDateFormat dateFmt = new SimpleDateFormat("yyyyMMdd00");
+		Date now = new Date();
+		Calendar calendar = Calendar.getInstance();
+		
+		APIConfiguration.setEvdbUser(EVENTFUL_UNAME);
+		APIConfiguration.setEvdbPassword(EVENTFUL_PWORD);
+		APIConfiguration.setApiKey(EVENTFUL_APIKEY);
+		calendar.setTime(now);
+		calendar.add(Calendar.DATE, MAX_DAYS);
+		dateRange = dateFmt.format(now) + "-" + dateFmt.format(calendar.getTime());
 	}
 	
 	public int[] getStatistics()

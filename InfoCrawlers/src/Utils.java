@@ -146,12 +146,11 @@ public class Utils {
 		StringBuilder strBuilder = new StringBuilder();
 		
 		if (args == null)
-			return "objs is null";
-		if (args.length == 0)
-			return "objs is empty";
+			return "null";
+		strBuilder.append("[");
 		for (Object arg: args) {
 			if (strBuilder.length() > 1) 
-				strBuilder.append("; ");
+				strBuilder.append(", ");
 			if (arg == null) 
 				strBuilder.append("null");
 			else {
@@ -161,6 +160,7 @@ public class Utils {
 				strBuilder.append("'");
 			}
 		}
+		strBuilder.append("]");
 		return strBuilder.toString();
 	}
 	
