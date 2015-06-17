@@ -230,8 +230,8 @@ public class RemoteObjectManager {
 		
 		public void writeObjects(Object ... objs) throws Exception
 		{
-			ByteArrayOutputStream byteOut = new ByteArrayOutputStream();
-			ObjectOutputStream objOut = new ObjectOutputStream(byteOut);
+			ByteArrayOutputStream byteOut;
+			ObjectOutputStream objOut;
 			
 			if (objs == null)
 				sockOut.writeInt(0);
@@ -241,8 +241,8 @@ public class RemoteObjectManager {
 					if (obj == null) 
 						sockOut.writeInt(0);
 					else {
-						byteOut.reset();
-						objOut.reset();
+						byteOut = new ByteArrayOutputStream();
+						objOut = new ObjectOutputStream(byteOut);
 						objOut.writeObject(obj);
 						sockOut.writeInt(byteOut.size());
 						sockOut.write(byteOut.toByteArray());
