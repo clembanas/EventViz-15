@@ -1,6 +1,9 @@
 /**
  * @author Bernhard Weber
  */
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -198,6 +201,43 @@ public class DebugUtils {
 	private static Map<Class<?>, DebugFlags> dbgClassFlags = new HashMap<Class<?>, DebugFlags>();
 	private static Map<Class<?>, Class<?>> dbgClasses = new HashMap<Class<?>, Class<?>>();
 	private static SimpleDateFormat dateFmt = new SimpleDateFormat("HH:mm:ss.SSS ");
+	private static String logFileName = null;
+	
+	private static void writeDBLog(String classPath, String info)
+	{
+		try {
+			DBConnector.getInstance().logDebugInfo(classPath, Thread.currentThread().getId(), 
+				info);
+		}
+		catch (Exception e) {}
+	}
+	
+	private static void writeFileLog(String log)
+	{
+		try {
+			synchronized (ExceptionHandler.class) {
+				if (logFileName == null) {
+					logFileName = CrawlerConfig.getDbgLogFile();
+					if (logFileName == null)
+						logFileName = "";
+					else
+						new File(logFileName).mkdirs();
+				}
+				if (!logFileName.isEmpty()) {
+					OutputStream out = new FileOutputStream(logFileName, true);
+					
+					try {
+						out.write(log.getBytes("UTF-8"));
+						out.flush();
+					}
+					finally {
+						out.close();
+					}
+				}
+			}
+		}
+		catch (Exception e) {}
+	}
 	
 	public static void debugClass(Class<?> _class, int flags)
 	{
@@ -262,15 +302,13 @@ public class DebugUtils {
 	{
 		if (canDebug(derivedClass, baseClass, subClass, firstFlag, remainFlags)) {
 			String classPath = Utils.classPathToString(derivedClass, baseClass, subClass);
+			String log = dateFmt.format(new Date()) + "[" + classPath + " (Thread " + 
+							 Thread.currentThread().getId() + ")]: " + info + "\n";
 			
-			System.out.println(dateFmt.format(new Date()) + "[" + classPath + " (Thread " + 
-				Thread.currentThread().getId() + ")]: " + info);
+			System.out.print(log);
 			if (canLog) {
-				try {
-					DBConnector.getInstance().logDebugInfo(classPath, 
-						Thread.currentThread().getId(), info);
-				}
-				catch (Exception e1) {}
+				writeDBLog(classPath, info);
+				writeFileLog(log);
 			}
 		}
 	}

@@ -144,7 +144,17 @@ public class CrawlerConfig {
 	
 	public static int getDbgMaxLogs()
 	{
-		return Integer.valueOf(props.getProperty("debug.max_logs"));
+		return Integer.valueOf(props.getProperty("debug.max_db_logs"));
+	}
+	
+	public static String getDbgLogFile()
+	{
+		return props.getProperty("debug.exception_file");
+	}
+	
+	public static String getDbgExceptionLogFile()
+	{
+		return props.getProperty("debug.exception_log_file");
 	}
 	
 	public static int getDbgThdMonitorInterval()

@@ -166,8 +166,8 @@ public class CrawlerManager {
 							if (remHostAddrIdx == 0)
 								jobsPerHostsInfo = "'localhost': ";
 							else 
-								jobsPerHostsInfo += "\n'" + remoteHostAddrs[remHostAddrIdx - 1] + 
-														"': ";
+								jobsPerHostsInfo += "\n'" + remoteHostAddrs[remHostAddrIdx - 1].
+													    getHostAddress() + "': ";
 							remHostAddrIdx++;
 							jobsPerHostsInfo += crawlerInst.first.getProcessedJobCount();
 							crawlerStats.add(crawlerInst.first.getCrawlerStatistics());
