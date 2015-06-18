@@ -310,9 +310,10 @@ public class BandInfoCrawler extends SparqlBasedCrawler {
 					"; Max cache load: " + crawlerStats[4] + " Bytes";	
 	}
 	
-	public void allInstancesFinished(boolean exceptionThrown, int[] crawlerStats)
+	public void allInstancesFinished(boolean exceptionThrown, String jobsPerHostsInfo, 
+		int[] crawlerStats)
 	{
-		super.allInstancesFinished(exceptionThrown, crawlerStats);
+		super.allInstancesFinished(exceptionThrown, jobsPerHostsInfo, crawlerStats);
 		if (isMasterNode) {
 			if (!exceptionThrown)
 				dbConnector.updateBandCrawlerTS();

@@ -844,7 +844,7 @@ public class RemoteObjectManager {
 						newClientConn.getInetAddress().getHostAddress() + "'", 
 						RemoteObjectManager.class, null, getClass(), DebugFlag.CONNECTION);
 					//Clear finished client handlers
-					for (int i = 0, cnt = pendingClientHandlers.size(); i < cnt; ) {
+					for (int i = 0; i < pendingClientHandlers.size(); ) {
 						if (pendingClientHandlers.get(i).second.isDone()) {
 							//Remove finished client handler
 							if (newClientConn == null) {

@@ -5,6 +5,7 @@ import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 
 /**
@@ -135,6 +136,7 @@ public abstract class CrawlerBase implements CrawlerInstance {
 
 	private BlockingQueue<JobBase> jobQueue;
 	private List<Future<?>> pendingWorkerThds;
+	private AtomicInteger processedJobCnt = new AtomicInteger(0);
 	private int lastProgress;
 	private static ExecutorService thdPool;
 	protected static DBConnector dbConnector;
@@ -266,6 +268,7 @@ public abstract class CrawlerBase implements CrawlerInstance {
 						   totalJobCnt);
 				if (jobs == null || jobs.length == 0)
 					break;
+				processedJobCnt.addAndGet(jobs.length);
 				jobIdx = 0;
 				for (JobBase job: jobs) {
 					job.setContext(jobIdx++, jobGroupIdx, jobGroupCnt, jobsPerGroup, totalJobCnt);
@@ -293,6 +296,24 @@ public abstract class CrawlerBase implements CrawlerInstance {
 		return !exceptionThrown;
 	}
 	
+	public void allInstancesFinished(boolean exceptionThrown, String jobsPerHostsInfo, 
+		int[] crawlerStats)
+	{
+		if (isMasterNode) {
+			if (exceptionThrown)
+				dbConnector.logCrawlerFinished(getClass(), jobsPerHostsInfo, 
+					"WARNING: An exception was thrown!\n" +	getSummary(crawlerStats));
+			else
+				dbConnector.logCrawlerFinished(getClass(), jobsPerHostsInfo, 
+					getSummary(crawlerStats));
+		}
+	}
+	
+	public int getProcessedJobCount()
+	{
+		return processedJobCnt.get();
+	}
+	
 	public int[] combineStatistics(List<int[]> crawlerStats)
 	{
 		if (crawlerStats.isEmpty())
@@ -305,17 +326,6 @@ public abstract class CrawlerBase implements CrawlerInstance {
 				result[i] += instStats[i];
 		}
 		return result;
-	}
-	
-	public void allInstancesFinished(boolean exceptionThrown, int[] crawlerStats)
-	{
-		if (isMasterNode) {
-			if (exceptionThrown)
-				dbConnector.logCrawlerFinished(getClass(), "WARNING: An exception was thrown!\n" + 
-					getSummary(crawlerStats));
-			else
-				dbConnector.logCrawlerFinished(getClass(), getSummary(crawlerStats));
-		}
 	}
 	
 	public static void setExecutionEnvironment(ExecutorService thdPool, DBConnector dbConnector,

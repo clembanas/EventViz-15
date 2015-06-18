@@ -43,6 +43,17 @@ public class CrawlerManager {
 				return !crawlerInst.execute();
 			}
 			
+			public void allInstancesFinished(boolean exceptionThrown, String jobsPerHostsInfo, 
+				int[] crawlerStats)
+			{
+				crawlerInst.allInstancesFinished(exceptionThrown, jobsPerHostsInfo, crawlerStats);
+			}
+			
+			public int getProcessedJobCount()
+			{
+				return crawlerInst.getProcessedJobCount();
+			}
+			
 			public int[] getCrawlerStatistics() 
 			{
 				return crawlerInst.getStatistics();
@@ -51,11 +62,6 @@ public class CrawlerManager {
 			public int[] combineStatistics(List<int[]> crawlerStats) 
 			{
 				return crawlerInst.combineStatistics(crawlerStats);
-			}
-			
-			public void allInstancesFinished(boolean exceptionThrown, int[] crawlerStats)
-			{
-				crawlerInst.allInstancesFinished(exceptionThrown, crawlerStats);
 			}
 		}
 		
@@ -146,16 +152,25 @@ public class CrawlerManager {
 				return exceptionThrown;
 			}
 			
-			private int[] getCrawlerInstancesStats(Utils.Pair<CrawlerInstanceExecutor, 
-				Future<Boolean>>[] crawlerInsts)
+			private Utils.Pair<String, int[]> getCrawlerInstancesStats(
+				Utils.Pair<CrawlerInstanceExecutor,	Future<Boolean>>[] crawlerInsts)
 			{
+				int remHostAddrIdx = 0;
+				String jobsPerHostsInfo = "";
 				List<int[]> crawlerStats = new ArrayList<int[]>(crawlerInsts.length);
 				
 				for (Utils.Pair<CrawlerInstanceExecutor, Future<Boolean>> crawlerInst:
 					crawlerInsts) {
 					try {
-						if (crawlerInst != null)
+						if (crawlerInst != null) {
+							if (remHostAddrIdx == 0)
+								jobsPerHostsInfo = "'localhost': ";
+							else 
+								jobsPerHostsInfo += "\n'" + remoteHostAddrs[remHostAddrIdx++] + 
+														"': ";
+							jobsPerHostsInfo += crawlerInst.first.getProcessedJobCount();
 							crawlerStats.add(crawlerInst.first.getCrawlerStatistics());
+						}
 					}
 					catch (Exception e) {
 						ExceptionHandler.handle("Failed to get statistics of crawler instances" +
@@ -163,17 +178,20 @@ public class CrawlerManager {
 							CrawlerManager.class, null, getClass());
 					}
 				}
-				return crawlerInsts[0].first.combineStatistics(crawlerStats);
+				return Utils.createPair(jobsPerHostsInfo,
+							crawlerInsts[0].first.combineStatistics(crawlerStats));
 			}
 			
 			private void allCrawlerInstancesFinished(Utils.Pair<CrawlerInstanceExecutor, 
-				Future<Boolean>>[] crawlerInsts, boolean exceptionThrown, int[] crawlerStats) 
+				Future<Boolean>>[] crawlerInsts, boolean exceptionThrown, String jobsPerHostsInfo, 
+				int[] crawlerStats) 
 			{
 				for (Utils.Pair<CrawlerInstanceExecutor, Future<Boolean>> crawlerInst:
 					crawlerInsts) {
 					try {
 						if (crawlerInst != null)
-							crawlerInst.first.allInstancesFinished(exceptionThrown, crawlerStats);
+							crawlerInst.first.allInstancesFinished(exceptionThrown, 
+								jobsPerHostsInfo, crawlerStats);
 					}
 					catch (Exception e) {
 						ExceptionHandler.handle("Failed to notify crawlers that all instances " +
@@ -207,11 +225,12 @@ public class CrawlerManager {
 					//Wait for all instances to complete
 					boolean exceptionThrown = joinCrawlerInstances(crawlerInstExecs);
 					//Get crawler statistics
-					int[] crawlerStats = getCrawlerInstancesStats(crawlerInstExecs);
+					Utils.Pair<String, int[]> stats = getCrawlerInstancesStats(crawlerInstExecs);
 					//Notify all instances that all instances are finished
 					DebugUtils.printDebugInfo(dbgInfo +	"' ... Done", CrawlerManager.class, null, 
 						getClass());
-					allCrawlerInstancesFinished(crawlerInstExecs, exceptionThrown, crawlerStats);
+					allCrawlerInstancesFinished(crawlerInstExecs, exceptionThrown, stats.first,
+						stats.second);
 				} 
 				catch (Throwable e) {
 					ExceptionHandler.handle("Failed to execute crawler of class '" + 

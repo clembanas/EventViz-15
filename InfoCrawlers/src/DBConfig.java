@@ -128,6 +128,11 @@ public class DBConfig {
 	{
 		return Integer.valueOf(props.getProperty("maxlen.crawler_info.class"));
 	}
+	
+	public static int getMaxLenCrawlerInfoJobsPerHosts() 
+	{
+		return Integer.valueOf(props.getProperty("maxlen.crawler_info.jobs_per_hosts"));
+	}
 
 	public static int getMaxLenCrawlerInfoSummary() 
 	{

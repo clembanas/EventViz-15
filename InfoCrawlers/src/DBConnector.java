@@ -29,6 +29,7 @@ public abstract class DBConnector {
 	protected int MAX_LEN_CRAWLER_EXCEPT_LOG_MSG;
 	protected int MAX_LEN_CRAWLER_EXCEPT_LOG_CLASS;
 	protected int MAX_LEN_CRAWLER_EXCEPT_LOG_STACK;
+	protected int MAX_LEN_CRAWLER_INFO_JOBS_PER_HOSTS;
 	protected int MAX_LEN_CRAWLER_INFO_CLASS;
 	protected int MAX_LEN_CRAWLER_INFO_SUMMARY;
 	protected int MAX_LEN_CITY_NAME;
@@ -187,6 +188,7 @@ public abstract class DBConnector {
 		MAX_LEN_CRAWLER_EXCEPT_LOG_CLASS = DBConfig.getMaxLenCrawlerExceptLogClass();
 		MAX_LEN_CRAWLER_EXCEPT_LOG_STACK = DBConfig.getMaxLenCrawlerExceptLogStack();
 		MAX_LEN_CRAWLER_INFO_CLASS = DBConfig.getMaxLenCrawlerInfoClass();
+		MAX_LEN_CRAWLER_INFO_JOBS_PER_HOSTS = DBConfig.getMaxLenCrawlerInfoJobsPerHosts();
 		MAX_LEN_CRAWLER_INFO_SUMMARY = DBConfig.getMaxLenCrawlerInfoSummary();
 		MAX_LEN_CITY_NAME = DBConfig.getMaxLenCityName();
 		MAX_LEN_CITY_REGION = DBConfig.getMaxLenCityRegion();
@@ -548,11 +550,12 @@ public abstract class DBConnector {
 	}
 	
 	public synchronized void logCrawlerFinished(Class<? extends CrawlerBase> crawlerClass,
-		String summary)
+		String jobsPerHostsInfo, String summary)
 	{
 		try {
 			executeUpdate(getStmtUpdateCrawlerInfoFinished(), 
 				new Timestamp(System.currentTimeMillis()),
+				trimAndTrunc(jobsPerHostsInfo, MAX_LEN_CRAWLER_INFO_JOBS_PER_HOSTS),
 				trimAndTrunc(summary, MAX_LEN_CRAWLER_INFO_SUMMARY),
 				trimAndTrunc(crawlerClass.getName(), MAX_LEN_CRAWLER_INFO_CLASS));
 		}

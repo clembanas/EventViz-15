@@ -85,8 +85,8 @@ public abstract class DBConnector_SQLConform extends DBConnector {
 	
 	protected String getStmtUpdateCrawlerInfoFinished()
 	{
-		return "UPDATE Crawler_infos SET finished = ?, progress = 100, summary = ? " +
-				   "WHERE crawler_class = ?";
+		return "UPDATE Crawler_infos SET finished = ?, progress = 100, jobs_per_hosts = ?, " +
+				   "summary = ? WHERE crawler_class = ?";
 	}
 	
 	protected String getStmtUpdateCrawlerInfoProgress()

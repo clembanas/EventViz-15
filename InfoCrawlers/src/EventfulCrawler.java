@@ -248,9 +248,10 @@ public class EventfulCrawler extends CrawlerBase {
 					"; Added locations: " + crawlerStats[1] + "; Added bands: " +	crawlerStats[3];
 	}
 	
-	public void allInstancesFinished(boolean exceptionThrown, int[] crawlerStats)
+	public void allInstancesFinished(boolean exceptionThrown, String jobsPerHostsInfo, 
+		int[] crawlerStats)
 	{
-		super.allInstancesFinished(exceptionThrown, crawlerStats);
+		super.allInstancesFinished(exceptionThrown, jobsPerHostsInfo, crawlerStats);
 		if (isMasterNode) 
 			DebugUtils.printDebugInfo("\nSummary of added data:\n   Events: " + 
 				crawlerStats[0] + "\n   Cities: " + crawlerStats[2] + "\n   Locations: " +	
