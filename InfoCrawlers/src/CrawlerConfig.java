@@ -149,7 +149,7 @@ public class CrawlerConfig {
 	
 	public static String getDbgLogFile()
 	{
-		return props.getProperty("debug.exception_file");
+		return props.getProperty("debug.log_file");
 	}
 	
 	public static String getDbgExceptionLogFile()

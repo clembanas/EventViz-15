@@ -215,7 +215,7 @@ public class DebugUtils {
 	private static void writeFileLog(String log)
 	{
 		try {
-			synchronized (ExceptionHandler.class) {
+			synchronized (DebugUtils.class) {
 				if (logFileName == null) {
 					logFileName = CrawlerConfig.getDbgLogFile();
 					if (logFileName == null)
