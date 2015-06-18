@@ -81,7 +81,7 @@ public class Main_InfoCrawlers {
 			else
 				System.out.println("ERROR: Failed to start crawler manager!\nExiting now!");
 		}
-		catch (Exception e) {
+		catch (Throwable e) {
 			System.out.println("ERROR: " + e.getMessage() + "\nExiting now!");
 			e.printStackTrace();
 		}

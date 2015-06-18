@@ -9,7 +9,7 @@ public class ExceptionHandler {
 	
 	private static SimpleDateFormat dateFmt = new SimpleDateFormat("HH:mm:ss.SSS ");
 	
-	public static void handle(final String info, final Exception e, final boolean printTrace,
+	public static void handle(final String info, final Throwable e, final boolean printTrace,
 		Class<?> derivedClass, Class<?> baseClass, Class<?> subClass, boolean canLog)
 	{
 		String classPath = Utils.classPathToString(derivedClass, baseClass, subClass);
@@ -34,42 +34,42 @@ public class ExceptionHandler {
 		}
 	}
 	
-	public static void handle(final String info, final Exception e, final boolean printTrace,
+	public static void handle(final String info, final Throwable e, final boolean printTrace,
 		Class<?> derivedClass, Class<?> baseClass, Class<?> subClass)
 	{
 		handle(info, e, true, derivedClass, baseClass, subClass, true);
 	}
 	
-	public static void handle(final String info, final Exception e, Class<?> derivedClass, 
+	public static void handle(final String info, final Throwable e, Class<?> derivedClass, 
 		Class<?> baseClass, Class<?> subClass, boolean canLog)
 	{
 		handle(info, e, true, derivedClass, baseClass, subClass, canLog);
 	}
 	
-	public static void handle(final String info, final Exception e, Class<?> derivedClass, 
+	public static void handle(final String info, final Throwable e, Class<?> derivedClass, 
 		Class<?> baseClass, Class<?> subClass)
 	{
 		handle(info, e, true, derivedClass, baseClass, subClass, true);
 	}
 	
-	public static void handle(final String info, final Exception e, Class<?> derivedClass, 
+	public static void handle(final String info, final Throwable e, Class<?> derivedClass, 
 		Class<?> baseClass, boolean canLog)
 	{
 		handle(info, e, true, derivedClass, baseClass, null, canLog);
 	}
 	
-	public static void handle(final String info, final Exception e, Class<?> derivedClass, 
+	public static void handle(final String info, final Throwable e, Class<?> derivedClass, 
 		Class<?> baseClass)
 	{
 		handle(info, e, true, derivedClass, baseClass, null, true);
 	}
 	
-	public static void handle(final String info, final Exception e, Class<?> _class, boolean canLog)
+	public static void handle(final String info, final Throwable e, Class<?> _class, boolean canLog)
 	{
 		handle(info, e, true, _class, null, null, canLog);
 	}
 	
-	public static void handle(final String info, final Exception e, Class<?> _class)
+	public static void handle(final String info, final Throwable e, Class<?> _class)
 	{
 		handle(info, e, true, _class, null, null, true);
 	}

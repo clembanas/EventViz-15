@@ -137,6 +137,8 @@ public abstract class DBConnector {
 	protected abstract String getStmtCreateTblBandMembers();
 	protected abstract String getStmtDropTable(String tableName);
 	protected abstract String getStmtLogDebugInfo();
+	protected abstract String getStmtLogCount();
+	protected abstract String getStmtClearLogs();
 	protected abstract String getStmtLogException();
 	protected abstract String getStmtInsertCrawlerInfoStarted();
 	protected abstract String getStmtUpdateCrawlerInfoStarted();
@@ -485,7 +487,7 @@ public abstract class DBConnector {
 	}
 	
 	public synchronized void logException(final String classPath, final long threadID, 
-		final String info, final Exception e, final String stackTrace) throws Exception
+		final String info, final Throwable e, final String stackTrace) throws Exception
 	{
 		if (dbConn != null) {
 			executeUpdate(getStmtLogException(), new Timestamp(System.currentTimeMillis()), 
@@ -508,6 +510,21 @@ public abstract class DBConnector {
 				trimAndTrunc(hostname, MAX_LEN_CRAWLER_DEBUG_LOG_HOST), threadID,
 				trimAndTrunc(classPath, MAX_LEN_CRAWLER_DEBUG_LOG_CLASS_PATH), 
 				trimAndTrunc(info, MAX_LEN_CRAWLER_DEBUG_LOG_INFO));
+		}
+	}
+	
+	public synchronized void clearLogs(int maxLogs)
+	{
+		try {
+			if (dbConn != null) {
+				ResultSet resSet = executeQuery(getStmtLogCount());
+				
+				if (resSet.next() && resSet.getInt(1) >= maxLogs) 
+					executeUpdate(getStmtClearLogs());
+			}
+		} 
+		catch (Exception e) {
+			ExceptionHandler.handle("Failed to clear logs!", e, getClass(),	DBConnector.class);
 		}
 	}
 	
