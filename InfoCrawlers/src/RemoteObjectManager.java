@@ -213,6 +213,32 @@ public class RemoteObjectManager {
 			return objs;
 		}
 		
+		public Class<?>[] readClasses() throws Exception
+		{
+			int classCnt = sockIn.readInt();
+			Class<?>[] classes = new Class<?>[classCnt];
+			int dataLen;
+			byte[] data = null;
+			
+			for (int i = 0; i < classCnt; ++i) {
+				dataLen = sockIn.readInt();
+				if (dataLen == 0)
+					continue;
+				if (data == null || data.length != dataLen)
+					data = new byte[dataLen];
+				try {
+					sockIn.readFully(data);
+				}
+				catch (EOFException e) {
+					throw new RemoteObjectException("Incomplete data transmission (Expected " + 
+								  dataLen + " Bytes)!", e);
+				}
+				classes[i] = (Class<?>)(new ObjectInputStream(new ByteArrayInputStream(data))).
+								 readObject();
+			}
+			return classes;
+		}
+		
 		public void writeString(String strData) throws Exception
 		{
 			sockOut.writeInt(strData.getBytes().length);
@@ -258,6 +284,30 @@ public class RemoteObjectManager {
 			}
 		}
 		
+		public void writeClasses(Class<?> ... classes) throws Exception
+		{
+			ByteArrayOutputStream byteOut;
+			ObjectOutputStream objOut;
+			
+			if (classes == null)
+				sockOut.writeInt(0);
+			else {
+				sockOut.writeInt(classes.length);
+				for (Class<?> _class: classes) {
+					if (_class == null) 
+						sockOut.writeInt(0);
+					else {
+						byteOut = new ByteArrayOutputStream();
+						objOut = new ObjectOutputStream(byteOut);
+						objOut.writeObject(_class);
+						objOut.flush();
+						sockOut.writeInt(byteOut.size());
+						sockOut.write(byteOut.toByteArray());
+					}
+				}
+			}
+		}
+		
 		public void close()
 		{
 			try {
@@ -292,7 +342,7 @@ public class RemoteObjectManager {
 	 */
 	private static interface ObjectAccessor {
 		
-		public Object invoke(String mthdName, Object args[]) throws Exception;
+		public Object invoke(String mthdName, Class<?>[] argTypes, Object args[]) throws Exception;
 		public Class<?> getRemoteObjectClass();
 		public Object getRemoteObject();
 		public String getRemoteObjectStrID();
@@ -355,19 +405,11 @@ public class RemoteObjectManager {
 				return refCnt;
 			}
 			
-			public synchronized Object invoke(String mthdName, Object args[]) throws Exception
+			public synchronized Object invoke(String mthdName, Class<?>[] argTypes, Object args[]) 
+				throws Exception
 			{
 				if (locObjInst == null)
 					throw new RemoteObjectException("Remote object '" + remObjStrID + "' closed!");
-				
-				Class<?>[] argTypes = new Class<?>[args.length];
-				
-				for (int i = 0; i < args.length; ++i) {
-					if (args[i] == null)
-						argTypes[i] = null;
-					else
-						argTypes[i] = args[i].getClass();
-				}
 				return locObjInst.getClass().getMethod(mthdName, argTypes).invoke(locObjInst, args);	
 			}
 			
@@ -431,7 +473,7 @@ public class RemoteObjectManager {
 										throws Throwable 
 									{
 										return RemoteObjectAccessor.this.invoke(method.getName(), 
-												   args);
+												   method.getParameterTypes(), args);
 									}
 								});
 				remConnection = new RemoteConnection(remAddr);
@@ -484,7 +526,8 @@ public class RemoteObjectManager {
 				return 1;
 			}
 			
-			public synchronized Object invoke(String mthdName, Object[] args) throws Exception 
+			public synchronized Object invoke(String mthdName, Class<?>[] argTypes, Object[] args) 
+				throws Exception 
 			{
 				DebugUtils.printDebugInfo("Invoking method '" + mthdName + "(" + 
 					(DebugUtils.canDebug(RemoteObjectManager.class, DebugFlag.METHOD_ARGUMENTS) ? 
@@ -493,6 +536,7 @@ public class RemoteObjectManager {
 					RemoteObjectManager.class, null, getClass(), DebugFlag.REMOTE_OBJECT);
 				
 				remConnection.writeString("FUNC: " + mthdName);
+				remConnection.writeClasses(argTypes);
 				remConnection.writeObjects(args);
 				
 				String resp = remConnection.readString();
@@ -676,6 +720,7 @@ public class RemoteObjectManager {
 			
 			private void processMethodInvocation(String mthdName) throws Exception
 			{
+				Class<?> argTypes[] = remConnection.readClasses();
 				Object args[] = remConnection.readObjects();
 				
 				DebugUtils.printDebugInfo("Invoking method '" + mthdName + "(" + 
@@ -685,7 +730,7 @@ public class RemoteObjectManager {
 					remConnection.getRemoteIPAddress() + "' ...", 
 					RemoteObjectManager.class, null, getClass(), DebugFlag.REMOTE_OBJECT);
 				try {
-					Object res = locObjAccessor.invoke(mthdName, args);
+					Object res = locObjAccessor.invoke(mthdName, argTypes, args);
 					
 					remConnection.writeString("RESULT: ");
 					remConnection.writeObject(res);

@@ -142,6 +142,11 @@ public class CrawlerConfig {
 		return Boolean.valueOf(props.getProperty("debug.crawler.band_infos"));
 	}
 	
+	public static int getDbgMaxLogs()
+	{
+		return Integer.valueOf(props.getProperty("debug.max_logs"));
+	}
+	
 	public static int getDbgThdMonitorInterval()
 	{
 		return Integer.valueOf(props.getProperty("debug.thread_monitor.interval"));

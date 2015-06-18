@@ -55,6 +55,16 @@ public abstract class DBConnector_SQLConform extends DBConnector {
 				   "VALUES(?, ?, ?, ?, ?)";
 	}
 	
+	protected String getStmtLogCount()
+	{
+		return "SELECT COUNT(*) FROM Crawler_debug_info_logs";
+	}
+	
+	protected String getStmtClearLogs()
+	{
+		return "DELETE FROM Crawler_debug_info_logs";
+	}
+	
 	protected String getStmtLogException()
 	{
 		return "INSERT INTO Crawler_exception_logs (ts, hostname, thread_id, class_path, info, " +

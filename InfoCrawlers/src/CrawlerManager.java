@@ -329,6 +329,8 @@ public class CrawlerManager {
 			ExceptionHandler.handle("Failed to connect to database!\n", e, CrawlerManager.class);
 			return false;
 		}
+		if (isMasterNode)
+			dbConn.clearLogs(CrawlerConfig.getDbgMaxLogs());
 		ThreadMonitor.start();
 		RemoteObjectManager.start(thdPool);
 		CrawlerBase.setExecutionEnvironment(thdPool, dbConn, isMasterNode);
