@@ -15,16 +15,27 @@
   border-radius: 5px;
 }
 
+body {
+	overflow: hidden;	
+}
+
 #container {
-	height: calc(100% - 10px);
-	width: calc(100% - 10px);
+	height: 100%;
+	width: 100%;
 	position: absolute;
 	z-index:0;
 }
 
+#containerLoading {
+	height: 150px;
+	width: 150px;
+	left: calc(50% - 75px);
+	top: calc(50% - 75px);
+}
+
 #map {
 	height: 100%;
-	width: 99%;
+	width:100%;
 	top: 0;
 	left: 0;
 	position: absolute;

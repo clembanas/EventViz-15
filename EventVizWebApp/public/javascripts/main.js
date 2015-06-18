@@ -350,7 +350,6 @@ function processEvent(result){
 				$("#socialResult").css("width", "100%");
 			}
 		}
-
 	});
 }
 
@@ -376,6 +375,8 @@ function clickMarker(marker, event){
 		
 		$("#social").css("visibility", "visible");
 		$("#socialInfo").css("visibility", "visible");
+		$("#socialResult").empty();
+		$("#socialChart").empty();
 		$("#socialLoading").empty();
 		$("#socialLoading").css("visibility", "visible");
 		var opts = {
@@ -414,19 +415,58 @@ function clickMarker(marker, event){
 			processEvent(event);
 		}
 	}else{
+		if($("#infobox").css("visibility") == "visible"){
+			showInfo = false;
+			$("#infobox").css("visibility", "hidden");
+			$("#social").css("visibility", "hidden");
+			$("#socialInfo").css("visibility", "hidden");
+			$("#socialResult").css("visibility", "hidden");
+			$("#socialLoading").css("visibility", "hidden");
+			$("#socialChart").empty();
+			$("#socialChart").css("visibility", "hidden");
+			$("#floatingInfo").css("visibility", "visible");
+			$("#floatingInfo").animate({"width": "+=20%"}, 200);
+			updateFloatingInfobox();
+		}
 		map.setView(tmpLatLng, 16);
-		console.log(marker);
 		if(marker.target._popup != undefined){
 			marker.target.unbindPopup();
 		}
 		var string = "<b>Events</b>";
-		for(var i = 0; i < options.markers.length; i++){
-			string += "<p id=" + options.markers[i].event.id + "p>" + options.markers[i].event.eventName + "</p>";
+//		$.when({marker : marker, markers : options.markers}, function(m){
+//			console.log(m);
+//			var deferred = jQuery.Deferred();
+//			for(var i = 0; i < (m.markers.length > 15 ? 15 : m.markers.length); i++){
+//				var pID = m.markers[i].event.id + "p";
+//				string += "<p id=" + pID + ">" + m.markers[i].event.eventName + "</p>";
+//				$("#map").on("click", "#" + pID, {event: m.markers[i]}, function(e){
+//					m.marker.target.closePopup();
+//					clickMarker(m.marker, e.data.event);
+//					
+//				}).on("hover", "#" + pID, function(e){
+//					$(this).css("background-Color", "#F4FA58");
+//				}).on("mouseout", "#" + pID, function(e){
+//					$(this).css("background-Color", "#FFFFFF");
+//				});
+//			}
+//			return deferred.promise();
+//		}).then(function(m){
+//			console.log(m);
+//			var deferred = jQuery.Deferred();
+//			if(m.markers.length > 15){
+//				string += "<p> +" + (m.markers.length - 15) + " other events</p>";
+//			}
+//			m.marker.target.bindPopup(string).openPopup();
+//		});
+		
+		
+		for(var i = 0; i < (options.markers.length > 15 ? 15 : options.markers.length); i++){
+			console.log("a");
 			var pID = options.markers[i].event.id + "p";
+			string += "<p id=" + pID + ">" + options.markers[i].event.eventName + "</p>";
 			$("#map").on("click", "#" + pID, {event: options.markers[i]}, function(e){
-				marker.target.closePopup();
-				clickMarker(marker, e.data.event);
-				
+				options.marker.target.closePopup();
+				clickMarker(options.marker, e.data.event);
 			}).on("hover", "#" + pID, function(e){
 				$(this).css("background-Color", "#F4FA58");
 			}).on("mouseout", "#" + pID, function(e){
@@ -434,6 +474,12 @@ function clickMarker(marker, event){
 			});
 		}
 		
+	
+		if(options.markers.length > 15){
+			string += "<p> +" + (options.markers.length - 15) + " other events</p>";
+		}
+	
+	
 		marker.target.bindPopup(string).openPopup();
 	}
 }
@@ -995,7 +1041,27 @@ $(document).ready(function(){
 			updateFloatingInfobox();
 		}
 	});
-	
+	var opts = {
+			lines: 13, // The number of lines to draw
+			length: 20, // The length of each line
+			width: 10, // The line thickness
+			radius: 20, // The radius of the inner circle
+			scale: 1, // Scales overall size of the spinner
+			corners: 1, // Corner roundness (0..1)
+			rotate: 0, // The rotation offset
+			direction: 1, // 1: clockwise, -1: counterclockwise
+			color: '#000', // #rgb or #rrggbb or array of colors
+			speed: 1, // Rounds per second
+			trail: 60, // Afterglow percentage
+			shadow: false, // Whether to render a shadow
+			hwaccel: false, // Whether to use hardware acceleration
+			className: 'spinner', // The CSS class to assign to the spinner
+			zIndex: 2e9, // The z-index (defaults to 2000000000)
+			top: '50%', // Top position relative to parent
+			left: '50%' // Left position relative to parent
+	};
+	var loadingDiv = document.getElementById("containerLoading");
+	var spinner = new Spinner(opts).spin(loadingDiv);
 	//addCountries();
 	$.ajax({ // ajax call starts
 	    url: 'events', // JQuery loads serverside.php
@@ -1003,7 +1069,9 @@ $(document).ready(function(){
 	}).done(function(data) { // Variable data contains the data we get from serverside
 		var markers = L.markerClusterGroup();
 		tree = markers.addTree(data);
-		map.addLayer(markers);
+		$.when(map.addLayer(markers)).then(function(){
+			$(loadingDiv).css("visibility", "hidden");
+		});
 	});
 	
 	/* Useful to draw borders
