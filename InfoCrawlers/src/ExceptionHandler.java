@@ -31,7 +31,7 @@ public class ExceptionHandler {
 					if (logFileName == null)
 						logFileName = "";
 					else
-						new File(logFileName).mkdirs();
+						new File(logFileName).getAbsoluteFile().getParentFile().mkdirs();
 				}
 				if (!logFileName.isEmpty()) {
 					OutputStream out = new FileOutputStream(logFileName, true);
