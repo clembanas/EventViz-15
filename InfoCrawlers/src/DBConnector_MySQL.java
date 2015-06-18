@@ -192,6 +192,7 @@ public class DBConnector_MySQL extends DBConnector_SQLConform {
 				   "started TIMESTAMP NULL, " + 
 				   "finished TIMESTAMP NULL, " +
 				   "progress INT, " +
+				   "jobs_per_hosts VARCHAR(" + MAX_LEN_CRAWLER_INFO_JOBS_PER_HOSTS + "), " +
 				   "summary VARCHAR(" + MAX_LEN_CRAWLER_INFO_SUMMARY + "))";
 	}
 	

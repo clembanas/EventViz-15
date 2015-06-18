@@ -41,6 +41,7 @@ public abstract class DBConnector_SQLConform extends DBConnector {
 				   "started TIMESTAMP, " + 
 				   "finished TIMESTAMP, " +
 				   "progress INT, " +
+				   "jobs_per_hosts VARCHAR(" + MAX_LEN_CRAWLER_INFO_JOBS_PER_HOSTS + "), " +
 				   "summary VARCHAR(" + MAX_LEN_CRAWLER_INFO_SUMMARY + "))";
 	}
 	
@@ -80,7 +81,7 @@ public abstract class DBConnector_SQLConform extends DBConnector {
 	protected String getStmtUpdateCrawlerInfoStarted()
 	{
 		return "UPDATE Crawler_infos SET started = ?, finished = NULL, progress = 0, " +
-				   "summary = NULL WHERE crawler_class = ?";
+				   "jobs_per_hosts = NULL, summary = NULL WHERE crawler_class = ?";
 	}
 	
 	protected String getStmtUpdateCrawlerInfoFinished()
