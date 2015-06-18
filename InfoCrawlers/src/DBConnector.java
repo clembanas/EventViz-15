@@ -519,7 +519,7 @@ public abstract class DBConnector {
 			if (dbConn != null) {
 				ResultSet resSet = executeQuery(getStmtLogCount());
 				
-				if (resSet.next() && resSet.getInt(0) >= maxLogs) 
+				if (resSet.next() && resSet.getInt(1) >= maxLogs) 
 					executeUpdate(getStmtClearLogs());
 			}
 		} 
