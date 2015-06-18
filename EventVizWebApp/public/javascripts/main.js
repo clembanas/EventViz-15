@@ -26,6 +26,7 @@ var currentBand = {};
 var currentMember = {};
 
 var currentMarkers = [];
+var currentPopup = null;
 
 //define sytles for country layers
 var normalStyle = {
@@ -144,9 +145,13 @@ function getAllVisibleEvents(zoom){
 }
 
 function updateFloatingInfobox(){
+	var deferred = $.Deferred();
 	checkIfMarkersVisible();
 	$("#floatingList").empty();
 	getAllVisibleEvents(map._zoom);
+	
+	return deferred.promise();
+	
 }
 
 function checkIfMarkersVisible(){
@@ -257,7 +262,6 @@ function replaceCharacters(word){
 }
 
 function processEvent(result){
-	console.log(result);
 	currentEvent = result;
 	currentCity = null;
 	currentRegion = null;
@@ -359,6 +363,9 @@ function clickMarker(marker, event){
 	jQuery.each($("#navEvent").nextAll(), function(){
 		$(this).remove();
 	});
+	if(currentPopup != null){
+		currentPopup.target.closePopup();
+	}
 	var options = marker.target == undefined ? marker.options : marker.target.options;
 	var tmpLatLng = marker.latlng == undefined ?  $.extend( {}, marker._latlng  ): $.extend({}, marker.latlng  );
 	if(options.ids.length == 1 || event != undefined){
@@ -376,7 +383,8 @@ function clickMarker(marker, event){
 		$("#social").css("visibility", "visible");
 		$("#socialInfo").css("visibility", "visible");
 		$("#socialResult").empty();
-		$("#socialChart").empty();
+		$("#socialChart").css("visibility", "hidden");
+		$("#highcharts-0").remove();
 		$("#socialLoading").empty();
 		$("#socialLoading").css("visibility", "visible");
 		var opts = {
@@ -422,8 +430,8 @@ function clickMarker(marker, event){
 			$("#socialInfo").css("visibility", "hidden");
 			$("#socialResult").css("visibility", "hidden");
 			$("#socialLoading").css("visibility", "hidden");
-			$("#socialChart").empty();
 			$("#socialChart").css("visibility", "hidden");
+			$("#highcharts-0").remove();
 			$("#floatingInfo").css("visibility", "visible");
 			$("#floatingInfo").animate({"width": "+=20%"}, 200);
 			updateFloatingInfobox();
@@ -432,273 +440,37 @@ function clickMarker(marker, event){
 		if(marker.target._popup != undefined){
 			marker.target.unbindPopup();
 		}
-		var string = "<b>Events</b>";
-//		$.when({marker : marker, markers : options.markers}, function(m){
-//			console.log(m);
-//			var deferred = jQuery.Deferred();
-//			for(var i = 0; i < (m.markers.length > 15 ? 15 : m.markers.length); i++){
-//				var pID = m.markers[i].event.id + "p";
-//				string += "<p id=" + pID + ">" + m.markers[i].event.eventName + "</p>";
-//				$("#map").on("click", "#" + pID, {event: m.markers[i]}, function(e){
-//					m.marker.target.closePopup();
-//					clickMarker(m.marker, e.data.event);
-//					
-//				}).on("hover", "#" + pID, function(e){
-//					$(this).css("background-Color", "#F4FA58");
-//				}).on("mouseout", "#" + pID, function(e){
-//					$(this).css("background-Color", "#FFFFFF");
-//				});
-//			}
-//			return deferred.promise();
-//		}).then(function(m){
-//			console.log(m);
-//			var deferred = jQuery.Deferred();
-//			if(m.markers.length > 15){
-//				string += "<p> +" + (m.markers.length - 15) + " other events</p>";
-//			}
-//			m.marker.target.bindPopup(string).openPopup();
-//		});
 		
-		
-		for(var i = 0; i < (options.markers.length > 15 ? 15 : options.markers.length); i++){
-			console.log("a");
-			var pID = options.markers[i].event.id + "p";
-			string += "<p id=" + pID + ">" + options.markers[i].event.eventName + "</p>";
-			$("#map").on("click", "#" + pID, {event: options.markers[i]}, function(e){
-				options.marker.target.closePopup();
-				clickMarker(options.marker, e.data.event);
-			}).on("hover", "#" + pID, function(e){
-				$(this).css("background-Color", "#F4FA58");
-			}).on("mouseout", "#" + pID, function(e){
-				$(this).css("background-Color", "#FFFFFF");
-			});
-		}
-		
-	
-		if(options.markers.length > 15){
-			string += "<p> +" + (options.markers.length - 15) + " other events</p>";
-		}
-	
-	
-		marker.target.bindPopup(string).openPopup();
-	}
-}
-
-function makeCityRequests(){
-	var uri = currentEvent.location.dbpedia_res_city;
-	currentCity = {};
-	sparqlRequest(uri, "http://dbpedia.org/ontology/abstract", true).done(function(result) {
-		if(result.results.bindings[0] != undefined){
-			currentCity.description = result.results.bindings[0].res.value;
-		}else{
-			sparqlRequest(uri, "http://www.w3.org/2000/01/rdf-schema#comment", true).done(function(result) {
-				if(result.results.bindings[0] != undefined){	
-					currentCity.description = result.results.bindings[0].res.value;
-					infoboxCity();
-				}
-			});
-		}
-		infoboxCity();
-	});
-					
-	sparqlRequest(uri, "http://dbpedia.org/ontology/populationTotal", false).done(function(result) {
-		if(result.results.bindings[0] != undefined){
-			currentCity.population = result.results.bindings[0].res.value;
-		}
-		infoboxCity();
-	});
-	
-	sparqlRequest(uri, "http://dbpedia.org/ontology/areaTotal", false).done(function(result) {
-		if(result.results.bindings[0] != undefined){
-			currentCity.area = result.results.bindings[0].res.value;
-		}
-		infoboxCity();
-	});
-	
-	sparqlRequest(uri, "http://xmlns.com/foaf/0.1/depiction", false).done(function(result) {
-		if(result.results.bindings[0] != undefined){
-			currentCity.image = result.results.bindings[0].res.value;
-			addImage(currentCity.image);
-		}
-	});
-}
-
-function makeRegionRequests(){
-	var uri = currentEvent.location.dbpedia_res_region;
-	currentRegion = {};
-	sparqlRequest(uri, "http://dbpedia.org/ontology/abstract", true).done(function(result) {
-		if(result.results.bindings[0] != undefined){	
-			currentRegion.description = result.results.bindings[0].res.value;
-		}else{
-			sparqlRequest(uri, "http://www.w3.org/2000/01/rdf-schema#comment", true).done(function(result) {
-				if(result.results.bindings[0] != undefined){	
-					currentRegion.description = result.results.bindings[0].res.value;
-					infoboxRegion();
-				}
-			});
-		}
-		infoboxRegion();
-	});
-	
-	sparqlRequest(uri, "http://dbpedia.org/ontology/populationDensity", false).done(function(result) {
-		if(result.results.bindings[0] != undefined){			
-			currentRegion.populationDensity = result.results.bindings[0].res.value;
-			infoboxRegion();
-		}
-	});
-	
-	sparqlRequest(uri, "http://dbpedia.org/ontology/areaLand", false).done(function(result) {
-		if(result.results.bindings[0] != undefined){	
-			currentRegion.area = result.results.bindings[0].res.value;
-			infoboxRegion();
-		}
-	});
-	sparqlRequest(uri, "http://xmlns.com/foaf/0.1/depiction", false).done(function(result) {
-		if(result.results.bindings[0] != undefined){
-			currentRegion.image = result.results.bindings[0].res.value;
-			addImage(currentRegion.image);
-		}
-	});
-}
-
-function makeCountryRequests(){
-	var uri = currentEvent.location.dbpedia_res_country;
-	currentCountry = {};
-	sparqlRequest(uri, "http://dbpedia.org/ontology/abstract", true).done(function(result) {
-		if(result.results.bindings[0] != undefined){
-			currentCountry.description = result.results.bindings[0].res.value;
-		}else{
-			sparqlRequest(uri, "http://www.w3.org/2000/01/rdf-schema#comment", true).done(function(result) {
-				if(result.results.bindings[0] != undefined){	
-					currentCoutnry.description = result.results.bindings[0].res.value;
-					infoboxCountry();
-				}
-			});
-		}
-		infoboxCountry();
-	});
-	
-	sparqlRequestWithHTML(uri, "http://dbpedia.org/ontology/capital").done(function(result) {
-		sparqlRequest(result.results.bindings[0].res.value, "http://dbpedia.org/property/name", true).done(function(result){
-			if(result.results.bindings[0] != undefined){
-				currentCountry.capital = result.results.bindings[0].res.value;
+		var fillPopup = function(){		
+			var string = "<b>Events</b>";		
+			for(var i = 0; i < (options.markers.length > 15 ? 15 : options.markers.length); i++){
+				var pID = options.markers[i].event.id + "p";
+				string += "<p id=" + pID + ">" + options.markers[i].event.eventName + "</p>";
+				$("#map").on("click", "#" + pID, {event: options.markers[i]}, function(e){
+					options.markers.target.closePopup();
+					clickMarker(marker, e.data.event);
+				}).on("hover", "#" + pID, function(e){
+					$(this).css("background-Color", "#F4FA58");
+				}).on("mouseout", "#" + pID, function(e){
+					$(this).css("background-Color", "#FFFFFF");
+				});
 			}
-			infoboxCountry();
-		});
-	});
-	
-	sparqlRequest(uri, "http://dbpedia.org/ontology/PopulatedPlace/areaTotal", false).done(function(result) {
-		if(result.results.bindings[0] != undefined){
-			currentCountry.populationDensity = result.results.bindings[0].res.value;
+			
+			
+			if(options.markers.length > 15){
+				string += "<p> +" + (options.markers.length - 15) + " other events</p>";
+			}
+			
+			
+			marker.target.bindPopup(string).openPopup();
+			currentPopup = marker;
 		}
-		infoboxCountry();
-	});
-	
-	sparqlRequest(uri, "http://dbpedia.org/ontology/areaTotal", false).done(function(result) {
-		if(result.results.bindings[0] != undefined){
-			currentCountry.area = result.results.bindings[0].res.value;
-		}
-		infoboxCountry();
-	});
-	
-	sparqlRequest(uri, "http://xmlns.com/foaf/0.1/depiction", false).done(function(result) {
-		if(result.results.bindings[0] != undefined){
-			currentCountry.image = result.results.bindings[0].res.value;
-			addImage(currentCountry.image);
-		}
-	});
-}
-
-function makeBandRequests(band){
-	
-	var uri = band.dbpedia_resource;
-	currentBand = { "name" : band.name,
-					"members" : band.members };
-	sparqlRequest(uri, "http://dbpedia.org/ontology/abstract", true).done(function(result) {
-		
-		if(result.results.bindings[0] != undefined){
-			currentBand.description = result.results.bindings[0].res.value;
+		if(options.markers == undefined){
+			updateFloatingInfobox().done(fillPopup());
 		}else{
-			sparqlRequest(uri, "http://www.w3.org/2000/01/rdf-schema#comment", true).done(function(result) {
-				if(result.results.bindings[0] != undefined){	
-					currentBand.description = result.results.bindings[0].res.value;
-					infoboxBand();
-				}
-			});
+			fillPopup();
 		}
-		infoboxBand();
-	});
-	
-	sparqlRequest(uri, "http://xmlns.com/foaf/0.1/depiction", false).done(function(result) {
-		if(result.results.bindings[0] != undefined){
-			currentBand.image = result.results.bindings[0].res.value;
-			addImage(currentBand.image);
-		}
-	});
-}
-function makeMemberRequests(member){
-	var uri = member.dbpedia_resource;
-	currentMember = { "name" : member.name };
-	sparqlRequest(uri, "http://dbpedia.org/ontology/abstract", true).done(function(result) {
-		if(result.results.bindings[0] != undefined){
-			currentMember.description = result.results.bindings[0].res.value;
-		}else{
-			sparqlRequest(uri, "http://www.w3.org/2000/01/rdf-schema#comment", true).done(function(result) {
-				if(result.results.bindings[0] != undefined){	
-					currentMember.description = result.results.bindings[0].res.value;
-					infoboxMember();
-				}
-			});
-		}
-		infoboxMember();
-	});
-	
-	sparqlRequest(uri, "http://xmlns.com/foaf/0.1/depiction", false).done(function(result) {
-		if(result.results.bindings[0] != undefined){
-			currentMember.image = result.results.bindings[0].res.value;
-			addImage(currentMember.image);
-		}
-	});
-}
-
-function sparqlRequest(uri, predicate, string){
-	var url = "http://dbpedia.org/sparql";
-	var query = "";
-	if(string){				
-		var query = [
-			"select (str(?o) AS ?res) where{ ",
-			"<" + uri + "> <" + predicate +"> ?o",
-			"FILTER (langMatches(lang(?o),'en'))",
-			"}"
-		].join(" ");
-	}else{
-		var query = [
-			"select (?o AS ?res) where{ ",
-			"<" + uri + "> <" + predicate +"> ?o",
-			"}"
-		].join(" ");
 	}
-	var queryUrl = url+"?query="+ encodeURIComponent(query) +"&format=json";
-	return $.ajax({
-		dataType: "jsonp",  
-		url: queryUrl
-	});
-}
-
-function sparqlRequestWithHTML(uri, predicate){
-	var url = "http://dbpedia.org/sparql";
-	var query = "";		
-	var query = [
-		"select (?o AS ?res) where{ ",
-		"<" + uri + "> <" + predicate +"> ?o",
-		"}"
-	].join(" ");
-	
-	var queryUrl = url+"?query="+ encodeURIComponent(query) +"&format=json";
-	return $.ajax({
-		dataType: "jsonp",  
-		url: queryUrl
-	});
 }
 
 function addEntryToInfobox(tag, margin, desc, value, hover){
@@ -1005,7 +777,7 @@ $(document).ready(function(){
 		subdomains : [ 'otile1', 'otile2', 'otile3', 'otile4' ]
 	}).addTo(map);
 	
-	map.on("zoomend", function(e){
+	map.on("moveend", function(e){
 		if($(this)[0]._zoom < 9 && $("#floatingInfo").css("visibility") == "visible"){
 			$("#floatingInfo").animate({"width": "-=20%" }, 200, function(){
 				$(this).css("visibility", "hidden");
@@ -1025,20 +797,14 @@ $(document).ready(function(){
 			$("#socialInfo").css("visibility", "hidden");
 			$("#socialResult").css("visibility", "hidden");
 			$("#socialLoading").css("visibility", "hidden");
-			$("#socialChart").empty();
 			$("#socialChart").css("visibility", "hidden");
+			$("#highcharts-0").remove();
 			$("#floatingInfo").css("visibility", "visible");
 			$("#floatingInfo").animate({"width": "+=20%"}, 200);
 			updateFloatingInfobox();
 			if(hoverCountry != null){
 				countryOver(hoverCountry);
 			}
-		}
-	});
-	
-	map.on("dragend", function(e){
-		if($("#floatingInfo").css("visibility") == "visible"){
-			updateFloatingInfobox();
 		}
 	});
 	var opts = {
@@ -1073,19 +839,6 @@ $(document).ready(function(){
 			$(loadingDiv).css("visibility", "hidden");
 		});
 	});
-	
-	/* Useful to draw borders
-	var borders = [];
-	map.on("click", function(e) {
-		borders[borders.length] = [e.latlng.lng, e.latlng.lat];
-		var string = "[[";
-		for(var i = 0; i<borders.length; i++){
-			string += "[" + borders[i][0] + ", " + borders[i][1] + "],";
-		}
-		string += "]]";
-		console.log(string);
-	});
-	*/
 	
 	L.Mask = L.Polygon.extend({
 		options: {
