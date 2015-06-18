@@ -156,10 +156,7 @@ public class Utils {
 			else {
 				strBuilder.append(arg.getClass().getName());
 				strBuilder.append(": '");
-				if (arg.getClass().isArray())
-					strBuilder.append(objectsToString(arg));
-				else
-					strBuilder.append(arg.toString());
+				strBuilder.append(arg.toString());
 				strBuilder.append("'");
 			}
 		}

@@ -487,7 +487,7 @@ public abstract class DBConnector {
 	}
 	
 	public synchronized void logException(final String classPath, final long threadID, 
-		final String info, final Exception e, final String stackTrace) throws Exception
+		final String info, final Throwable e, final String stackTrace) throws Exception
 	{
 		if (dbConn != null) {
 			executeUpdate(getStmtLogException(), new Timestamp(System.currentTimeMillis()), 

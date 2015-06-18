@@ -176,8 +176,8 @@ public class CrawlerManager {
 							crawlerInst.first.allInstancesFinished(exceptionThrown, crawlerStats);
 					}
 					catch (Exception e) {
-						ExceptionHandler.handle("Failed to await termination of crawler instances" +
-							"of class '" + crawlerClass.getName() + "'!\n", e,
+						ExceptionHandler.handle("Failed to notify crawlers that all instances " +
+							"of class '" + crawlerClass.getName() + "' are finished!\n", e,
 							CrawlerManager.class, null, getClass());
 					}
 				}
@@ -213,7 +213,7 @@ public class CrawlerManager {
 						getClass());
 					allCrawlerInstancesFinished(crawlerInstExecs, exceptionThrown, crawlerStats);
 				} 
-				catch (Exception e) {
+				catch (Throwable e) {
 					ExceptionHandler.handle("Failed to execute crawler of class '" + 
 						crawlerClass.getName() + "'!\n", e, CrawlerManager.class, null, getClass());
 				}
@@ -271,7 +271,7 @@ public class CrawlerManager {
 				if (crawlerExecFuture != null)
 					crawlerExecFuture.get();
 			} 
-			catch (Exception e) {
+			catch (Throwable e) {
 				ExceptionHandler.handle("Failed to await crawler-executor termination of " +
 					"crawler class '" + crawlerClass.getName() + "'!\n", e, CrawlerManager.class, 
 					null, getClass());
