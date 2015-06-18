@@ -40,7 +40,7 @@ public class CrawlerManager {
 			
 			public Boolean call() throws Exception 
 			{
-				return crawlerInst.execute();
+				return !crawlerInst.execute();
 			}
 			
 			public int[] getCrawlerStatistics() 
