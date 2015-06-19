@@ -190,7 +190,7 @@ public class ThreadMonitor {
 						lastSysInfo = System.currentTimeMillis();
 					}
 				}
-				catch (Exception e) {}
+				catch (Throwable e) {}
 				try {
 					Thread.sleep(MONITOR_INTERVAL);
 				}

@@ -157,18 +157,18 @@ public abstract class DBQueryBasedCrawler extends CrawlerBase {
 	protected void jobStarted(JobBase job, int progress)
 	{
 		super.jobStarted(job, progress);
-		DebugUtils.printDebugInfo("Processing " + Math.min(job.getJobsPerGroup(), 
-			job.getTotalJobCount() - job.getGroupIndex() * job.getJobsPerGroup()) + 
-			" datasets on page " + (job.getGroupIndex() + 1) + " (" + progress + "%) ...", 
-			getClass(), DBQueryBasedCrawler.class);
+		DebugUtils.printDebugInfo("Processing " + (job.getJobIndex() + 1) + ". dataset of " +
+			Math.min(job.getJobsPerGroup(),	job.getTotalJobCount() - job.getGroupIndex() * 
+			job.getJobsPerGroup()) + " datasets on page " + (job.getGroupIndex() + 1) + " (" + 
+			progress + "%) ...", getClass(), DBQueryBasedCrawler.class);
 	}
 	
 	protected void jobFinished(JobBase job,	int progress)
 	{
 		super.jobFinished(job, progress);
-		DebugUtils.printDebugInfo("Processing " + Math.min(job.getJobsPerGroup(), 
-			job.getTotalJobCount() - job.getGroupIndex() * job.getJobsPerGroup()) + 
-			" datasets on page " + (job.getGroupIndex() + 1) + " (" + progress + "%) ... DONE", 
-			getClass(), DBQueryBasedCrawler.class);
+		DebugUtils.printDebugInfo("Processing " + (job.getJobIndex() + 1) + ". dataset of " +
+				Math.min(job.getJobsPerGroup(),	job.getTotalJobCount() - job.getGroupIndex() * 
+				job.getJobsPerGroup()) + " datasets on page " + (job.getGroupIndex() + 1) + " (" + 
+				progress + "%) ... DONE", getClass(), DBQueryBasedCrawler.class);
 	}
 }
