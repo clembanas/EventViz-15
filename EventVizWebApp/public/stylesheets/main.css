@@ -170,12 +170,11 @@ li.noNumber {
 }
 
 #img {
-	width: 300px;
+	width: 250px;
 	height: auto;
 	top: 10px;
     margin-left: auto;
     margin-right: auto;
-	opacity: 1.0;
 	position: relative;
 }
 
