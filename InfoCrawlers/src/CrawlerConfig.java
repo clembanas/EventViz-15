@@ -217,6 +217,13 @@ public class CrawlerConfig {
 			throw new IllegalArgumentException(e.getMessage());
 		}
 	}
+	
+	public static Utils.Pair<Integer, Integer> getCrawlTime() 
+	{
+		String[] crawlTime = props.getProperty("crawler.crawl_time").split(":");
+		
+		return Utils.createPair(Integer.valueOf(crawlTime[0]), Integer.valueOf(crawlTime[1]));
+	}
 
 	public static int getEventfulCrawlerMaxDays()
 	{	

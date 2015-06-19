@@ -169,23 +169,28 @@ public class ThreadMonitor {
 			Thread.State currThdState;
 			
 			while (!shutdownReq.get()) {
-				synchronized (monitoredThds) {
-					thdInfos = monitoredThds.values().toArray(thdInfos);
-				}
-				for (ThreadInfo thdInfo: thdInfos) {
-					currThdState = thdInfo.getCurrentThdState();
-					if (currThdState == Thread.State.TERMINATED) {
-						synchronized (monitoredThds) {
-							monitoredThds.remove(thdInfo.thd);
-							break;
-						}
+				try {
+					synchronized (monitoredThds) {
+						thdInfos = monitoredThds.values().toArray(thdInfos);
 					}
-					thdInfo.checkAndUpdate(currThdState);
+					for (ThreadInfo thdInfo: thdInfos) {
+						if (thdInfo == null)
+							continue;
+						currThdState = thdInfo.getCurrentThdState();
+						if (currThdState == Thread.State.TERMINATED) {
+							synchronized (monitoredThds) {
+								monitoredThds.remove(thdInfo.thd);
+								break;
+							}
+						}
+						thdInfo.checkAndUpdate(currThdState);
+					}
+					if (System.currentTimeMillis() - lastSysInfo > RUNTIME_INFO_INTERVAL * 1000) {
+						outputRuntimeInfos();
+						lastSysInfo = System.currentTimeMillis();
+					}
 				}
-				if (System.currentTimeMillis() - lastSysInfo > RUNTIME_INFO_INTERVAL * 1000) {
-					outputRuntimeInfos();
-					lastSysInfo = System.currentTimeMillis();
-				}
+				catch (Exception e) {}
 				try {
 					Thread.sleep(MONITOR_INTERVAL);
 				}

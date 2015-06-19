@@ -57,11 +57,17 @@ public class Main_InfoCrawlers {
 	{
 		try {
 			boolean isMasterNode = true;
+			boolean execCrawlerNow = false;
 			
 			if (args.length > 0) {
-				if (!args[0].equalsIgnoreCase("slave"))
-					throw new Exception("Invalid argument '" + args[0] + "'!");
-				isMasterNode = false;
+				for (String arg: args) {
+					if (arg.equalsIgnoreCase("slave"))
+						isMasterNode = false;
+					else if (arg.equalsIgnoreCase("now"))
+						execCrawlerNow = true;
+					else
+						throw new Exception("Invalid argument '" + arg + "'!");
+				}
 			}
 			CrawlerConfig.load();
 			//Setup debug settings
@@ -75,14 +81,14 @@ public class Main_InfoCrawlers {
 				CrawlerConfig.getCityInfoCrawlerHosts(), EventfulCrawler.class);
 			//Execute crawlers
 			if (CrawlerManager.start(isMasterNode)) {
-				CrawlerManager.run();
+				CrawlerManager.run(execCrawlerNow);
 				CrawlerManager.shutdown();
 			}
 			else
 				System.out.println("ERROR: Failed to start crawler manager!\nExiting now!");
 		}
 		catch (Throwable e) {
-			System.out.println("ERROR: " + e.getMessage() + "\nExiting now!");
+			System.out.println("ERROR: " + e.getMessage() + "\nExiting now!\n");
 			e.printStackTrace();
 		}
 	}
