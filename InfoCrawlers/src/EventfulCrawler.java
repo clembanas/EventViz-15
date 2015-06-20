@@ -181,6 +181,8 @@ public class EventfulCrawler extends CrawlerBase {
 		eventSrchReq.setCategory(EVENTFUL_CATEGORY);
 		eventSrchReq.setPageSize(MAX_PAGE_SIZE);
 		eventSrchReq.setPageNumber(((EventfulJob)job).pageNum);
+		eventSrchReq.setReadTimeout(20 * 1000);
+		eventSrchReq.setConnectionTimeout(20 * 1000);
 		srchRes = eventOps.search(eventSrchReq);
 		events = srchRes.getEvents();
 		processEvents(events);
