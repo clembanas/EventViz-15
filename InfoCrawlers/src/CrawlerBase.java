@@ -121,7 +121,7 @@ public abstract class CrawlerBase implements CrawlerInstance {
 							((float)job.jobGroupIdx + 1.0)));
 					}
 				} 
-				catch (Exception e) {
+				catch (Throwable e) {
 					ExceptionHandler.handle("Error in worker thread of crawler '" + 
 						CrawlerBase.this.getClass().getName() + "'!", e,
 						CrawlerBase.this.getClass(), CrawlerBase.class);
@@ -277,7 +277,7 @@ public abstract class CrawlerBase implements CrawlerInstance {
 				jobGroupIdx = jobCtrlr.getNextJobGroupIndex();
 			}
 		} 
-		catch (Exception e) {
+		catch (Throwable e) {
 			ExceptionHandler.handle("Error in crawler '" + getClass().getName() + "'!", e, 
 				getClass(), CrawlerBase.class);
 			exceptionThrown = true;
