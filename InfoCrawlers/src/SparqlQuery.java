@@ -40,6 +40,8 @@ public class SparqlQuery {
 	private static int DEF_LIMIT;
 	private static int MAX_QUERY_RETRIES;
 	private static int QUERY_RETRY_DELAY;		//msec
+	private static int CONNECTION_TIMEOUT;
+	private static int READ_TIMEOUT;
 	
 	
 	/**
@@ -143,7 +145,7 @@ public class SparqlQuery {
 		long retryQueryDelay = 0;
 		
 		try {
-			queryExec.setTimeout(60 * 1000, 90 * 1000);
+			queryExec.setTimeout(CONNECTION_TIMEOUT, READ_TIMEOUT);
 			while (true) {
 				try {
 					ResultSet resSet = queryExec.execSelect();
@@ -183,6 +185,8 @@ public class SparqlQuery {
 		DEF_LIMIT = CrawlerConfig.getSparqlBasedCrawlerDefQueryLimit();
 		MAX_QUERY_RETRIES = CrawlerConfig.getSparqlBasedCrawlerMaxQueryRetries();
 		QUERY_RETRY_DELAY = CrawlerConfig.getSparqlBasedCrawlerQueryRetryDelay();
+		CONNECTION_TIMEOUT = CrawlerConfig.getSparqlBasedCrawlerConnectionTimeout();
+		READ_TIMEOUT = CrawlerConfig.getSparqlBasedCrawlerReadTimeout();
 	}
 
 	public static ResultSet execute(String svc, String query, String[] prefixes)

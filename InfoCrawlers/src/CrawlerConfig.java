@@ -264,6 +264,16 @@ public class CrawlerConfig {
 	{	
 		return props.getProperty("crawler.eventful.category");
 	}
+
+	public static int getEventfulConnectionTimeout() 
+	{
+		return Integer.valueOf(props.getProperty("crawler.eventful.connection_timeout"));
+	}
+
+	public static int getEventfulReadTimeout() 
+	{
+		return Integer.valueOf(props.getProperty("crawler.eventful.read_timeout"));
+	}
 	
 	public static InetAddress[] getCrawlerEventfulHosts()
 	{
@@ -294,6 +304,16 @@ public class CrawlerConfig {
 	public static int getSparqlBasedCrawlerDefQueryLimit()
 	{	
 		return Integer.valueOf(props.getProperty("crawler.sparql_based.def_query_limit"));
+	}
+
+	public static int getSparqlBasedCrawlerConnectionTimeout() 
+	{
+		return Integer.valueOf(props.getProperty("crawler.sparql_based.connection_timeout"));
+	}
+
+	public static int getSparqlBasedCrawlerReadTimeout() 
+	{
+		return Integer.valueOf(props.getProperty("crawler.sparql_based.read_timeout"));
 	}
 
 	public static int getSparqlBasedCrawlerMaxCacheSize()
