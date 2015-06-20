@@ -572,7 +572,8 @@ CMD_LINE_LONG_OPTS = ["show-config", "show-modes",               # Long command 
                       "tasks=", "repo=", "db-host=", "db-user=",
                       "db-password=", "db-name=", "root-dir=",
                       "temp-dir=", "install-dir=", "server=",
-                      "slave-tasks=", "no-cleanup", "help"]
+                      "slave-tasks=", "no-cleanup", "help",
+                      "db-root-name=", "db-root-host="]
 # Accepted command line options
 CMD_LINE_OPTS_ACCEPTED = ("   --show-config ........... Show default configuration\n"
                           "   --show-modes ............ Show installation modes\n"
@@ -592,6 +593,9 @@ CMD_LINE_OPTS_ACCEPTED = ("   --show-config ........... Show default configurati
                           "path\n"
                           "   -i (--install-dir=) ..... Set root-relative installation directory "
                           "path\n"
+                          "   --db-root-name= ......... Set database root-user name\n"
+                          "   --db-root-host= ......... Set database host of root-user (IP "
+                          "address)\n"
                           "   --slave-tasks= .......... Tasks to be executed by info-crawler "
                           "slave host installer\n"
                           "                             (e.g. \"u1, u2, i4 - i8\")\n"
@@ -606,6 +610,8 @@ DB_HOST = None
 DB_USER = "EventVizUser"
 DB_PWORD = "e1V2i3Z"
 DB_NAME = "EventViz15"
+DB_ROOT_USER = "root"
+DB_ROOT_HOST = "127.0.0.1"
 DB_ROOT_PWORD = None
 SERVER_HOST = None
 SLAVE_TASKS = ""
@@ -780,16 +786,19 @@ INST_TASKS_SERVER = \
                          "$INSTALL_DIR$/bin/table_creator_files/crawler_config.properties"),
      InstTask_Exec("Create database '$DB_NAME$' on host '$DB_HOST$'",
                    "Creating database '$DB_NAME$' on host '$DB_HOST$'",
-                   'mysql --host=$DB_HOST$ --user=root --password=$DB_ROOT_PWORD$ -e '
-                   '"create database if not exists $DB_NAME$"',
-                   depend=InstTaskDep_UserInput("\nEnter database root password", "DB_ROOT_PWORD",
+                   'mysql --host=$DB_ROOT_HOST$ --user=$DB_ROOT_USER$ --password=$DB_ROOT_PWORD$ -e'
+                   ' "create database if not exists $DB_NAME$"',
+                   depend=InstTaskDep_UserInput("\nEnter database password for "
+                                                "$DB_ROOT_USER$@$DB_ROOT_HOST$", "DB_ROOT_PWORD",
                                                 password=True)),
-     InstTask_Exec("Create database user '$DB_USER$'", "Creating database user '$DB_USER$'",
-                   'mysql --host=$DB_HOST$ --user=root --password=$DB_ROOT_PWORD$ -e '
-                   '"grant alter, create, create temporary tables, create view, delete, drop, '
+     InstTask_Exec("Create database user '$DB_USER$' on host '$DB_HOST$'",
+                   "Creating database user '$DB_USER$' on host '$DB_HOST$'",
+                   'mysql --host=$DB_ROOT_HOST$ --user=$DB_ROOT_USER$ --password=$DB_ROOT_PWORD$ -e'
+                   ' "grant alter, create, create temporary tables, create view, delete, drop, '
                    'index, insert, lock tables, select, show view, update on $DB_NAME$.* to '
                    '\'$DB_USER$\'@\'%\' identified by \'$DB_PWORD$\'"',
-                   depend=InstTaskDep_UserInput("\nEnter database root password", "DB_ROOT_PWORD",
+                   depend=InstTaskDep_UserInput("\nEnter database password for "
+                                                "$DB_ROOT_USER$@$DB_ROOT_HOST$", "DB_ROOT_PWORD",
                                                 password=True)),
      InstTask_Exec("Create tables in database '$DB_NAME$'",
                    "Creating tables in database '$DB_NAME$'", "$INSTALL_DIR$/bin/table_creator",
@@ -1034,17 +1043,18 @@ def processCmdLineOpts(argv):
         sys.exit(0)
 
     def showConfig():
-        print "\nConfiguration (Installation mode '%s'):\n   Git repository:      '%s'\n   " \
-              "Server host:         '%s'\n   Database host:       '%s'\n   " \
-              "Databse user:        '%s'\n   Database password:   '%s'\n   " \
-              "Database name:       '%s'\n   Root directory:      '%s'\n   " \
-              "Temporary directory: '%s'\n   Install directory:   '%s'\n   " \
-              "Def. install mode:   '%s'\n   Perform clean-up:    %s\n" % \
-              (INST_MODE_CURR, GIT_REPO, SERVER_HOST, DB_HOST, DB_USER, DB_PWORD, DB_NAME, ROOT_DIR,
-               TEMP_DIR, INSTALL_DIR, INST_MODE_DEF, DO_CLEANUP)
+        print "\nConfiguration (Installation mode '%s'):\n   Git repository:         '%s'\n   " \
+              "Server host:            '%s'\n   Database root host:     '%s'\n   " \
+              "Database root user:     '%s'\n   Database user host:     '%s'\n   " \
+              "Database user:          '%s'\n   Database user password: '%s'\n   " \
+              "Database name:          '%s'\n   Root directory:         '%s'\n   " \
+              "Temporary directory:    '%s'\n   Install directory:      '%s'\n   " \
+              "Def. install mode:      '%s'\n   Perform clean-up:       %s\n" % \
+              (INST_MODE_CURR, GIT_REPO, SERVER_HOST, DB_ROOT_HOST, DB_ROOT_USER, DB_HOST, DB_USER,
+               DB_PWORD, DB_NAME, ROOT_DIR, TEMP_DIR, INSTALL_DIR, INST_MODE_DEF, DO_CLEANUP)
 
     global GIT_REPO, DB_HOST, DB_USER, DB_PWORD, DB_NAME, ROOT_DIR, TEMP_DIR, INSTALL_DIR
-    global SERVER_HOST, SLAVE_TASKS, DO_CLEANUP
+    global SERVER_HOST, SLAVE_TASKS, DO_CLEANUP, DB_ROOT_USER, DB_ROOT_HOST
 
     showConf = False
     showInstModes = False
@@ -1090,6 +1100,10 @@ def processCmdLineOpts(argv):
                 TEMP_DIR = arg
             elif opt in ("-i", "--install-dir"):
                 INSTALL_DIR = arg
+            elif opt == "--db-root-name":
+                DB_ROOT_USER = arg
+            elif opt == "--db-root-host":
+                DB_ROOT_HOST = arg
             elif opt == "--slave-tasks":
                 SLAVE_TASKS = '-t "%s"' % arg
             elif opt == "--no-cleanup":
