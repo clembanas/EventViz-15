@@ -143,7 +143,7 @@ public class SparqlQuery {
 		long retryQueryDelay = 0;
 		
 		try {
-			queryExec.setTimeout(20 * 1000, 20 * 1000);
+			queryExec.setTimeout(30 * 1000, 30 * 1000);
 			while (true) {
 				try {
 					ResultSet resSet = queryExec.execSelect();
