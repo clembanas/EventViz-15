@@ -486,8 +486,9 @@ public abstract class SparqlBasedCrawler extends DBQueryBasedCrawler {
 		}
 	}
 	
-	protected void finished()
+	protected void finished(boolean exceptionThrown)
 	{
+		super.finished(exceptionThrown);
 		if (resCache != null)
 			resCache.clear();
 		resCache = null;
