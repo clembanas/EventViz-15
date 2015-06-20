@@ -866,7 +866,7 @@ INST_TASKS_SERVER = \
                                  "crawler.city_info.hosts": "$CITYINFO_CRAWLER_HOSTS$",
                                  "crawler.master.host": ""}),
      InstTask_IfElse("Start info-crawlers", "Starting info-crawlers",
-                     InstTaskDep_Confirm("crawl the event data now"),
+                     InstTaskDep_Confirm("crawl for event data now"),
                      InstTask_Exec("Start info-crawlers", "Starting info-crawlers",
                                    "$INSTALL_DIR$/bin/info_crawlers now", "$INSTALL_DIR$/bin",
                                    hideOut=True, detach=True),
