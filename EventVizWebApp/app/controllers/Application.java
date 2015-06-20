@@ -11,7 +11,9 @@ import java.util.zip.GZIPOutputStream;
 
 import jsonGeneration.JsonResultGenerator;
 import logic.clustering.ClusteringUtil;
+import logic.clustering.ClusteringWorker;
 import logic.clustering.ILocation;
+import logic.clustering.LocalClusteringWorker;
 import logic.clustering.MarkerCluster;
 import logic.clustering.serialization.LightMarkerClusterVO;
 import play.libs.Json;
@@ -26,6 +28,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
+import containers.EventVizEventBasics;
 import containers.EventVizModelPopulationObject;
 import database.EventViz15_DB_MySQLAccess;
 
@@ -59,53 +62,6 @@ public class Application extends Controller {
         JsonObject model_JSON = JsonResultGenerator.getEventById_JSON(model);
         return ok(model_JSON.toString());
     }
-    
-    
-    /*private static Iterable<? extends ILocation> events = null;
-    private static Object getEventsLockObj = new Object(); 
-    public static Result getEvents() throws SQLException, IOException {       
-    	
-    	if(events == null)
-    	{
-    		synchronized(getEventsLockObj)
-    		{
-    			if(events == null)
-    			{
-    				events = EventViz15_DB_MySQLAccess.getEvents();
-    			}
-    		}
-    	}
-    	
-    	MarkerCluster markerCluster = ClusteringUtil.cluster(events);    		
-		String json = Json.stringify(Json.toJson(new LightMarkerClusterVO(markerCluster)));
-		return ok(json);
-    }*/
-    
-    /*private static Iterable<? extends ILocation> events = null;
-    private static Object getEventsLockObj = new Object(); 
-    public static Result getEvents() throws SQLException, IOException {       
-    	
-    	if(events == null)
-    	{
-    		synchronized(getEventsLockObj)
-    		{
-    			if(events == null)
-    			{
-    				events = EventViz15_DB_MySQLAccess.getEvents();    				
-    			}
-    		}
-    	}
-    	
-    	MarkerCluster markerCluster = ClusteringUtil.cluster(events);    		
-		String json = Json.stringify(Json.toJson(new LightMarkerClusterVO(markerCluster)));
-		final ByteArrayOutputStream gzip = gzip(json);
-		byte[] cachedZippedEvents = gzip.toByteArray();
-    	
-    	response().setHeader("Content-Encoding", "gzip");
-        response().setHeader("Content-Length", cachedZippedEvents.length + "");
-        return ok(cachedZippedEvents);
-    }*/
-    
     
     
     public static void refreshEventsCaching() throws SQLException, IOException
@@ -201,6 +157,47 @@ public class Application extends Controller {
         }
         return ok(JsonResultGenerator.getSocialMentionSentiment_JSON(data).toString());
     }
+    
+    private static String NEWLINE = null;
+    public static Result timemeasurement() throws SQLException
+    {
+    	NEWLINE = System.getProperty("line.separator");
+    	
+    	Iterable<EventVizEventBasics> eventsFromDB = EventViz15_DB_MySQLAccess.getEvents();
+    	
+    	StringBuilder resultBuilder = new StringBuilder();
+    	
+    	for(int i = 1; i < 20; i++)
+    	{
+    		measureTime(eventsFromDB, i, resultBuilder);
+    	}
+    	
+    	return ok(resultBuilder.toString());
+    }
+
+	private static void measureTime(Iterable<EventVizEventBasics> eventsFromDB, int localWorkers, StringBuilder resultBuilder) {    	
+    	int count = 10;
+    	
+    	long tmp = 0;
+    	for(int i = 0; i < count; i++)
+    	{
+    		long before = System.currentTimeMillis();
+    		
+    		ClusteringWorker[] workers = new ClusteringWorker[localWorkers];
+        	
+        	for(int l = 0; l < localWorkers; l++)
+        	{
+        		workers[l] = new LocalClusteringWorker();
+        	}
+	    	
+	    	ClusteringUtil.cluster(eventsFromDB, workers);
+	    	tmp += System.currentTimeMillis() - before;
+    	}
+    	
+    	long result = tmp / count;
+    	
+    	resultBuilder.append("Localworkers: "+localWorkers+", " + result + " ms = " + (result /1000) + "s" + NEWLINE); 
+	}
 
 	
 }

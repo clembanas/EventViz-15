@@ -7,6 +7,7 @@ GET        /                                controllers.Application.index()
 GET        /getSentiment                    controllers.Application.getSentiment(terms: java.lang.String ?= "", location: java.lang.String ?= "")
 GET        /getEventById                    controllers.Application.getEventById(id: java.lang.Integer ?= 0)
 GET        /events                          controllers.Application.getEvents()
+GET        /timemeasurement                 controllers.Application.timemeasurement()
 GET        /clusteringtest                  controllers.Application.clusteringtest()
 
 
