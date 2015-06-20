@@ -486,14 +486,6 @@ public abstract class SparqlBasedCrawler extends DBQueryBasedCrawler {
 		}
 	}
 	
-	protected void finished(boolean exceptionThrown)
-	{
-		super.finished(exceptionThrown);
-		if (resCache != null)
-			resCache.clear();
-		resCache = null;
-	}
-	
 	public SparqlBasedCrawler(String[] endpoints, QueryExecutor[] queryHandlers, 
 		String debugDSFmtStr) throws Exception
 	{
@@ -512,5 +504,14 @@ public abstract class SparqlBasedCrawler extends DBQueryBasedCrawler {
 	public String getDebugDSFmtStr()
 	{
 		return debugDSFmtStr;
+	}
+	
+	public void allInstancesFinished(boolean exceptionThrown, String jobsPerHostsInfo, 
+		int[] crawlerStats)
+	{
+		super.allInstancesFinished(exceptionThrown, jobsPerHostsInfo, crawlerStats);
+		if (resCache != null)
+			resCache.clear();
+		resCache = null;
 	}
 }
