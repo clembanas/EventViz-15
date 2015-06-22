@@ -221,6 +221,21 @@ li.noNumber {
 	padding-left: 10px;
 }
 
+#socialNoResult {
+	top: calc(50% + 20px - 12pt);
+	width: 100%;
+	height: auto;
+	text-align: center;
+	font-size: 24pt;
+	visibility: hidden;
+	position: absolute;
+}
+
+#socialNoResultP {
+	margin: 0;
+}
+
+
 #socialResult {
 	height: calc(100% - 50px);
 	top: 50px;

@@ -354,6 +354,9 @@ function processEvent(result){
 				$("#socialResult").css("width", "100%");
 			}
 		}
+		else if($.isEmptyObject(result) && $("#social").css("visibility") == "visible"){
+			$("#socialNoResult").css("visibility", "visible");
+		}
 	});
 }
 
@@ -384,6 +387,7 @@ function clickMarker(marker, event){
 		$("#social").css("visibility", "visible");
 		$("#socialInfo").css("visibility", "visible");
 		$("#socialResult").empty();
+		$("#socialNoResult").css("visibility", "hidden");
 		$("#socialChart").css("visibility", "hidden");
 		$("#highcharts-0").remove();
 		$("#socialLoading").empty();
@@ -430,6 +434,7 @@ function clickMarker(marker, event){
 			$("#social").css("visibility", "hidden");
 			$("#socialInfo").css("visibility", "hidden");
 			$("#socialResult").css("visibility", "hidden");
+			$("#socialNoResult").css("visibility", "hidden");
 			$("#socialLoading").css("visibility", "hidden");
 			$("#socialChart").css("visibility", "hidden");
 			$("#highcharts-0").remove();
@@ -805,6 +810,7 @@ $(document).ready(function(){
 			$("#social").css("visibility", "hidden");
 			$("#socialInfo").css("visibility", "hidden");
 			$("#socialResult").css("visibility", "hidden");
+			$("#socialNoResult").css("visibility", "hidden");
 			$("#socialLoading").css("visibility", "hidden");
 			$("#socialChart").css("visibility", "hidden");
 			$("#highcharts-0").remove();
