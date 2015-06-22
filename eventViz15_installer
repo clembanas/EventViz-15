@@ -569,22 +569,23 @@ class InstTask_InstallJavaApp(InstTaskBase):
 CMD_LINE_OPTS = "m:t:r:h:u:p:d:x:w:i:s:"                         # Short command line options
 CMD_LINE_LONG_OPTS = ["show-config", "show-modes",               # Long command line options
                       "show-task-selection", "mode=",
-                      "tasks=", "repo=", "host=", "user=",
-                      "password=", "db-name=", "root-dir=",
+                      "tasks=", "repo=", "db-host=", "db-user=",
+                      "db-password=", "db-name=", "root-dir=",
                       "temp-dir=", "install-dir=", "server=",
-                      "slave-tasks=", "no-cleanup", "help"]
+                      "slave-tasks=", "no-cleanup", "help",
+                      "db-root-name=", "db-root-host="]
 # Accepted command line options
 CMD_LINE_OPTS_ACCEPTED = ("   --show-config ........... Show default configuration\n"
                           "   --show-modes ............ Show installation modes\n"
                           "   --show-task-selection ... Show installer/ uninstaller task "
                           "selection\n"
-                          "   -m (--mode) ............. Set installation mode\n"
-                          "   -t (--tasks) ............ Set installer/ uninstaller tasks\n"
+                          "   -m (--mode=) ............ Set installation mode\n"
+                          "   -t (--tasks=) ........... Set installer/ uninstaller tasks\n"
                           '                             (e.g. "u1, u2, i4 - i8")\n'
                           "   -r (--repo=) ............ Set Git repository name\n"
-                          "   -h (--host=) ............ Set database host name (IP address)\n"
-                          "   -u (--user=) ............ Set database user name\n"
-                          "   -p (--password=) ........ Set database user password\n"
+                          "   -h (--db-host=) ......... Set database host name (IP address)\n"
+                          "   -u (--db-user=) ......... Set database user name\n"
+                          "   -p (--db-password=) ..... Set database user password\n"
                           "   -d (--db-name=) ......... Set database name\n"
                           "   -s (--server=) .......... Server IP address\n"
                           "   -x (--root-dir=) ........ Set root directory path of installation\n"
@@ -592,6 +593,9 @@ CMD_LINE_OPTS_ACCEPTED = ("   --show-config ........... Show default configurati
                           "path\n"
                           "   -i (--install-dir=) ..... Set root-relative installation directory "
                           "path\n"
+                          "   --db-root-name= ......... Set database root-user name\n"
+                          "   --db-root-host= ......... Set database host of root-user (IP "
+                          "address)\n"
                           "   --slave-tasks= .......... Tasks to be executed by info-crawler "
                           "slave host installer\n"
                           "                             (e.g. \"u1, u2, i4 - i8\")\n"
@@ -599,14 +603,17 @@ CMD_LINE_OPTS_ACCEPTED = ("   --show-config ........... Show default configurati
                           "   --help .................. Show this help")
 
 # General configuration
+CURR_IP = None
 INSTALLER_INFO = "EventViz-15 installer 1.0"
 GIT_REPO = "https://github.com/clembanas/EventViz-15.git"
-DB_HOST = "138.232.65.248"
+DB_HOST = None
 DB_USER = "EventVizUser"
 DB_PWORD = "e1V2i3Z"
 DB_NAME = "EventViz15"
+DB_ROOT_USER = "root"
+DB_ROOT_HOST = "127.0.0.1"
 DB_ROOT_PWORD = None
-SERVER_IP = None
+SERVER_HOST = None
 SLAVE_TASKS = ""
 ROOT_DIR = "~"
 TEMP_DIR = "eventviz15_installer_temp_%d" % int(time.time())
@@ -625,7 +632,7 @@ INST_MODE_CURR = "None loaded"
 class InstModeData:
 
     def __init__(self, name, uninstTasks, instTasks, gitRepo, dbHost, dbUser, dbPword,
-                 dbName, rootDir, tempDir, installDir, installerInfo):
+                 dbName, serverHost, rootDir, tempDir, installDir, installerInfo):
         self.name = name
         self.uninstTasks = uninstTasks
         self.instTasks = instTasks
@@ -635,26 +642,27 @@ class InstModeData:
         self.dbUser = dbUser
         self.dbPword = dbPword
         self.dbName = dbName
+        self.serverHost = serverHost
         self.rootDir = rootDir
         self.tempDir = tempDir
         self.installDir = installDir
 
 
-def registerInstallMode(name, uninstTasks=[], instTasks=[], gitRepo=GIT_REPO, dbHost=DB_HOST,
-                        dbUser=DB_USER, dbPword=DB_PWORD, dbName=DB_NAME, rootDir=ROOT_DIR,
-                        tempDir=TEMP_DIR, installDir=INSTALL_DIR, installerInfo=INSTALLER_INFO,
-                        isDefaultMode=False):
+def registerInstallMode(name, uninstTasks=[], instTasks=[], gitRepo=GIT_REPO, dbHost=None,
+                        dbUser=DB_USER, dbPword=DB_PWORD, dbName=DB_NAME, serverHost=None,
+                        rootDir=ROOT_DIR, tempDir=TEMP_DIR, installDir=INSTALL_DIR,
+                        installerInfo=INSTALLER_INFO, isDefaultMode=False):
     global INST_MODE_DEF, INST_MODES
 
     INST_MODES[name] = InstModeData(name, uninstTasks, instTasks, gitRepo, dbHost, dbUser, dbPword,
-                                    dbName, rootDir, tempDir, installDir, installerInfo)
+                                    dbName, serverHost, rootDir, tempDir, installDir, installerInfo)
     if isDefaultMode:
         INST_MODE_DEF = name
 
 
 def loadInstallMode(name):
     global UNINST_TASKS, INST_TASKS, INSTALLER_INFO, GIT_REPO, DB_HOST, DB_USER, DB_PWORD, DB_NAME
-    global ROOT_DIR, TEMP_DIR, INSTALL_DIR, INST_MODE_CURR
+    global ROOT_DIR, TEMP_DIR, INSTALL_DIR, INST_MODE_CURR, SERVER_HOST
 
     if name not in INST_MODES:
         raise Exception("Unknown installation mode '%s'" % name)
@@ -663,10 +671,11 @@ def loadInstallMode(name):
     INST_TASKS = instMode.instTasks
     INSTALLER_INFO = instMode.installerInfo
     GIT_REPO = instMode.gitRepo
-    DB_HOST = instMode.dbHost
+    DB_HOST = instMode.dbHost if instMode.dbHost else CURR_IP
     DB_USER = instMode.dbUser
     DB_PWORD = instMode.dbPword
     DB_NAME = instMode.dbName
+    SERVER_HOST = instMode.serverHost if instMode.serverHost else CURR_IP
     ROOT_DIR = instMode.rootDir
     TEMP_DIR = instMode.tempDir
     INSTALL_DIR = instMode.installDir
@@ -706,7 +715,21 @@ UNINST_TASKS_SERVER = \
 
 # Installer tasks
 INST_TASKS_SERVER = \
-    [InstTask_InstallPckg("Install 'git'", "Installing 'git'", "git"),
+    [InstTask_MultiTasks("Validate public server IP", None, [], [],
+                         depend=InstTaskDep_Confirm(
+                             "Is the public server IP '$SERVER_HOST$' correct?",
+                             fmt="$QUEST$ [Y/n]: ",
+                             orDepend=InstTaskDep_UserInput("Enter public server IP address",
+                                                            "SERVER_HOST", confirmInput=True,
+                                                            skipSetVar=False))),
+     InstTask_MultiTasks("Validate public database IP", None, [], [],
+                         depend=InstTaskDep_Confirm(
+                             "Is the public database IP '$DB_HOST$' correct?",
+                             fmt="$QUEST$ [Y/n]: ",
+                             orDepend=InstTaskDep_UserInput("Enter public database IP address",
+                                                            "DB_HOST", confirmInput=True,
+                                                            skipSetVar=False))),
+     InstTask_InstallPckg("Install 'git'", "Installing 'git'", "git"),
      InstTask_InstallPckg("Install 'Java'", "Installing Java",
                           "java-1.8.0-openjdk.x86_64"),
      InstTask_InstallPckg("Install 'Java-Development'", "Installing 'Java-Development'",
@@ -740,7 +763,7 @@ INST_TASKS_SERVER = \
      InstTask_InstallJavaApp("Install info-crawlers", "Installing info-crawlers",
                              "$TEMP_DIR$/EventViz-15/InfoCrawlers/src/Main_InfoCrawlers.java",
                              "$INSTALL_DIR$/bin/info_crawlers_files", "$INSTALL_DIR$/lib",
-                             "$INSTALL_DIR$/bin/info_crawlers"),
+                             "$INSTALL_DIR$/bin/info_crawlers", appArgs=['"$@"']),
      InstTask_CreateLink("Configure info-crawler database config-file",
                          "Configuring info-crawler database config-file",
                          "$INSTALL_DIR$/conf/db_config.properties",
@@ -763,16 +786,19 @@ INST_TASKS_SERVER = \
                          "$INSTALL_DIR$/bin/table_creator_files/crawler_config.properties"),
      InstTask_Exec("Create database '$DB_NAME$' on host '$DB_HOST$'",
                    "Creating database '$DB_NAME$' on host '$DB_HOST$'",
-                   'mysql --host=$DB_HOST$ --user=root --password=$DB_ROOT_PWORD$ -e '
-                   '"create database if not exists $DB_NAME$"',
-                   depend=InstTaskDep_UserInput("\nEnter database root password", "DB_ROOT_PWORD",
+                   'mysql --host=$DB_ROOT_HOST$ --user=$DB_ROOT_USER$ --password=$DB_ROOT_PWORD$ -e'
+                   ' "create database if not exists $DB_NAME$"',
+                   depend=InstTaskDep_UserInput("\nEnter database password for "
+                                                "$DB_ROOT_USER$@$DB_ROOT_HOST$", "DB_ROOT_PWORD",
                                                 password=True)),
-     InstTask_Exec("Create database user '$DB_USER$'", "Creating database user '$DB_USER$'",
-                   'mysql --host=$DB_HOST$ --user=root --password=$DB_ROOT_PWORD$ -e '
-                   '"grant alter, create, create temporary tables, create view, delete, drop, '
+     InstTask_Exec("Create database user '$DB_USER$' on host '$DB_HOST$'",
+                   "Creating database user '$DB_USER$' on host '$DB_HOST$'",
+                   'mysql --host=$DB_ROOT_HOST$ --user=$DB_ROOT_USER$ --password=$DB_ROOT_PWORD$ -e'
+                   ' "grant alter, create, create temporary tables, create view, delete, drop, '
                    'index, insert, lock tables, select, show view, update on $DB_NAME$.* to '
                    '\'$DB_USER$\'@\'%\' identified by \'$DB_PWORD$\'"',
-                   depend=InstTaskDep_UserInput("\nEnter database root password", "DB_ROOT_PWORD",
+                   depend=InstTaskDep_UserInput("\nEnter database password for "
+                                                "$DB_ROOT_USER$@$DB_ROOT_HOST$", "DB_ROOT_PWORD",
                                                 password=True)),
      InstTask_Exec("Create tables in database '$DB_NAME$'",
                    "Creating tables in database '$DB_NAME$'", "$INSTALL_DIR$/bin/table_creator",
@@ -783,13 +809,6 @@ INST_TASKS_SERVER = \
                    "$INSTALL_DIR$/target/universal/stage/bin/eventvizwebapp",
                    "$INSTALL_DIR$", hideOut=True, detach=True,
                    depend=InstTaskDep_Confirm("start the 'EventViz15 play web-server' now")),
-     InstTask_MultiTasks("Validate public server IP", None, [], [],
-                         depend=InstTaskDep_Confirm(
-                             "Is the public server IP '$SERVER_IP$' correct?",
-                             fmt="$QUEST$ [Y/n]: ",
-                             orDepend=InstTaskDep_UserInput("Enter public server IP address",
-                                                            "SERVER_IP", confirmInput=True,
-                                                            skipSetVar=False))),
      InstTask_MultiTasks("Configure info-crawler slave hosts", None, [],
                          depend=InstTaskDep_UserInput(
                             "Host IP addresses (e.g. 192.168.0.1, 192.168.0.2)",
@@ -839,7 +858,7 @@ INST_TASKS_SERVER = \
                                            '$SLAVE_HOST_USER$@$CURR_TASK_VAR$ '
                                            '"python -u eventViz15_installer -m Slave -r $GIT_REPO$ '
                                            '-h $DB_HOST$ -u $DB_USER$ -p $DB_PWORD$ '
-                                           '-d $DB_NAME$ -s $SERVER_IP$ $SLAVE_TASKS$"')],
+                                           '-d $DB_NAME$ -s $SERVER_HOST$ $SLAVE_TASKS$"')],
                             ["$EVENTFUL_CRAWLER_HOSTS$", "$BANDINFO_CRAWLER_HOSTS$",
                              "$CITYINFO_CRAWLER_HOSTS$"],
                             lambda hosts: [host for host in list(set(map(str.strip,
@@ -855,9 +874,14 @@ INST_TASKS_SERVER = \
                                  "crawler.band_info.hosts": "$BANDINFO_CRAWLER_HOSTS$",
                                  "crawler.city_info.hosts": "$CITYINFO_CRAWLER_HOSTS$",
                                  "crawler.master.host": ""}),
-     InstTask_Exec("Start info-crawlers", "Starting info-crawlers",
-                   "$INSTALL_DIR$/bin/info_crawlers", "$INSTALL_DIR$/bin", hideOut=True,
-                   detach=True, depend=InstTaskDep_Confirm("execute info-crawlers now"))]
+     InstTask_IfElse("Start info-crawlers", "Starting info-crawlers",
+                     InstTaskDep_Confirm("crawl for event data now"),
+                     InstTask_Exec("Start info-crawlers", "Starting info-crawlers",
+                                   "$INSTALL_DIR$/bin/info_crawlers now", "$INSTALL_DIR$/bin",
+                                   hideOut=True, detach=True),
+                     InstTask_Exec("Start info-crawlers", "Starting info-crawlers",
+                                   "$INSTALL_DIR$/bin/info_crawlers", "$INSTALL_DIR$/bin",
+                                   hideOut=True, detach=True))]
 
 registerInstallMode("Server", UNINST_TASKS_SERVER, INST_TASKS_SERVER, isDefaultMode=True)
 
@@ -920,7 +944,7 @@ INST_TASKS_SLAVE = \
                                 {"crawler.eventful.hosts": "",
                                  "crawler.band_info.hosts": "",
                                  "crawler.city_info.hosts": "",
-                                 "crawler.master.host": "$SERVER_IP$"}),
+                                 "crawler.master.host": "$SERVER_HOST$"}),
      InstTask_Exec("Start info-crawlers slave", "Starting info-crawlers slave",
                    "$INSTALL_DIR$/bin/info_crawlers", "$INSTALL_DIR$/bin", hideOut=True,
                    detach=True)]
@@ -1019,17 +1043,18 @@ def processCmdLineOpts(argv):
         sys.exit(0)
 
     def showConfig():
-        print "\nConfiguration (Installation mode '%s'):\n   Git repository:      '%s'\n   " \
-              "Database host:       '%s'\n   Databse user:        '%s'\n   " \
-              "Database password:   '%s'\n   Database name:       '%s'\n   " \
-              "Root directory:      '%s'\n   Temporary directory: '%s'\n   " \
-              "Install directory:   '%s'\n   Def. install mode:   '%s'\n   " \
-              "Perform clean-up:    %s\n" % \
-              (INST_MODE_CURR, GIT_REPO, DB_HOST, DB_USER, DB_PWORD, DB_NAME, ROOT_DIR, TEMP_DIR,
-               INSTALL_DIR, INST_MODE_DEF, DO_CLEANUP)
+        print "\nConfiguration (Installation mode '%s'):\n   Git repository:         '%s'\n   " \
+              "Server host:            '%s'\n   Database root host:     '%s'\n   " \
+              "Database root user:     '%s'\n   Database user host:     '%s'\n   " \
+              "Database user:          '%s'\n   Database user password: '%s'\n   " \
+              "Database name:          '%s'\n   Root directory:         '%s'\n   " \
+              "Temporary directory:    '%s'\n   Install directory:      '%s'\n   " \
+              "Def. install mode:      '%s'\n   Perform clean-up:       %s\n" % \
+              (INST_MODE_CURR, GIT_REPO, SERVER_HOST, DB_ROOT_HOST, DB_ROOT_USER, DB_HOST, DB_USER,
+               DB_PWORD, DB_NAME, ROOT_DIR, TEMP_DIR, INSTALL_DIR, INST_MODE_DEF, DO_CLEANUP)
 
-    global GIT_REPO, DB_HOST, DB_USER, DB_PWORD, DB_NAME, SERVER_IP, ROOT_DIR, TEMP_DIR, INSTALL_DIR
-    global SLAVE_TASKS, DO_CLEANUP
+    global GIT_REPO, DB_HOST, DB_USER, DB_PWORD, DB_NAME, ROOT_DIR, TEMP_DIR, INSTALL_DIR
+    global SERVER_HOST, SLAVE_TASKS, DO_CLEANUP, DB_ROOT_USER, DB_ROOT_HOST
 
     showConf = False
     showInstModes = False
@@ -1059,22 +1084,26 @@ def processCmdLineOpts(argv):
                 selTasks = arg.split(",")
             elif opt in ("-r", "--repo"):
                 GIT_REPO = arg
-            elif opt in ("-h", "--host"):
+            elif opt in ("-h", "--db-host"):
                 DB_HOST = arg
-            elif opt in ("-u", "--user"):
+            elif opt in ("-u", "--db-user"):
                 DB_USER = arg
-            elif opt in ("-p", "--password"):
+            elif opt in ("-p", "--db-password"):
                 DB_PWORD = arg
             elif opt in ("-d", "--db-name"):
                 DB_NAME = arg
             elif opt in ("-s", "--server"):
-                SERVER_IP = arg
+                SERVER_HOST = arg
             elif opt in ("-x", "--root-dir"):
                 ROOT_DIR = arg
             elif opt in ("-w", "--temp-dir"):
                 TEMP_DIR = arg
             elif opt in ("-i", "--install-dir"):
                 INSTALL_DIR = arg
+            elif opt == "--db-root-name":
+                DB_ROOT_USER = arg
+            elif opt == "--db-root-host":
+                DB_ROOT_HOST = arg
             elif opt == "--slave-tasks":
                 SLAVE_TASKS = '-t "%s"' % arg
             elif opt == "--no-cleanup":
@@ -1169,12 +1198,12 @@ def cleanup(silent):
 
 
 def main(argv):
-    global SCRIPT_PATH, SERVER_IP
+    global SCRIPT_PATH, CURR_IP, SERVER_HOST, DB_HOST
 
     print "\n--------------------------- %s -------------------------- " % INSTALLER_INFO
     SCRIPT_PATH = os.path.realpath(__file__)
     silentCleanup = False
-    SERVER_IP = getLocalHostAddr()
+    CURR_IP = getLocalHostAddr()
     processCmdLineOpts(argv)
     try:
         init()

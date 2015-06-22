@@ -3,6 +3,8 @@
  */
 import java.net.InetAddress;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -11,6 +13,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 
@@ -301,7 +304,7 @@ public class CrawlerManager {
 	
 	
 	private static boolean isMasterNode;
-	private static Boolean running = new Boolean(true);
+	private static AtomicBoolean running = new AtomicBoolean(true);
 	private static ExecutorService thdPool = Executors.newCachedThreadPool();
 	private static DBConnector dbConn = null;
 	private static Map<Class<? extends CrawlerInstance>, CrawlerController> crawlerCtrlrs = 
@@ -310,6 +313,101 @@ public class CrawlerManager {
 	private static CrawlerController getCrawlerCtrlr(Class<? extends CrawlerInstance> crawlerClass)
 	{
 		return crawlerCtrlrs.get(crawlerClass);
+	}
+	
+	private static void crawlerMaster_run(boolean execCrawlerNow)
+	{
+		Utils.Pair<Integer, Integer> crawlTime = CrawlerConfig.getCrawlTime();
+		Calendar calendar = Calendar.getInstance();
+		
+		while (running.get()) {
+			calendar.setTime(new Date());
+			if (execCrawlerNow || (calendar.get(Calendar.HOUR_OF_DAY) == crawlTime.first && 
+				calendar.get(Calendar.MINUTE) <= crawlTime.second && 
+				calendar.get(Calendar.MINUTE) + 5 >= crawlTime.second)) {
+				try {
+					if (dbConn == null)
+						dbConn = DBConnector.getInstance();
+					dbConn.connect();
+				}
+				catch (Exception e) {
+					ExceptionHandler.handle("Failed to connect to database!\n", e, 
+						CrawlerManager.class);
+					dbConn = null;
+					continue;
+				}
+				for (CrawlerController crawlerCtrlr: crawlerCtrlrs.values()) 
+					crawlerCtrlr.start();
+				for (Class<? extends CrawlerInstance> crawlerInst: crawlerCtrlrs.keySet()) {
+					CrawlerController crawlerCtrlr = crawlerCtrlrs.get(crawlerInst);
+					
+					if (crawlerCtrlr != null) 
+						crawlerCtrlr.join();
+					crawlerCtrlrs.remove(crawlerInst);
+				}
+				try {
+					if (dbConn != null)
+						dbConn.disconnect();
+					dbConn = null;
+				}
+				catch (Exception e) {
+					ExceptionHandler.handle("Failed to disconnect from database!\n", e, 
+						CrawlerManager.class);
+				}
+				execCrawlerNow = false;
+			}
+			try {
+				DebugUtils.printDebugInfo("Going to sleep now...", CrawlerManager.class);
+				Thread.sleep(60 * 1000);
+			}
+			catch (Exception e) {}
+			DebugUtils.printDebugInfo("Checking can-execute condition", CrawlerManager.class);
+		}
+		DebugUtils.printDebugInfo("Stopped", CrawlerManager.class);
+	}
+	
+	private static void crawlerSlave_run()
+	{
+		RemoteObjectManager.setServerConnectionListener(
+			new RemoteObjectManager.ServerConnectionListener() {
+				
+			private AtomicInteger connCnt = new AtomicInteger();
+			
+			public void established(InetAddress client) 
+			{
+				connCnt.incrementAndGet();
+				try {
+					dbConn.connect();
+				} 
+				catch (Exception e) {
+					ExceptionHandler.handle("Failed to reconnect to database!", e, 
+						CrawlerManager.class);
+				}
+			}
+			
+			public void closed(InetAddress client) 
+			{
+				if (connCnt.decrementAndGet() == 0)
+					try {
+						dbConn.disconnect();
+					} catch (Exception e) {}
+			}
+		});
+		Runtime.getRuntime().addShutdownHook(new Thread() {
+			
+			public void run()
+			{
+				CrawlerManager.shutdown();
+			}
+		});
+		synchronized (running) {
+			while (running.get()) {
+				try {
+					running.wait();
+				} 
+				catch (InterruptedException e) {}
+			}
+		}
 	}
 	
 	@SafeVarargs
@@ -357,69 +455,36 @@ public class CrawlerManager {
 		return true;
 	}
 	
-	public static void run()
+	public static void run(boolean execCrawlerNow)
 	{
 		//Current host is the distributed crawlers' master
-		if (isMasterNode) {
-			for (CrawlerController crawlerCtrlr: crawlerCtrlrs.values()) 
-				crawlerCtrlr.start();
-			for (CrawlerController crawlerCtrlr: crawlerCtrlrs.values()) 
-				crawlerCtrlr.join();
-		}
+		if (isMasterNode)
+			crawlerMaster_run(execCrawlerNow);
 		//Current host is a slave node
-		else {
-			RemoteObjectManager.setServerConnectionListener(
-				new RemoteObjectManager.ServerConnectionListener() {
-					
-				private AtomicInteger connCnt = new AtomicInteger();
-				
-				public void established(InetAddress client) 
-				{
-					connCnt.incrementAndGet();
-					try {
-						dbConn.connect();
-					} 
-					catch (Exception e) {
-						ExceptionHandler.handle("Failed to reconnect to database!", e, 
-							CrawlerManager.class);
-					}
-				}
-				
-				public void closed(InetAddress client) 
-				{
-					if (connCnt.decrementAndGet() == 0)
-						try {
-							dbConn.disconnect();
-						} catch (Exception e) {}
-				}
-			});
-			Runtime.getRuntime().addShutdownHook(new Thread() {
-				
-				public void run()
-				{
-					CrawlerManager.shutdown();
-				}
-			});
-			synchronized (running) {
-				while (running) {
-					try {
-						running.wait();
-					} 
-					catch (InterruptedException e) {}
-				}
-			}
-		}
+		else
+			crawlerSlave_run();
 	}
 	
 	public static void shutdown()
 	{
 		if (!isMasterNode) {
 			synchronized (running) {
-				if (!running)
+				if (!running.get())
 					return;
-				running = false;
+				running.set(false);
 				running.notifyAll();
 			}
+		}
+		else 
+			running.set(false);
+		RemoteObjectManager.shutdown();
+		ThreadMonitor.shutdown();
+		thdPool.shutdown();
+		try {
+			thdPool.awaitTermination(Long.MAX_VALUE, TimeUnit.MINUTES);
+		} 
+		catch (InterruptedException e) {
+			ExceptionHandler.handle("Failed to shutdown thread pool!", e, CrawlerManager.class);
 		}
 		try {
 			if (dbConn != null)
@@ -429,15 +494,6 @@ public class CrawlerManager {
 		catch (Exception e) {
 			ExceptionHandler.handle("Failed to disconnect from database!\n", e, 
 				CrawlerManager.class);
-		}
-		RemoteObjectManager.shutdown();
-		ThreadMonitor.shutdown();
-		thdPool.shutdown();
-		try {
-			thdPool.awaitTermination(Long.MAX_VALUE, TimeUnit.MINUTES);
-		} 
-		catch (InterruptedException e) {
-			ExceptionHandler.handle("Failed to shutdown thread pool!", e, CrawlerManager.class);
 		}
 	}
 }

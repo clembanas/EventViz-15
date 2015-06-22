@@ -209,7 +209,7 @@ public class DebugUtils {
 			DBConnector.getInstance().logDebugInfo(classPath, Thread.currentThread().getId(), 
 				info);
 		}
-		catch (Exception e) {}
+		catch (Throwable e) {}
 	}
 	
 	private static void writeFileLog(String log)
@@ -236,7 +236,7 @@ public class DebugUtils {
 				}
 			}
 		}
-		catch (Exception e) {}
+		catch (Throwable e) {}
 	}
 	
 	public static void debugClass(Class<?> _class, int flags)

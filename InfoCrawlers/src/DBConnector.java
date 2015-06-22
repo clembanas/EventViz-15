@@ -101,10 +101,17 @@ public abstract class DBConnector {
 		public static PrimaryKey create(PreparedStatement stmt,	PrimaryKey primKey) throws Exception
 		{
 			if (primKey == null) {
-				ResultSet resSet = stmt.getGeneratedKeys();
+				ResultSet resSet = null;
 				
-				resSet.next();
-				return create(resSet);
+				try {
+					resSet = stmt.getGeneratedKeys();
+					resSet.next();
+					return create(resSet);
+				}
+				finally {
+					if (resSet != null)
+						resSet.close();
+				}
 			}
 			else
 				return primKey;
@@ -398,6 +405,7 @@ public abstract class DBConnector {
 			
 			DebugUtils.printDebugInfo(stmt.getUpdateCount() + " timestamps updated", getClass(),
 				DBConnector.class);
+			stmt.close();
 		}
 		catch (Exception e) {
 			ExceptionHandler.handle("Failed to update crawler timestamps!", e, getClass(),
@@ -408,11 +416,19 @@ public abstract class DBConnector {
 	protected PrimaryKey insertArtist(String name, String altName, String resID) throws Exception
 	{
 		Utils.Pair<String, PrimaryKey> insertArtistStmt = getStmtInsertArtist();
+		PreparedStatement stmt = null;
 		
-		return PrimaryKey.create(executeUpdate(insertArtistStmt.first, 
-				   trimAndTrunc(name, MAX_LEN_ARTIST_NAME), 
-				   trimAndTrunc(altName, MAX_LEN_ARTIST_ALT_NAME),
-				   trimAndTrunc(resID, MAX_LEN_ARTIST_DBPEDIA_RES)), insertArtistStmt.second);
+		try {
+			stmt = executeUpdate(insertArtistStmt.first, 
+					   trimAndTrunc(name, MAX_LEN_ARTIST_NAME), 
+					   trimAndTrunc(altName, MAX_LEN_ARTIST_ALT_NAME),
+					   trimAndTrunc(resID, MAX_LEN_ARTIST_DBPEDIA_RES));
+			return PrimaryKey.create(stmt, insertArtistStmt.second);
+		}
+		finally {
+			if (stmt != null)
+				stmt.close();
+		}
 	}
 	
 	protected void updateArtist(PrimaryKey artistID, String name, String altName, String currResID, 
@@ -420,26 +436,35 @@ public abstract class DBConnector {
 	{
 		if (newResID == null)
 			return;
-		if (currResID == null || !currResID.equalsIgnoreCase(newResID)) 
+		if (currResID == null || !currResID.equalsIgnoreCase(newResID))
 			executeUpdate(getStmtUpdateArtist(), trimAndTrunc(newResID, MAX_LEN_ARTIST_DBPEDIA_RES),
-				trimAndTrunc(altName, MAX_LEN_ARTIST_ALT_NAME), artistID);
+				trimAndTrunc(altName, MAX_LEN_ARTIST_ALT_NAME), artistID).close();
 	}
 	
 	protected void insertBandMember(PrimaryKey bandID, PrimaryKey artistID, char memberType) 
 		throws Exception
 	{
-		executeUpdate(getStmtInsertBandMember(), bandID, artistID, String.valueOf(memberType));
+		executeUpdate(getStmtInsertBandMember(), bandID, artistID, String.valueOf(memberType)).
+			close();
 	}
 	
 	protected void updateBandMember(PrimaryKey bandID, PrimaryKey artistID, char memberType) 
 		throws Exception
 	{
-		//Update band member
-		if (executeQuery(getStmtBandMemberExists(), bandID, artistID).next()) 
-			executeUpdate(getStmtUpdateBandMember(), String.valueOf(memberType), bandID, artistID);
-		//Insert new band member
-		else 
-			insertBandMember(bandID, artistID, memberType);
+		ResultSet resSet = executeQuery(getStmtBandMemberExists(), bandID, artistID);
+		
+		try {
+			//Update band member
+			if (resSet.next()) 
+				executeUpdate(getStmtUpdateBandMember(), String.valueOf(memberType), bandID, 
+					artistID).close();
+			//Insert new band member
+			else 
+				insertBandMember(bandID, artistID, memberType);
+		}
+		finally {
+			resSet.close();
+		}
 	}
 	
 	public synchronized void createTables(boolean dropExisting) throws Exception
@@ -500,7 +525,7 @@ public abstract class DBConnector {
 					e.getCause().getMessage() + " [" + e.getCause().getClass().getName() + 
 					"])" : ""), MAX_LEN_CRAWLER_EXCEPT_LOG_MSG),
 				trimAndTrunc(e.getClass().getName(), MAX_LEN_CRAWLER_EXCEPT_LOG_CLASS),
-				trimAndTrunc(stackTrace, MAX_LEN_CRAWLER_EXCEPT_LOG_STACK));
+				trimAndTrunc(stackTrace, MAX_LEN_CRAWLER_EXCEPT_LOG_STACK)).close();
 		}
 	}
 	
@@ -511,7 +536,7 @@ public abstract class DBConnector {
 			executeUpdate(getStmtLogDebugInfo(), new Timestamp(System.currentTimeMillis()), 
 				trimAndTrunc(hostname, MAX_LEN_CRAWLER_DEBUG_LOG_HOST), threadID,
 				trimAndTrunc(classPath, MAX_LEN_CRAWLER_DEBUG_LOG_CLASS_PATH), 
-				trimAndTrunc(info, MAX_LEN_CRAWLER_DEBUG_LOG_INFO));
+				trimAndTrunc(info, MAX_LEN_CRAWLER_DEBUG_LOG_INFO)).close();
 		}
 	}
 	
@@ -521,8 +546,13 @@ public abstract class DBConnector {
 			if (dbConn != null) {
 				ResultSet resSet = executeQuery(getStmtLogCount());
 				
-				if (resSet.next() && resSet.getInt(1) >= maxLogs) 
-					executeUpdate(getStmtClearLogs());
+				try {
+					if (resSet.next() && resSet.getInt(1) >= maxLogs) 
+						executeUpdate(getStmtClearLogs()).close();
+				}
+				finally {
+					resSet.close();
+				}
 			}
 		} 
 		catch (Exception e) {
@@ -541,7 +571,8 @@ public abstract class DBConnector {
 			if (stmt.getUpdateCount() == 0)
 				executeUpdate(getStmtInsertCrawlerInfoStarted(), 
 					trimAndTrunc(crawlerClass.getName(), MAX_LEN_CRAWLER_INFO_CLASS), 
-					new Timestamp(System.currentTimeMillis()));
+					new Timestamp(System.currentTimeMillis())).close();
+			stmt.close();
 		}
 		catch (Exception e) {
 			ExceptionHandler.handle("Failed to write crawler-start info!", e, getClass(),
@@ -557,7 +588,7 @@ public abstract class DBConnector {
 				new Timestamp(System.currentTimeMillis()),
 				trimAndTrunc(jobsPerHostsInfo, MAX_LEN_CRAWLER_INFO_JOBS_PER_HOSTS),
 				trimAndTrunc(summary, MAX_LEN_CRAWLER_INFO_SUMMARY),
-				trimAndTrunc(crawlerClass.getName(), MAX_LEN_CRAWLER_INFO_CLASS));
+				trimAndTrunc(crawlerClass.getName(), MAX_LEN_CRAWLER_INFO_CLASS)).close();
 		}
 		catch (Exception e) {
 			ExceptionHandler.handle("Failed to write crawler-finish info!", e, getClass(),
@@ -570,7 +601,7 @@ public abstract class DBConnector {
 	{
 		try {
 			executeUpdate(getStmtUpdateCrawlerInfoProgress(), progress,
-				trimAndTrunc(crawlerClass.getName(), MAX_LEN_CRAWLER_INFO_CLASS));
+				trimAndTrunc(crawlerClass.getName(), MAX_LEN_CRAWLER_INFO_CLASS)).close();
 		}
 		catch (Exception e) {
 			ExceptionHandler.handle("Failed to update crawler progress!", e, getClass(),
@@ -587,19 +618,28 @@ public abstract class DBConnector {
 
 			ResultSet resSet = executeQuery(getStmtEventExists(), 
 					 			   trimAndTrunc(eventfulID, MAX_LEN_EVENT_EVENTFUL_ID));
-			if (resSet.next()) {
-				endUpdate();
-				return Utils.createPair(PrimaryKey.create(resSet), false);
+			
+			try {
+				if (resSet.next()) {
+					endUpdate();
+					return Utils.createPair(PrimaryKey.create(resSet), false);
+				}
+			}
+			finally {
+				resSet.close();
 			}
 			
 			Utils.Pair<String, PrimaryKey> insertEventStmt = getStmtInsertEvent();
-			PrimaryKey primKey = PrimaryKey.create(executeUpdate(insertEventStmt.first,
-									 trimAndTrunc(name, MAX_LEN_EVENT_NAME),
-									 trimAndTrunc(desc, MAX_LEN_EVENT_DESC),
-									 trimAndTrunc(type, MAX_LEN_EVENT_TYPE),
-									 startTime, stopTime,
-									 trimAndTrunc(eventfulID, MAX_LEN_EVENT_EVENTFUL_ID),
-									 locationID), insertEventStmt.second);
+			PreparedStatement stmt = executeUpdate(insertEventStmt.first,
+										 trimAndTrunc(name, MAX_LEN_EVENT_NAME),
+										 trimAndTrunc(desc, MAX_LEN_EVENT_DESC),
+										 trimAndTrunc(type, MAX_LEN_EVENT_TYPE),
+										 startTime, stopTime,
+										 trimAndTrunc(eventfulID, MAX_LEN_EVENT_EVENTFUL_ID),
+										 locationID);
+			PrimaryKey primKey = PrimaryKey.create(stmt, insertEventStmt.second);
+			
+			stmt.close();
 			endUpdate();
 			return Utils.createPair(primKey, true);
 		}
@@ -617,7 +657,8 @@ public abstract class DBConnector {
 			
 			ResultSet resSet = executeQuery(getStmtEventPerformerExists(), eventID, bandID);
 			if (!resSet.next())
-				executeUpdate(getStmtInsertEventPerformer(), eventID, bandID);
+				executeUpdate(getStmtInsertEventPerformer(), eventID, bandID).close();
+			resSet.close();
 			endUpdate();
 		}
 		catch (Exception e) {
@@ -630,7 +671,13 @@ public abstract class DBConnector {
 	{
 		ResultSet resSet = executeQuery(getStmtIncompleteBandsCount(), 
 							   new Timestamp(System.currentTimeMillis()), dbUpdateInterval);
-		return resSet.next() ? resSet.getInt(1) : 0; 
+		
+		try {
+			return resSet.next() ? resSet.getInt(1) : 0;
+		}
+		finally {
+			resSet.close();
+		}
 	}
 	
 	public synchronized ResultSet getIncompleteBands(int dbUpdateInterval, int pageIdx, 
@@ -650,16 +697,22 @@ public abstract class DBConnector {
 			
 			ResultSet resSet = executeQuery(getStmtBandExists(), 
 					               lcTrimAndTrunc(name, MAX_LEN_BAND_NAME));
-			if (resSet.next()) {
-				endUpdate();
-				return Utils.createPair(PrimaryKey.create(resSet), false);
+			try {
+				if (resSet.next()) {
+					endUpdate();
+					return Utils.createPair(PrimaryKey.create(resSet), false);
+				}
+			}
+			finally {
+				resSet.close();
 			}
 			
 			Utils.Pair<String, PrimaryKey> insertBandStmt = getStmtInsertBand();
-			PrimaryKey primKey = PrimaryKey.create(executeUpdate(insertBandStmt.first, 
-									 trimAndTrunc(name, MAX_LEN_BAND_NAME)), 
-									 insertBandStmt.second);
+			PreparedStatement stmt = executeUpdate(insertBandStmt.first, 
+					 					 trimAndTrunc(name, MAX_LEN_BAND_NAME));
+			PrimaryKey primKey = PrimaryKey.create(stmt, insertBandStmt.second);
 			
+			stmt.close();
 			endUpdate();
 			return Utils.createPair(primKey, true);
 		}
@@ -675,12 +728,12 @@ public abstract class DBConnector {
 			beginUpdate();
 			if (bandResID == null) 
 				executeUpdate(getStmtUpdateBand(true), new Timestamp(System.currentTimeMillis()),
-					bandID);
+					bandID).close();
 			else 
 				executeUpdate(getStmtUpdateBand(false), 
 					trimAndTrunc(bandResID, MAX_LEN_BAND_DBPEDIA_RES), 
 					new Timestamp(System.currentTimeMillis()),
-					bandID);
+					bandID).close();
 			endUpdate();
 		}
 		catch (Exception e) {
@@ -698,12 +751,11 @@ public abstract class DBConnector {
 		char memberType, String resID) throws Exception
 	{
 		PrimaryKey artistID;
+		ResultSet resSet = null;
 		
 		try {
 			beginUpdate();
-			
-			ResultSet resSet = executeQuery(getStmtArtistExists(), 
-								   lcTrimAndTrunc(name, MAX_LEN_ARTIST_NAME));
+			resSet = executeQuery(getStmtArtistExists(), lcTrimAndTrunc(name, MAX_LEN_ARTIST_NAME));
 			if (resSet.next()) {
 				artistID = PrimaryKey.create(resSet);
 				updateArtist(artistID, name, altName, resSet.getString(3), resID);
@@ -719,13 +771,23 @@ public abstract class DBConnector {
 			cancelUpdate();
 			throw e;
 		}
+		finally {
+			if (resSet != null)
+				resSet.close();
+		}
 	}
 	
 	public synchronized int getIncompleteCitiesCount(int dbUpdateInterval) throws Exception
 	{
 		ResultSet resSet = executeQuery(getStmtIncompleteCitiesCount(), 
 							   new Timestamp(System.currentTimeMillis()), dbUpdateInterval);
-		return resSet.next() ? resSet.getInt(1) : 0; 
+		
+		try {
+			return resSet.next() ? resSet.getInt(1) : 0;
+		}
+		finally {
+			resSet.close();
+		}
 	}
 	
 	public synchronized ResultSet getIncompleteCities(int dbUpdateInterval, int pageIdx, 
@@ -745,35 +807,43 @@ public abstract class DBConnector {
 		try {
 			beginUpdate();
 			
-			ResultSet resSet;
-			if (region != null && country != null)
-				resSet = executeQuery(getStmtCityExists(true, true), 
-							 lcTrimAndTrunc(name, MAX_LEN_CITY_NAME), 
-							 lcTrimAndTrunc(region, MAX_LEN_CITY_REGION),
-							 lcTrimAndTrunc(country, MAX_LEN_CITY_COUNTRY));
-			else if (region != null)
-				resSet = executeQuery(getStmtCityExists(true, false), 
-							 lcTrimAndTrunc(name, MAX_LEN_CITY_NAME), 
-							 lcTrimAndTrunc(region, MAX_LEN_CITY_REGION));
-			else if (country != null)
-				resSet = executeQuery(getStmtCityExists(false, true), 
-							 lcTrimAndTrunc(name, MAX_LEN_CITY_NAME), 
-							 lcTrimAndTrunc(country, MAX_LEN_CITY_COUNTRY));
-			else
-				resSet = executeQuery(getStmtCityExists(false, false), 
-							 lcTrimAndTrunc(name, MAX_LEN_CITY_NAME));
-			if (resSet.next()) {
-				endUpdate();
-				return Utils.createPair(PrimaryKey.create(resSet), false);
+			ResultSet resSet = null;
+			
+			try {
+				if (region != null && country != null)
+					resSet = executeQuery(getStmtCityExists(true, true), 
+								 lcTrimAndTrunc(name, MAX_LEN_CITY_NAME), 
+								 lcTrimAndTrunc(region, MAX_LEN_CITY_REGION),
+								 lcTrimAndTrunc(country, MAX_LEN_CITY_COUNTRY));
+				else if (region != null)
+					resSet = executeQuery(getStmtCityExists(true, false), 
+								 lcTrimAndTrunc(name, MAX_LEN_CITY_NAME), 
+								 lcTrimAndTrunc(region, MAX_LEN_CITY_REGION));
+				else if (country != null)
+					resSet = executeQuery(getStmtCityExists(false, true), 
+								 lcTrimAndTrunc(name, MAX_LEN_CITY_NAME), 
+								 lcTrimAndTrunc(country, MAX_LEN_CITY_COUNTRY));
+				else
+					resSet = executeQuery(getStmtCityExists(false, false), 
+								 lcTrimAndTrunc(name, MAX_LEN_CITY_NAME));
+				if (resSet.next()) {
+					endUpdate();
+					return Utils.createPair(PrimaryKey.create(resSet), false);
+				}
+			}
+			finally {
+				if (resSet != null)
+					resSet.close();
 			}
 			
 			Utils.Pair<String, PrimaryKey> insertCityStmt = getStmtInsertCity();
-			PrimaryKey primKey = PrimaryKey.create(executeUpdate(insertCityStmt.first, 
-									 trimAndTrunc(name, MAX_LEN_CITY_NAME),
-									 trimAndTrunc(region, MAX_LEN_CITY_REGION),
-									 Utils.trimAndTrunc(country, MAX_LEN_CITY_COUNTRY)), 
-									 insertCityStmt.second);
+			PreparedStatement stmt = executeUpdate(insertCityStmt.first, 
+					 					 trimAndTrunc(name, MAX_LEN_CITY_NAME),
+					 					 trimAndTrunc(region, MAX_LEN_CITY_REGION),
+					 					 Utils.trimAndTrunc(country, MAX_LEN_CITY_COUNTRY));
+			PrimaryKey primKey = PrimaryKey.create(stmt, insertCityStmt.second);
 			
+			stmt.close();
 			endUpdate();
 			return Utils.createPair(primKey, true);
 		}
@@ -794,7 +864,7 @@ public abstract class DBConnector {
 				trimAndTrunc(cityResID, MAX_LEN_CITY_DBPEDIA_RES),
 				trimAndTrunc(regResID, MAX_LEN_CITY_DBPEDIA_RES), 
 				trimAndTrunc(ctryResID, MAX_LEN_CITY_DBPEDIA_RES), 
-				new Timestamp(System.currentTimeMillis()), cityID);
+				new Timestamp(System.currentTimeMillis()), cityID).close();
 			endUpdate();
 		}
 		catch (Exception e) {
@@ -817,16 +887,23 @@ public abstract class DBConnector {
 			ResultSet resSet = executeQuery(getStmtLocationExists(), 
 								   lcTrimAndTrunc(name, MAX_LEN_LOCATION_NAME), longitude, 
 								   latitude, cityID);
-			if (resSet.next()) {
-				endUpdate();
-				return Utils.createPair(PrimaryKey.create(resSet), false);
+			try {
+				if (resSet.next()) {
+					endUpdate();
+					return Utils.createPair(PrimaryKey.create(resSet), false);
+				}
+			}
+			finally {
+				resSet.close();
 			}
 			
 			Utils.Pair<String, PrimaryKey> insertLocationStmt = getStmtInsertLocation();
-			PrimaryKey primKey = PrimaryKey.create(executeUpdate(insertLocationStmt.first,
-									 trimAndTrunc(name, MAX_LEN_LOCATION_NAME), longitude,
-									 latitude, cityID), insertLocationStmt.second);
+			PreparedStatement stmt = executeUpdate(insertLocationStmt.first,
+					 					 trimAndTrunc(name, MAX_LEN_LOCATION_NAME), longitude,
+					 					 latitude, cityID);
+			PrimaryKey primKey = PrimaryKey.create(stmt, insertLocationStmt.second);
 			
+			stmt.close();
 			endUpdate();
 			return Utils.createPair(primKey, true);
 		}

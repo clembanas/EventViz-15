@@ -24,6 +24,8 @@ public class EventfulCrawler extends CrawlerBase {
 	private String EVENTFUL_PWORD;
 	private String EVENTFUL_APIKEY;
 	private String EVENTFUL_CATEGORY;
+	private int CONNECTION_TIMEOUT;
+	private int READ_TIMEOUT;
 	private int MAX_DAYS;
 	private int MAX_PAGE_SIZE;
 	private int MAX_PAGES;
@@ -61,6 +63,8 @@ public class EventfulCrawler extends CrawlerBase {
 			eventSrchReq.setCategory(EVENTFUL_CATEGORY);
 			eventSrchReq.setPageSize(MAX_PAGE_SIZE);
 			eventSrchReq.setPageNumber(1);
+			eventSrchReq.setReadTimeout(READ_TIMEOUT);
+			eventSrchReq.setConnectionTimeout(CONNECTION_TIMEOUT);
 			try {
 				srchRes = eventOps.search(eventSrchReq);
 				totalEventCnt = srchRes.getTotalItems();
@@ -179,6 +183,8 @@ public class EventfulCrawler extends CrawlerBase {
 		eventSrchReq.setCategory(EVENTFUL_CATEGORY);
 		eventSrchReq.setPageSize(MAX_PAGE_SIZE);
 		eventSrchReq.setPageNumber(((EventfulJob)job).pageNum);
+		eventSrchReq.setReadTimeout(READ_TIMEOUT);
+		eventSrchReq.setConnectionTimeout(CONNECTION_TIMEOUT);
 		srchRes = eventOps.search(eventSrchReq);
 		events = srchRes.getEvents();
 		processEvents(events);
@@ -216,6 +222,8 @@ public class EventfulCrawler extends CrawlerBase {
 		EVENTFUL_PWORD = CrawlerConfig.getEventfulCrawlerPword();
 		EVENTFUL_APIKEY = CrawlerConfig.getEventfulCrawlerApikey();
 		EVENTFUL_CATEGORY = CrawlerConfig.getEventfulCrawlerCategory();
+		CONNECTION_TIMEOUT = CrawlerConfig.getEventfulConnectionTimeout();
+		READ_TIMEOUT = CrawlerConfig.getEventfulReadTimeout();
 		MAX_DAYS = CrawlerConfig.getEventfulCrawlerMaxDays();
 		MAX_PAGE_SIZE = CrawlerConfig.getEventfulCrawlerPageSize();
 		MAX_PAGES = CrawlerConfig.getEventfulCrawlerMaxPages();

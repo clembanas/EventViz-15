@@ -46,7 +46,7 @@ public class ExceptionHandler {
 				}
 			}
 		}
-		catch (Exception e) {}
+		catch (Throwable e) {}
 	}
 	
 	public static void handle(final String info, final Throwable e, final boolean printTrace,
