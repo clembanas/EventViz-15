@@ -43,18 +43,24 @@ body {
 }
 
 #title {
-	z-index: 2;
-	top: 10px;
-	left: 10px;
-	position: absolute;
+    z-index: 2;
+    top: 10px;
+    left: 10px;
+    position: absolute;
     pointer-events:none;
     opacity: 0.8;
-	font-size: 48pt;
+    font-size: 48pt;
 }
 
 #title p{
-	margin: 0;
-	font-family: 'Bodoni MT', Didot, 'Didot LT STD', 'Hoefler Text', Garamond, 'Times New Roman', serif;
+    margin: 0;
+    padding-left: 6px;
+    padding-right: 6px;
+    background: linear-gradient(rgba(200, 255, 255, 0.2), aliceblue, rgba(200, 255, 255, 0.2));
+    box-shadow: 7px 6px 15px rgba(0, 0, 0, 0.7);
+    border-radius: 1px 20px;
+    font-family: 'Bodoni MT', Didot, 'Didot LT STD', 'Hoefler Text', Garamond, 'Times New Roman', serif;
+    text-shadow: 2px 2px 4px black;
 }
 
 #search {
@@ -121,14 +127,6 @@ li.noNumber {
 	visibility: hidden;
 	z-index : 1;
 	overflow-y: scroll;
-}
-
-#shadow {
-	bottom: 35%;
-	width: 100%;
-	top: 0;
-    box-shadow: -9px -5px 7px #888888;
-    position: absolute;
 }
 
 #navigation {
