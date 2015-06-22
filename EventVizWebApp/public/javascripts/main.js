@@ -365,6 +365,7 @@ function clickMarker(marker, event){
 	});
 	if(currentPopup != null){
 		currentPopup.target.closePopup();
+		currentPopup = null;
 	}
 	var options = marker.target == undefined ? marker.options : marker.target.options;
 	var tmpLatLng = marker.latlng == undefined ?  $.extend( {}, marker._latlng  ): $.extend({}, marker.latlng  );
@@ -447,7 +448,7 @@ function clickMarker(marker, event){
 				var pID = options.markers[i].event.id + "p";
 				string += "<p id=" + pID + ">" + options.markers[i].event.eventName + "</p>";
 				$("#map").on("click", "#" + pID, {event: options.markers[i]}, function(e){
-					options.markers.target.closePopup();
+					marker.target.closePopup();
 					clickMarker(marker, e.data.event);
 				}).on("hover", "#" + pID, function(e){
 					$(this).css("background-Color", "#F4FA58");
@@ -764,10 +765,10 @@ $(document).ready(function(){
 		});
 		infoboxEvent();
 	});
-			
+	
 	map = L.map('map', {
 		attributionControl : false,
-		center : [ 20.0, 5.0 ],
+		center : [ 0.0, 0.0 ],
 		zoomControl : false,
 		minZoom : 2,
 		zoom : 2
@@ -778,6 +779,14 @@ $(document).ready(function(){
 	}).addTo(map);
 	
 	map.on("moveend", function(e){
+		if($(this)[0]._zoom == 2){
+			$("#title").css("opacity", "0.8");
+			$("#title").animate({ fontSize : '48pt' });
+		}else{
+			$("#title").css("opacity", "0.5");
+			$("#title").animate({ fontSize : '28pt' });
+		}
+		
 		if($(this)[0]._zoom < 9 && $("#floatingInfo").css("visibility") == "visible"){
 			$("#floatingInfo").animate({"width": "-=20%" }, 200, function(){
 				$(this).css("visibility", "hidden");

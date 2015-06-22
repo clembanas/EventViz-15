@@ -42,6 +42,21 @@ body {
 	position: absolute;
 }
 
+#title {
+	z-index: 2;
+	top: 10px;
+	left: 10px;
+	position: absolute;
+    pointer-events:none;
+    opacity: 0.8;
+	font-size: 48pt;
+}
+
+#title p{
+	margin: 0;
+	font-family: 'Bodoni MT', Didot, 'Didot LT STD', 'Hoefler Text', Garamond, 'Times New Roman', serif;
+}
+
 #search {
 	height: 6%;
 	width: 20%;
